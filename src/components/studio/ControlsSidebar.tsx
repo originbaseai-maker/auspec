@@ -6,7 +6,11 @@ import {
   Download,
 } from 'lucide-react'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useCoverArtStore, type CropMode } from '@/store/useCoverArtStore'
+import CoverArtUploader from '@/components/coverart/CoverArtUploader'
 import type { VisualType } from '@/lib/visualizerConfig'
+
+const CROP_MODES: CropMode[] = ['circle', 'square', 'none']
 
 const VISUAL_TYPES: { id: VisualType; label: string; Icon: typeof BarChart3 }[] = [
   { id: 'bars', label: 'Bars', Icon: BarChart3 },
@@ -240,6 +244,16 @@ export function ControlsSidebar() {
   const rotation = config.circularSpectrum.rotation
 
   const isParticles = visualType === 'particles'
+
+  const coverArt = useCoverArtStore((s) => s.coverArt)
+  const coverArtSize = useCoverArtStore((s) => s.coverArtSize)
+  const coverArtCropMode = useCoverArtStore((s) => s.coverArtCropMode)
+  const blurredBgEnabled = useCoverArtStore((s) => s.blurredBgEnabled)
+  const blurredBgIntensity = useCoverArtStore((s) => s.blurredBgIntensity)
+  const setCoverArtSize = useCoverArtStore((s) => s.setCoverArtSize)
+  const setCoverArtCropMode = useCoverArtStore((s) => s.setCoverArtCropMode)
+  const setBlurredBgEnabled = useCoverArtStore((s) => s.setBlurredBgEnabled)
+  const setBlurredBgIntensity = useCoverArtStore((s) => s.setBlurredBgIntensity)
 
   return (
     <aside
@@ -499,6 +513,84 @@ export function ControlsSidebar() {
               />
             </div>
           </div>
+        </section>
+
+        {/* 8.5 Cover Art */}
+        <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
+          <SectionHeader title="Cover Art" />
+          <CoverArtUploader />
+
+          {coverArt && (
+            <div className="mt-3 flex flex-col gap-3">
+              <div>
+                <label className="mb-1 block text-[11px] text-white/60">
+                  Crop Mode
+                </label>
+                <div className="grid grid-cols-3 gap-1">
+                  {CROP_MODES.map((mode) => {
+                    const active = coverArtCropMode === mode
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setCoverArtCropMode(mode)}
+                        aria-pressed={active}
+                        className="rounded-md border py-1.5 text-xs capitalize transition-colors"
+                        style={{
+                          background: active
+                            ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
+                            : '#1a1a1a',
+                          borderColor: active ? '#8b5cf6' : '#2a2a2a',
+                          color: '#fff',
+                        }}
+                      >
+                        {mode}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] text-white/60">
+                  Size ({Math.round(coverArtSize * 100)}%)
+                </label>
+                <Slider
+                  value={coverArtSize * 100}
+                  min={10}
+                  max={50}
+                  step={1}
+                  onChange={(v) => setCoverArtSize(v / 100)}
+                  ariaLabel="Cover art size"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-white/90">Blurred Background</label>
+                <Toggle
+                  checked={blurredBgEnabled}
+                  onChange={setBlurredBgEnabled}
+                  ariaLabel="Blurred background toggle"
+                />
+              </div>
+
+              {blurredBgEnabled && (
+                <div>
+                  <label className="mb-1 block text-[11px] text-white/60">
+                    Blur Intensity ({Math.round(blurredBgIntensity)})
+                  </label>
+                  <Slider
+                    value={blurredBgIntensity}
+                    min={0}
+                    max={40}
+                    step={1}
+                    onChange={setBlurredBgIntensity}
+                    ariaLabel="Blur intensity"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* 9. Export */}
