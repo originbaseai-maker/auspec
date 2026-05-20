@@ -1,5 +1,23 @@
 import type { AnalyzerConfig, FrequencyData } from '@/types/analyzer'
-import { calcBandAverage, calcRMS, calcPeak } from '@/lib/analyzerMath'
+import { calcRMS, calcPeak } from '@/lib/frequencyUtils'
+
+function bandAverageFromBins(
+  data: Uint8Array,
+  start: number,
+  end: number
+): number {
+  const lo = Math.min(start, end)
+  const hi = Math.max(start, end)
+  const cap = Math.min(hi, data.length)
+  if (cap <= lo) return 0
+  let sum = 0
+  let count = 0
+  for (let i = lo; i < cap; i++) {
+    sum += data[i]
+    count++
+  }
+  return count > 0 ? sum / count : 0
+}
 
 const BEAT_HISTORY_MAX = 43
 
@@ -23,8 +41,8 @@ interface BandBins {
 
 export class AnalyzerEngine {
   private analyser: AnalyserNode
-  private frequencyBuffer: Uint8Array
-  private timeDomainBuffer: Uint8Array
+  private frequencyBuffer: Uint8Array<ArrayBuffer>
+  private timeDomainBuffer: Uint8Array<ArrayBuffer>
   private beatHistory: number[] = []
   private animationId: number | null = null
   private config: AnalyzerConfig
@@ -45,8 +63,8 @@ export class AnalyzerEngine {
 
     this.applyConfigToAnalyser(this.config)
 
-    this.frequencyBuffer = new Uint8Array(analyser.frequencyBinCount)
-    this.timeDomainBuffer = new Uint8Array(analyser.fftSize)
+    this.frequencyBuffer = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount))
+    this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(analyser.fftSize))
     this.bins = this.computeBins()
     this.tickBound = () => this.tick()
   }
@@ -74,8 +92,8 @@ export class AnalyzerEngine {
     this.applyConfigToAnalyser(this.config)
 
     if (fftChanged) {
-      this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount)
-      this.timeDomainBuffer = new Uint8Array(this.analyser.fftSize)
+      this.frequencyBuffer = new Uint8Array(new ArrayBuffer(this.analyser.frequencyBinCount))
+      this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize))
       this.bins = this.computeBins()
       this.beatHistory.length = 0
     }
@@ -115,17 +133,17 @@ export class AnalyzerEngine {
     this.analyser.getByteFrequencyData(this.frequencyBuffer)
     this.analyser.getByteTimeDomainData(this.timeDomainBuffer)
 
-    const bass = calcBandAverage(
+    const bass = bandAverageFromBins(
       this.frequencyBuffer,
       this.bins.bassStart,
       this.bins.bassEnd
     )
-    const mid = calcBandAverage(
+    const mid = bandAverageFromBins(
       this.frequencyBuffer,
       this.bins.midStart,
       this.bins.midEnd
     )
-    const treble = calcBandAverage(
+    const treble = bandAverageFromBins(
       this.frequencyBuffer,
       this.bins.trebleStart,
       this.bins.trebleEnd

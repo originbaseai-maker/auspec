@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioStore } from '@/store/useAudioStore'
+import { AnalyzerEngine } from '@/lib/analyzerEngine'
+import { connectMediaElement, resumeAudioContext } from '@/lib/audioContext'
 import {
-  AnalyzerEngine,
   DEFAULT_ANALYZER_CONFIG,
-  connectMediaElement,
-  resumeAudioContext,
-} from '@/lib/audio'
-import type { AnalyzerConfig, FrequencyData } from '@/types/analyzer'
+  type AnalyzerConfig,
+  type FrequencyData,
+} from '@/types/analyzer'
 
 export interface UseAudioAnalyzerResult {
   frequencyData: FrequencyData | null
