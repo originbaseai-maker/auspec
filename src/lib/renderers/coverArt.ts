@@ -1,0 +1,122 @@
+import type { CoverArtImage, CropMode } from '@/types/coverArt'
+
+interface CoverArtRenderConfig {
+  coverArtSize: number
+  logoSize: number
+  coverArtCropMode: CropMode
+  logoCropMode: CropMode
+  coverArtPosition: { x: number; y: number }
+  blurredBgEnabled: boolean
+  blurredBgIntensity: number
+}
+
+function drawCroppedImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  size: number,
+  cropMode: CropMode,
+): void {
+  ctx.save()
+
+  if (cropMode === 'circle') {
+    ctx.beginPath()
+    ctx.arc(x, y, size / 2, 0, Math.PI * 2)
+    ctx.clip()
+  } else if (cropMode === 'square') {
+    ctx.beginPath()
+    ctx.roundRect(x - size / 2, y - size / 2, size, size, size * 0.08)
+    ctx.clip()
+  }
+
+  const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight)
+  const scaledW = img.naturalWidth * scale
+  const scaledH = img.naturalHeight * scale
+
+  ctx.drawImage(
+    img,
+    x - scaledW / 2,
+    y - scaledH / 2,
+    scaledW,
+    scaledH,
+  )
+  ctx.restore()
+}
+
+const imageCache = new Map<string, HTMLImageElement>()
+
+function getOrLoadImage(objectUrl: string): HTMLImageElement | null {
+  if (imageCache.has(objectUrl)) return imageCache.get(objectUrl)!
+  const img = new Image()
+  img.onload = () => imageCache.set(objectUrl, img)
+  img.src = objectUrl
+  return null
+}
+
+export function renderCoverArt(
+  ctx: CanvasRenderingContext2D,
+  coverArt: CoverArtImage,
+  logo: CoverArtImage | null,
+  config: CoverArtRenderConfig,
+  width: number,
+  height: number,
+): void {
+  const {
+    coverArtSize,
+    logoSize,
+    coverArtCropMode,
+    logoCropMode,
+    coverArtPosition,
+    blurredBgEnabled,
+    blurredBgIntensity,
+  } = config
+
+  const img = getOrLoadImage(coverArt.objectUrl)
+  if (!img) return
+
+  const minDim = Math.min(width, height)
+  const artSize = minDim * coverArtSize
+  const cx = width * coverArtPosition.x
+  const cy = height * coverArtPosition.y
+
+  if (blurredBgEnabled) {
+    ctx.save()
+    ctx.filter = `blur(${blurredBgIntensity}px) brightness(0.4)`
+    const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight)
+    const bw = img.naturalWidth * scale
+    const bh = img.naturalHeight * scale
+    ctx.drawImage(img, (width - bw) / 2, (height - bh) / 2, bw, bh)
+    ctx.filter = 'none'
+    ctx.restore()
+  }
+
+  drawCroppedImage(ctx, img, cx, cy, artSize, coverArtCropMode)
+
+  ctx.save()
+  ctx.shadowBlur = 20
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'
+  if (coverArtCropMode === 'circle') {
+    ctx.beginPath()
+    ctx.arc(cx, cy, artSize / 2, 0, Math.PI * 2)
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  }
+  ctx.shadowBlur = 0
+  ctx.restore()
+
+  if (logo) {
+    const logoImg = getOrLoadImage(logo.objectUrl)
+    if (logoImg) {
+      const logoSizePx = minDim * logoSize
+      const logoX = cx + artSize / 2 - logoSizePx * 0.6
+      const logoY = cy + artSize / 2 - logoSizePx * 0.6
+      drawCroppedImage(ctx, logoImg, logoX, logoY, logoSizePx, logoCropMode)
+    }
+  }
+}
+
+export function clearImageCache(objectUrl: string): void {
+  imageCache.delete(objectUrl)
+}
