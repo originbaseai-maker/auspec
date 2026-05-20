@@ -1,4 +1,4 @@
-import { forwardRef, ButtonHTMLAttributes } from 'react'
+import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 type ButtonVariant = 'default' | 'ghost' | 'outline' | 'disabled'

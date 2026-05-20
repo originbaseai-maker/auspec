@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Waveform, Sliders, Download, Play } from 'lucide-react';
+import { AudioWaveform, Sliders, Download, Play } from 'lucide-react';
 import { colors } from '@/lib/tokens';
 
 const LandingPage = () => {
@@ -27,8 +27,8 @@ const Logo = () => (
     >
       <defs>
         <linearGradient id="logo-gradient" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={colors?.brand?.blue ?? '#3B82F6'} />
-          <stop offset="100%" stopColor={colors?.brand?.violet ?? '#8B5CF6'} />
+          <stop offset="0%" stopColor={colors.blue} />
+          <stop offset="100%" stopColor={colors.violet} />
         </linearGradient>
       </defs>
       <circle cx="14" cy="14" r="13" stroke="url(#logo-gradient)" strokeWidth="1.5" opacity="0.5" />
@@ -164,7 +164,7 @@ const SpectrumRing = () => {
 
 const features = [
   {
-    icon: Waveform,
+    icon: AudioWaveform,
     title: 'Live Spectrum',
     description: 'Real-time frequency analysis with FFT',
   },

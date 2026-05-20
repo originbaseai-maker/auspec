@@ -1,4 +1,4 @@
-import { JSX, useEffect } from 'react'
+import { useEffect, type JSX } from 'react'
 import { cn } from '@/lib/utils'
 
 interface AppShellProps {
