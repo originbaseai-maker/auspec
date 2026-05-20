@@ -1,4 +1,5 @@
 export * from './linearBars'
 export * from './circularSpectrum'
 export * from './wave'
+export * from './polygonSpectrum'
 export * from './framePulse'
