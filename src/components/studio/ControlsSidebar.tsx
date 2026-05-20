@@ -613,6 +613,17 @@ export function ControlsSidebar() {
             <CoverArtUploaderSingle type="logo" />
 
             {logo && (
+              <>
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-2">
+                  <span className="text-[10px] font-medium text-[#3b82f6]">✦ Smart Mode</span>
+                  <span className="text-[10px] text-white/50">
+                    Spectrum auto-wraps logo shape
+                  </span>
+                </div>
+              </>
+            )}
+
+            {logo && (
               <div className="mt-3 flex flex-col gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] text-white/60">

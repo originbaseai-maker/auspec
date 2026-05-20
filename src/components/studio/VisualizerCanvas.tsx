@@ -19,8 +19,28 @@ export default function VisualizerCanvas(): JSX.Element {
   const { frequencyData } = useAnalyzer()
   const storeConfig = useVisualizerStore((s) => s.visualizerConfig)
   const backgroundColor = useVisualizerStore((s) => s.backgroundColor)
+  const setVisualType = useVisualizerStore((s) => s.setVisualType)
+  const updateCircularSpectrum = useVisualizerStore((s) => s.updateCircularSpectrum)
+  const updateLinearBars = useVisualizerStore((s) => s.updateLinearBars)
   const coverArtState = useCoverArtStore()
+  const logo = useCoverArtStore((s) => s.logo)
+  const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
+
+  // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
+  // wraps its shape. Only fires when the logo or its crop mode changes —
+  // the user can still manually pick a different visual type afterwards.
+  useEffect(() => {
+    if (!logo) return
+    if (logoCropMode === 'circle') {
+      setVisualType('circular')
+      updateCircularSpectrum({ bassPulse: true })
+    } else if (logoCropMode === 'square') {
+      setVisualType('bars')
+      updateLinearBars({ mirrorMode: true })
+    }
+    // 'none' → leave the current visual type alone
+  }, [logo, logoCropMode, setVisualType, updateCircularSpectrum, updateLinearBars])
 
   const animationRef = useRef<number | null>(null)
   const barsHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
@@ -77,6 +97,7 @@ export default function VisualizerCanvas(): JSX.Element {
               width,
               height,
               circularHeightsRef.current,
+              cover.logo ? cover.logoSize : undefined,
             )
             break
           case 'wave':

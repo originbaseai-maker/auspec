@@ -33,6 +33,7 @@ export function renderCircularSpectrum(
   width: number,
   height: number,
   previousHeights: Float32Array,
+  logoSizeRatio?: number,
 ): void {
   const {
     radius,
@@ -52,24 +53,39 @@ export function renderCircularSpectrum(
 
   const cx = width / 2
   const cy = height / 2
+  const minDim = Math.min(width, height)
 
   // Scale base radius to fit canvas (min dimension)
-  const maxRadius = Math.min(width, height) / 2 - 10
+  const maxRadius = minDim / 2 - 10
   const baseScale = Math.min(1, maxRadius / (radius + 100))
   const scaledRadius = radius * baseScale
   const scaledInnerRadius = innerRadius * baseScale
 
+  // Smart Logo Mode: when a logo is wrapping the inner radius, override
+  // the bar-start radius to hug the logo (+ small gap) and suppress pulse
+  // and inner outline so we don't draw over the logo.
+  const hasLogo = typeof logoSizeRatio === 'number' && logoSizeRatio > 0
+  const logoInnerRadius = hasLogo ? (minDim * logoSizeRatio) / 2 + 8 : 0
+  const effectiveInnerRadius = hasLogo ? logoInnerRadius : scaledInnerRadius
+  // Ensure bars have room to grow even when the logo eats most of the canvas
+  const effectiveOuterRadius = hasLogo
+    ? Math.max(scaledRadius, effectiveInnerRadius + 60)
+    : scaledRadius
+
   const bassNorm = bass / 255
-  const pulseAmount = bassPulse ? scaledInnerRadius * (1 + bassNorm * 0.35) : scaledInnerRadius
+  const pulseAmount =
+    !hasLogo && bassPulse
+      ? scaledInnerRadius * (1 + bassNorm * 0.35)
+      : effectiveInnerRadius
 
   // Available radial space for bars
-  const barMaxLength = scaledRadius - scaledInnerRadius
+  const barMaxLength = Math.max(8, effectiveOuterRadius - effectiveInnerRadius)
   const step = Math.floor(raw.length / barCount) || 1
 
   const rotationRad = (rotation * Math.PI) / 180
   const angleStep = (Math.PI * 2) / barCount
 
-  const gradient = ctx.createRadialGradient(cx, cy, scaledInnerRadius, cx, cy, scaledRadius)
+  const gradient = ctx.createRadialGradient(cx, cy, effectiveInnerRadius, cx, cy, effectiveOuterRadius)
   gradient.addColorStop(0, colorStart)
   gradient.addColorStop(1, colorEnd)
 
@@ -87,7 +103,7 @@ export function renderCircularSpectrum(
   ctx.lineCap = 'round'
 
   // bar thickness as arc-chord length
-  const barThickness = Math.max(1, (Math.PI * 2 * scaledInnerRadius) / barCount - 1)
+  const barThickness = Math.max(1, (Math.PI * 2 * effectiveInnerRadius) / barCount - 1)
   ctx.lineWidth = barThickness
 
   for (let i = 0; i < barCount; i++) {
@@ -111,14 +127,16 @@ export function renderCircularSpectrum(
     ctx.stroke()
   }
 
-  // inner circle outline
-  ctx.beginPath()
-  ctx.lineWidth = 2
-  ctx.strokeStyle = colorStart
-  ctx.shadowBlur = glowEnabled ? glowIntensity * 1.5 : 0
-  ctx.shadowColor = colorStart
-  ctx.arc(cx, cy, pulseAmount, 0, Math.PI * 2)
-  ctx.stroke()
+  // inner circle outline — skipped in Smart Logo Mode so we don't draw on the logo
+  if (!hasLogo) {
+    ctx.beginPath()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = colorStart
+    ctx.shadowBlur = glowEnabled ? glowIntensity * 1.5 : 0
+    ctx.shadowColor = colorStart
+    ctx.arc(cx, cy, pulseAmount, 0, Math.PI * 2)
+    ctx.stroke()
+  }
 
   ctx.restore()
 }
