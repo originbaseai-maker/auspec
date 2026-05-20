@@ -2,8 +2,12 @@ import type { LinearBarsConfig } from '@/lib/renderers/linearBars'
 import type { FramePulseConfig } from '@/lib/renderers/framePulse'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import type { WaveConfig } from '@/lib/renderers/wave'
+import {
+  DEFAULT_POLYGON_CONFIG,
+  type PolygonSpectrumConfig,
+} from '@/lib/renderers/polygonSpectrum'
 
-export type VisualType = 'bars' | 'circular' | 'wave' | 'particles'
+export type VisualType = 'bars' | 'circular' | 'wave' | 'particles' | 'polygon'
 
 export interface VisualizerConfig {
   visualType: VisualType
@@ -11,6 +15,7 @@ export interface VisualizerConfig {
   circularSpectrum: CircularSpectrumConfig
   wave: WaveConfig
   framePulse: FramePulseConfig
+  polygon: PolygonSpectrumConfig
 }
 
 export const DEFAULT_LINEAR_BARS: LinearBarsConfig = {
@@ -64,4 +69,5 @@ export const DEFAULT_VISUALIZER_CONFIG: VisualizerConfig = {
   circularSpectrum: DEFAULT_CIRCULAR_SPECTRUM,
   wave: DEFAULT_WAVE,
   framePulse: DEFAULT_FRAME_PULSE,
+  polygon: DEFAULT_POLYGON_CONFIG,
 }
