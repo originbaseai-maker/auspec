@@ -31,7 +31,7 @@ export const useCoverArtStore = create<CoverArtStore>((set, get) => ({
   coverArt: null,
   logo: null,
   coverArtSize: 0.3,
-  logoSize: 0.15,
+  logoSize: 0.25,
   coverArtCropMode: 'circle',
   logoCropMode: 'square',
   coverArtPosition: { x: 0.5, y: 0.5 },

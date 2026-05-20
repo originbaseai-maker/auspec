@@ -117,6 +117,33 @@ export function renderCoverArt(
   }
 }
 
+export function renderLogoOnly(
+  ctx: CanvasRenderingContext2D,
+  logo: CoverArtImage,
+  config: {
+    logoSize: number
+    logoCropMode: CropMode
+    coverArtPosition: { x: number; y: number }
+  },
+  width: number,
+  height: number,
+): void {
+  const logoImg = getOrLoadImage(logo.objectUrl)
+  if (!logoImg) return
+
+  const minDim = Math.min(width, height)
+  const logoSizePx = minDim * config.logoSize
+  const cx = width * config.coverArtPosition.x
+  const cy = height * config.coverArtPosition.y
+
+  ctx.save()
+  ctx.shadowBlur = 30
+  ctx.shadowColor = 'rgba(59,130,246,0.4)'
+  drawCroppedImage(ctx, logoImg, cx, cy, logoSizePx, config.logoCropMode)
+  ctx.shadowBlur = 0
+  ctx.restore()
+}
+
 export function clearImageCache(objectUrl: string): void {
   imageCache.delete(objectUrl)
 }

@@ -5,7 +5,7 @@ import { renderLinearBars } from '@/lib/renderers/linearBars'
 import { renderCircularSpectrum } from '@/lib/renderers/circularSpectrum'
 import { renderWave } from '@/lib/renderers/wave'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
-import { renderCoverArt } from '@/lib/renderers/coverArt'
+import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
@@ -104,6 +104,18 @@ export default function VisualizerCanvas(): JSX.Element {
             coverArtPosition: cover.coverArtPosition,
             blurredBgEnabled: cover.blurredBgEnabled,
             blurredBgIntensity: cover.blurredBgIntensity,
+          },
+          width,
+          height,
+        )
+      } else if (cover.logo) {
+        renderLogoOnly(
+          ctx,
+          cover.logo,
+          {
+            logoSize: cover.logoSize,
+            logoCropMode: cover.logoCropMode,
+            coverArtPosition: cover.coverArtPosition,
           },
           width,
           height,
