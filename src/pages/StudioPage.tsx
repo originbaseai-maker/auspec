@@ -2,9 +2,11 @@ import { Download } from 'lucide-react';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { ControlsSidebar } from '../components/studio/ControlsSidebar';
 import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
+import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader, AudioPlayer } from '@/components/audio';
 import { useAudioStore } from '@/store/useAudioStore';
+import { useAnalyzer } from '@/contexts/AnalyzerContext';
 
 function AuSpecLogo() {
   return (
@@ -84,7 +86,9 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
 
 export function StudioPage() {
   const audioFile = useAudioStore((s) => s.audioFile);
+  const { frequencyData } = useAnalyzer();
   const hasAudio = audioFile !== null;
+  const showVisualizer = hasAudio && frequencyData !== null;
 
   return (
     <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
@@ -93,7 +97,13 @@ export function StudioPage() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <PresetsSidebar />
         <main className="flex flex-1 min-w-0 min-h-0">
-          {hasAudio ? <CanvasPlaceholder /> : <AudioUploader />}
+          {showVisualizer ? (
+            <VisualizerCanvas />
+          ) : hasAudio ? (
+            <CanvasPlaceholder />
+          ) : (
+            <AudioUploader />
+          )}
         </main>
         <ControlsSidebar />
       </div>
