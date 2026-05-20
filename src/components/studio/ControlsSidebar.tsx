@@ -8,7 +8,7 @@ import {
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import type { CropMode } from '@/types/coverArt'
-import CoverArtUploader from '@/components/coverart/CoverArtUploader'
+import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import type { VisualType } from '@/lib/visualizerConfig'
 
 const CROP_MODES: CropMode[] = ['circle', 'square', 'none']
@@ -247,12 +247,17 @@ export function ControlsSidebar() {
   const isParticles = visualType === 'particles'
 
   const coverArt = useCoverArtStore((s) => s.coverArt)
+  const logo = useCoverArtStore((s) => s.logo)
   const coverArtSize = useCoverArtStore((s) => s.coverArtSize)
+  const logoSize = useCoverArtStore((s) => s.logoSize)
   const coverArtCropMode = useCoverArtStore((s) => s.coverArtCropMode)
+  const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
   const blurredBgEnabled = useCoverArtStore((s) => s.blurredBgEnabled)
   const blurredBgIntensity = useCoverArtStore((s) => s.blurredBgIntensity)
   const setCoverArtSize = useCoverArtStore((s) => s.setCoverArtSize)
+  const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
   const setCoverArtCropMode = useCoverArtStore((s) => s.setCoverArtCropMode)
+  const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const setBlurredBgEnabled = useCoverArtStore((s) => s.setBlurredBgEnabled)
   const setBlurredBgIntensity = useCoverArtStore((s) => s.setBlurredBgIntensity)
 
@@ -519,79 +524,141 @@ export function ControlsSidebar() {
         {/* 8.5 Cover Art */}
         <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
           <SectionHeader title="Cover Art" />
-          <CoverArtUploader />
 
-          {coverArt && (
-            <div className="mt-3 flex flex-col gap-3">
-              <div>
-                <label className="mb-1 block text-[11px] text-white/60">
-                  Crop Mode
-                </label>
-                <div className="grid grid-cols-3 gap-1">
-                  {CROP_MODES.map((mode) => {
-                    const active = coverArtCropMode === mode
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setCoverArtCropMode(mode)}
-                        aria-pressed={active}
-                        className="rounded-md border py-1.5 text-xs capitalize transition-colors"
-                        style={{
-                          background: active
-                            ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
-                            : '#1a1a1a',
-                          borderColor: active ? '#8b5cf6' : '#2a2a2a',
-                          color: '#fff',
-                        }}
-                      >
-                        {mode}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
+          {/* Background Image subsection */}
+          <div className="mb-5">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">
+              Background Image
+            </p>
+            <CoverArtUploaderSingle type="coverart" />
 
-              <div>
-                <label className="mb-1 block text-[11px] text-white/60">
-                  Size ({Math.round(coverArtSize * 100)}%)
-                </label>
-                <Slider
-                  value={coverArtSize * 100}
-                  min={10}
-                  max={50}
-                  step={1}
-                  onChange={(v) => setCoverArtSize(v / 100)}
-                  ariaLabel="Cover art size"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-white/90">Blurred Background</label>
-                <Toggle
-                  checked={blurredBgEnabled}
-                  onChange={setBlurredBgEnabled}
-                  ariaLabel="Blurred background toggle"
-                />
-              </div>
-
-              {blurredBgEnabled && (
+            {coverArt && (
+              <div className="mt-3 flex flex-col gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] text-white/60">
-                    Blur Intensity ({Math.round(blurredBgIntensity)})
+                    Crop Mode
+                  </label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {CROP_MODES.map((mode) => {
+                      const active = coverArtCropMode === mode
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setCoverArtCropMode(mode)}
+                          aria-pressed={active}
+                          className="rounded-md border py-1.5 text-xs capitalize transition-colors"
+                          style={{
+                            background: active
+                              ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
+                              : '#1a1a1a',
+                            borderColor: active ? '#8b5cf6' : '#2a2a2a',
+                            color: '#fff',
+                          }}
+                        >
+                          {mode}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] text-white/60">
+                    Size ({Math.round(coverArtSize * 100)}%)
                   </label>
                   <Slider
-                    value={blurredBgIntensity}
-                    min={0}
-                    max={40}
+                    value={coverArtSize * 100}
+                    min={10}
+                    max={50}
                     step={1}
-                    onChange={setBlurredBgIntensity}
-                    ariaLabel="Blur intensity"
+                    onChange={(v) => setCoverArtSize(v / 100)}
+                    ariaLabel="Cover art size"
                   />
                 </div>
-              )}
-            </div>
-          )}
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-white/90">Blurred Background</label>
+                  <Toggle
+                    checked={blurredBgEnabled}
+                    onChange={setBlurredBgEnabled}
+                    ariaLabel="Blurred background toggle"
+                  />
+                </div>
+
+                {blurredBgEnabled && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-white/60">
+                      Blur Intensity ({Math.round(blurredBgIntensity)})
+                    </label>
+                    <Slider
+                      value={blurredBgIntensity}
+                      min={0}
+                      max={40}
+                      step={1}
+                      onChange={setBlurredBgIntensity}
+                      ariaLabel="Blur intensity"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Logo Overlay subsection */}
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">
+              Logo Overlay
+            </p>
+            <CoverArtUploaderSingle type="logo" />
+
+            {logo && (
+              <div className="mt-3 flex flex-col gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] text-white/60">
+                    Crop Mode
+                  </label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {CROP_MODES.map((mode) => {
+                      const active = logoCropMode === mode
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setLogoCropMode(mode)}
+                          aria-pressed={active}
+                          className="rounded-md border py-1.5 text-xs capitalize transition-colors"
+                          style={{
+                            background: active
+                              ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
+                              : '#1a1a1a',
+                            borderColor: active ? '#8b5cf6' : '#2a2a2a',
+                            color: '#fff',
+                          }}
+                        >
+                          {mode}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] text-white/60">
+                    Logo Size ({Math.round(logoSize * 100)}%)
+                  </label>
+                  <Slider
+                    value={logoSize * 100}
+                    min={10}
+                    max={30}
+                    step={1}
+                    onChange={(v) => setLogoSize(v / 100)}
+                    ariaLabel="Logo size"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* 9. Export */}

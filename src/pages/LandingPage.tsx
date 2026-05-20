@@ -19,9 +19,11 @@ const Logo = () => (
     <img
       src="/auspec-logo.png"
       alt="AuSpec"
-      className="h-7 w-7 rounded-full object-contain"
+      className="h-9 w-9 rounded-full object-cover"
       style={{
-        filter: 'drop-shadow(0 0 8px rgba(59,130,246,0.5))',
+        filter:
+          'drop-shadow(0 0 8px rgba(59,130,246,0.8)) drop-shadow(0 0 16px rgba(139,92,246,0.4))',
+        border: '1.5px solid rgba(59,130,246,0.4)',
       }}
     />
     <span className="text-[15px] font-semibold tracking-tight">AuSpec</span>
