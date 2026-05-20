@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { AudioWaveform, Sliders, Download, Play } from 'lucide-react';
-import { colors } from '@/lib/tokens';
 
 const LandingPage = () => {
   return (
@@ -17,38 +16,14 @@ const LandingPage = () => {
 
 const Logo = () => (
   <div className="flex items-center gap-2.5">
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 28 28"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="logo-gradient" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={colors.blue} />
-          <stop offset="100%" stopColor={colors.violet} />
-        </linearGradient>
-      </defs>
-      <circle cx="14" cy="14" r="13" stroke="url(#logo-gradient)" strokeWidth="1.5" opacity="0.5" />
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => {
-        const heights = [4, 7, 5, 9, 4, 8, 5, 7];
-        const h = heights[i];
-        return (
-          <rect
-            key={angle}
-            x={13.25}
-            y={14 - h / 2}
-            width={1.5}
-            height={h}
-            rx={0.75}
-            fill="url(#logo-gradient)"
-            transform={`rotate(${angle} 14 14) translate(0 -7)`}
-          />
-        );
-      })}
-    </svg>
+    <img
+      src="/auspec-logo.png"
+      alt="AuSpec"
+      className="h-7 w-7 rounded-full object-contain"
+      style={{
+        filter: 'drop-shadow(0 0 8px rgba(59,130,246,0.5))',
+      }}
+    />
     <span className="text-[15px] font-semibold tracking-tight">AuSpec</span>
   </div>
 );

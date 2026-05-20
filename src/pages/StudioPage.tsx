@@ -15,33 +15,14 @@ function AuSpecLogo() {
       className="flex items-center gap-2 text-white"
       aria-label="AuSpec home"
     >
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 22 22"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="auspec-logo-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#3b82f6" />
-            <stop offset="100%" stopColor="#8b5cf6" />
-          </linearGradient>
-        </defs>
-        <circle
-          cx="11"
-          cy="11"
-          r="8"
-          fill="none"
-          stroke="url(#auspec-logo-grad)"
-          strokeWidth="1.5"
-        />
-        <line x1="11" y1="5" x2="11" y2="9" stroke="url(#auspec-logo-grad)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="11" y1="13" x2="11" y2="17" stroke="url(#auspec-logo-grad)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="5" y1="11" x2="9" y2="11" stroke="url(#auspec-logo-grad)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="13" y1="11" x2="17" y2="11" stroke="url(#auspec-logo-grad)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
+      <img
+        src="/auspec-logo.png"
+        alt="AuSpec"
+        className="h-7 w-7 rounded-full object-contain"
+        style={{
+          filter: 'drop-shadow(0 0 6px rgba(59,130,246,0.6))',
+        }}
+      />
       <span className="text-sm font-semibold tracking-tight">AuSpec</span>
     </a>
   );

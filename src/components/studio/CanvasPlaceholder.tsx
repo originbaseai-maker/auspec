@@ -56,70 +56,24 @@ export function CanvasPlaceholder() {
             </>
           ) : (
             <>
-              <svg
-                width="220"
-                height="220"
-                viewBox="0 0 220 220"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                className="mb-8 auspec-canvas-spin"
-              >
-                <defs>
-                  <linearGradient id="auspec-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
-                  </linearGradient>
-                  <radialGradient id="auspec-glow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
-                    <stop offset="70%" stopColor="#8b5cf6" stopOpacity="0.05" />
-                    <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-
-                <circle cx="110" cy="110" r="100" fill="url(#auspec-glow)" />
-                <circle
-                  cx="110"
-                  cy="110"
-                  r="70"
-                  fill="none"
-                  stroke="url(#auspec-grad)"
-                  strokeWidth="1.5"
-                  opacity="0.6"
+              <div className="relative mb-8 flex items-center justify-center">
+                <img
+                  src="/auspec-logo.png"
+                  alt="AuSpec"
+                  className="auspec-logo-spin"
+                  style={{ width: 220, height: 220, objectFit: 'contain' }}
+                  aria-hidden="true"
                 />
-                <circle
-                  cx="110"
-                  cy="110"
-                  r="50"
-                  fill="none"
-                  stroke="url(#auspec-grad)"
-                  strokeWidth="1"
-                  opacity="0.35"
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    background:
+                      'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)',
+                    filter: 'blur(8px)',
+                  }}
+                  aria-hidden="true"
                 />
-
-                {Array.from({ length: 48 }).map((_, i) => {
-                  const angle = (i / 48) * Math.PI * 2;
-                  const inner = 78;
-                  const outer = 78 + (i % 3 === 0 ? 22 : i % 2 === 0 ? 14 : 8);
-                  const x1 = 110 + Math.cos(angle) * inner;
-                  const y1 = 110 + Math.sin(angle) * inner;
-                  const x2 = 110 + Math.cos(angle) * outer;
-                  const y2 = 110 + Math.sin(angle) * outer;
-                  return (
-                    <line
-                      key={i}
-                      x1={x1}
-                      y1={y1}
-                      x2={x2}
-                      y2={y2}
-                      stroke="url(#auspec-grad)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      opacity={0.55 + (i % 5) * 0.08}
-                    />
-                  );
-                })}
-              </svg>
+              </div>
 
               {hasAudio ? (
                 <h2 className="text-2xl md:text-3xl font-semibold text-white auspec-canvas-pulse">
@@ -164,6 +118,14 @@ export function CanvasPlaceholder() {
         .auspec-canvas-spin {
           animation: auspec-spin-slow 60s linear infinite;
           transform-origin: 50% 50%;
+        }
+        @keyframes auspec-logo-rotate {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .auspec-logo-spin {
+          animation: auspec-logo-rotate 20s linear infinite;
+          transform-origin: center center;
         }
         @keyframes auspec-text-pulse {
           0%, 100% { opacity: 1; }
