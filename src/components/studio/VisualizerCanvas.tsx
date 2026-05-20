@@ -4,6 +4,7 @@ import { useAnalyzer } from '@/contexts/AnalyzerContext'
 import { renderLinearBars } from '@/lib/renderers/linearBars'
 import { renderCircularSpectrum } from '@/lib/renderers/circularSpectrum'
 import { renderWave } from '@/lib/renderers/wave'
+import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
@@ -21,7 +22,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const backgroundColor = useVisualizerStore((s) => s.backgroundColor)
   const setVisualType = useVisualizerStore((s) => s.setVisualType)
   const updateCircularSpectrum = useVisualizerStore((s) => s.updateCircularSpectrum)
-  const updateLinearBars = useVisualizerStore((s) => s.updateLinearBars)
+  const updatePolygon = useVisualizerStore((s) => s.updatePolygon)
   const coverArtState = useCoverArtStore()
   const logo = useCoverArtStore((s) => s.logo)
   const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
@@ -36,15 +37,16 @@ export default function VisualizerCanvas(): JSX.Element {
       setVisualType('circular')
       updateCircularSpectrum({ bassPulse: true })
     } else if (logoCropMode === 'square') {
-      setVisualType('bars')
-      updateLinearBars({ mirrorMode: true })
+      setVisualType('polygon')
+      updatePolygon({ shape: 'square' })
     }
     // 'none' → leave the current visual type alone
-  }, [logo, logoCropMode, setVisualType, updateCircularSpectrum, updateLinearBars])
+  }, [logo, logoCropMode, setVisualType, updateCircularSpectrum, updatePolygon])
 
   const animationRef = useRef<number | null>(null)
   const barsHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
   const circularHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
+  const polygonHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
   const configRef = useRef(config)
   const bgRef = useRef(backgroundColor)
   const dataRef = useRef(frequencyData)
@@ -102,6 +104,16 @@ export default function VisualizerCanvas(): JSX.Element {
             break
           case 'wave':
             renderWave(ctx, data, cfg.wave, width, height)
+            break
+          case 'polygon':
+            renderPolygonSpectrum(
+              ctx,
+              data,
+              cfg.polygon,
+              width,
+              height,
+              polygonHeightsRef.current,
+            )
             break
           case 'particles':
             break
