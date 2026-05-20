@@ -5,6 +5,7 @@ import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader, AudioPlayer } from '@/components/audio';
+import { GlobalDropZone } from '@/components/studio/GlobalDropZone';
 import { useAudioStore } from '@/store/useAudioStore';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
 
@@ -80,25 +81,27 @@ export function StudioPage() {
   const showVisualizer = hasAudio;
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
-      <TopBar hasAudio={hasAudio} />
+    <GlobalDropZone>
+      <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
+        <TopBar hasAudio={hasAudio} />
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <PresetsSidebar />
-        <main className="flex flex-1 min-w-0 min-h-0">
-          {showVisualizer ? (
-            <VisualizerCanvas />
-          ) : hasAudio ? (
-            <CanvasPlaceholder />
-          ) : (
-            <AudioUploader />
-          )}
-        </main>
-        <ControlsSidebar />
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <PresetsSidebar />
+          <main className="flex flex-1 min-w-0 min-h-0">
+            {showVisualizer ? (
+              <VisualizerCanvas />
+            ) : hasAudio ? (
+              <CanvasPlaceholder />
+            ) : (
+              <AudioUploader />
+            )}
+          </main>
+          <ControlsSidebar />
+        </div>
+
+        {hasAudio ? <AudioPlayer /> : <AudioPlayerBar />}
       </div>
-
-      {hasAudio ? <AudioPlayer /> : <AudioPlayerBar />}
-    </div>
+    </GlobalDropZone>
   );
 }
 

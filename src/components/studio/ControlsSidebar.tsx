@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
+import { useAudioStore } from '@/store/useAudioStore'
 import type { CropMode } from '@/types/coverArt'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import type { VisualType } from '@/lib/visualizerConfig'
@@ -287,6 +288,7 @@ export function ControlsSidebar() {
   const isPolygon = visualType === 'polygon'
   const polygonConfig = config.polygon
 
+  const audioFile = useAudioStore((s) => s.audioFile)
   const coverArt = useCoverArtStore((s) => s.coverArt)
   const logo = useCoverArtStore((s) => s.logo)
   const coverArtSize = useCoverArtStore((s) => s.coverArtSize)
@@ -309,6 +311,35 @@ export function ControlsSidebar() {
       aria-label="Visualizer controls"
     >
       <div className="flex flex-col divide-y" style={{ borderColor: '#2a2a2a' }}>
+        {/* 0. Media — quick uploads */}
+        <section className="p-3" style={{ borderColor: '#2a2a2a' }}>
+          <SectionHeader title="Media" />
+          <div className="flex flex-col gap-2">
+            <div
+              className="flex items-center gap-2 rounded-md border bg-[#1a1a1a] px-3 py-2"
+              style={{ borderColor: '#2a2a2a' }}
+            >
+              <span className="text-[10px] uppercase tracking-wider text-white/50">
+                Audio
+              </span>
+              {audioFile ? (
+                <span
+                  className="flex-1 truncate text-[11px] text-white/80"
+                  title={audioFile.name}
+                >
+                  {audioFile.name}
+                </span>
+              ) : (
+                <span className="flex-1 text-[11px] text-white/40">
+                  No audio loaded
+                </span>
+              )}
+            </div>
+            <CoverArtUploaderSingle type="coverart" />
+            <CoverArtUploaderSingle type="logo" />
+          </div>
+        </section>
+
         {/* 1. Visual Type */}
         <section className="p-4" style={{ borderColor: '#2a2a2a' }}>
           <SectionHeader title="Visual Type" />

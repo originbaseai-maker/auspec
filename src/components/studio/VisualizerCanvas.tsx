@@ -20,12 +20,15 @@ export default function VisualizerCanvas(): JSX.Element {
   const { frequencyData } = useAnalyzer()
   const storeConfig = useVisualizerStore((s) => s.visualizerConfig)
   const backgroundColor = useVisualizerStore((s) => s.backgroundColor)
+  const visualType = useVisualizerStore((s) => s.visualType)
   const setVisualType = useVisualizerStore((s) => s.setVisualType)
   const updateCircularSpectrum = useVisualizerStore((s) => s.updateCircularSpectrum)
   const updatePolygon = useVisualizerStore((s) => s.updatePolygon)
+  const polygonShape = useVisualizerStore((s) => s.visualizerConfig.polygon.shape)
   const coverArtState = useCoverArtStore()
   const logo = useCoverArtStore((s) => s.logo)
   const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
+  const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -42,6 +45,16 @@ export default function VisualizerCanvas(): JSX.Element {
     }
     // 'none' → leave the current visual type alone
   }, [logo, logoCropMode, setVisualType, updateCircularSpectrum, updatePolygon])
+
+  // Polygon-shape → logo crop sync: when the user changes polygon shape,
+  // drop the logo crop so the polygon itself frames the full image.
+  useEffect(() => {
+    if (!logo) return
+    if (visualType !== 'polygon') return
+    if (logoCropMode !== 'none') {
+      setLogoCropMode('none')
+    }
+  }, [polygonShape, logo, visualType, logoCropMode, setLogoCropMode])
 
   const animationRef = useRef<number | null>(null)
   const barsHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
