@@ -54,7 +54,7 @@ export const useCoverArtStore = create<CoverArtStore>((set, get) => ({
   },
   setCoverArtSize: (coverArtSize) =>
     set({ coverArtSize: clamp(coverArtSize, 0.1, 0.5) }),
-  setLogoSize: (logoSize) => set({ logoSize: clamp(logoSize, 0.1, 0.3) }),
+  setLogoSize: (logoSize) => set({ logoSize: clamp(logoSize, 0.1, 1.0) }),
   setCoverArtCropMode: (coverArtCropMode) => set({ coverArtCropMode }),
   setLogoCropMode: (logoCropMode) => set({ logoCropMode }),
   setCoverArtPosition: (coverArtPosition) =>

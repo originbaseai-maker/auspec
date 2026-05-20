@@ -9,12 +9,9 @@ import {
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
-import type { CropMode } from '@/types/coverArt'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import type { VisualType } from '@/lib/visualizerConfig'
 import type { PolygonShape } from '@/lib/renderers/polygonSpectrum'
-
-const CROP_MODES: CropMode[] = ['circle', 'square', 'none']
 
 const VISUAL_TYPES: { id: VisualType; label: string; Icon: typeof BarChart3 }[] = [
   { id: 'bars', label: 'Bars', Icon: BarChart3 },
@@ -289,20 +286,9 @@ export function ControlsSidebar() {
   const polygonConfig = config.polygon
 
   const audioFile = useAudioStore((s) => s.audioFile)
-  const coverArt = useCoverArtStore((s) => s.coverArt)
   const logo = useCoverArtStore((s) => s.logo)
-  const coverArtSize = useCoverArtStore((s) => s.coverArtSize)
   const logoSize = useCoverArtStore((s) => s.logoSize)
-  const coverArtCropMode = useCoverArtStore((s) => s.coverArtCropMode)
-  const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
-  const blurredBgEnabled = useCoverArtStore((s) => s.blurredBgEnabled)
-  const blurredBgIntensity = useCoverArtStore((s) => s.blurredBgIntensity)
-  const setCoverArtSize = useCoverArtStore((s) => s.setCoverArtSize)
   const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
-  const setCoverArtCropMode = useCoverArtStore((s) => s.setCoverArtCropMode)
-  const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
-  const setBlurredBgEnabled = useCoverArtStore((s) => s.setBlurredBgEnabled)
-  const setBlurredBgIntensity = useCoverArtStore((s) => s.setBlurredBgIntensity)
 
   return (
     <aside
@@ -383,6 +369,29 @@ export function ControlsSidebar() {
                 </span>
               </div>
               <CoverArtUploaderSingle type="logo" />
+
+              {logo && (
+                <div className="mt-2 px-1">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] text-white/50">Logo fill scale</span>
+                    <span className="text-[10px] tabular-nums text-white/40">
+                      {Math.round(logoSize * 100)}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={logoSize * 100}
+                    min={10}
+                    max={100}
+                    step={1}
+                    onChange={(v) => setLogoSize(v / 100)}
+                    ariaLabel="Logo fill scale"
+                  />
+                  <div className="mt-1 flex justify-between text-[9px] text-white/30">
+                    <span>Fit</span>
+                    <span>Fill</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -717,157 +726,6 @@ export function ControlsSidebar() {
                 className="h-6 w-6 rounded-full border border-[#2a2a2a] bg-transparent cursor-pointer"
               />
             </div>
-          </div>
-        </section>
-
-        {/* 8.5 Cover Art */}
-        <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
-          <SectionHeader title="Cover Art" />
-
-          {/* Background Image subsection */}
-          <div className="mb-5">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              Background Image
-            </p>
-            <CoverArtUploaderSingle type="coverart" />
-
-            {coverArt && (
-              <div className="mt-3 flex flex-col gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/60">
-                    Crop Mode
-                  </label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {CROP_MODES.map((mode) => {
-                      const active = coverArtCropMode === mode
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setCoverArtCropMode(mode)}
-                          aria-pressed={active}
-                          className="rounded-md border py-1.5 text-xs capitalize transition-colors"
-                          style={{
-                            background: active
-                              ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
-                              : '#1a1a1a',
-                            borderColor: active ? '#8b5cf6' : '#2a2a2a',
-                            color: '#fff',
-                          }}
-                        >
-                          {mode}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/60">
-                    Size ({Math.round(coverArtSize * 100)}%)
-                  </label>
-                  <Slider
-                    value={coverArtSize * 100}
-                    min={10}
-                    max={50}
-                    step={1}
-                    onChange={(v) => setCoverArtSize(v / 100)}
-                    ariaLabel="Cover art size"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-white/90">Blurred Background</label>
-                  <Toggle
-                    checked={blurredBgEnabled}
-                    onChange={setBlurredBgEnabled}
-                    ariaLabel="Blurred background toggle"
-                  />
-                </div>
-
-                {blurredBgEnabled && (
-                  <div>
-                    <label className="mb-1 block text-[11px] text-white/60">
-                      Blur Intensity ({Math.round(blurredBgIntensity)})
-                    </label>
-                    <Slider
-                      value={blurredBgIntensity}
-                      min={0}
-                      max={40}
-                      step={1}
-                      onChange={setBlurredBgIntensity}
-                      ariaLabel="Blur intensity"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Logo Overlay subsection */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">
-              Logo Overlay
-            </p>
-            <CoverArtUploaderSingle type="logo" />
-
-            {logo && (
-              <>
-                <div className="mt-3 flex items-center gap-2 rounded-md border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-2">
-                  <span className="text-[10px] font-medium text-[#3b82f6]">✦ Smart Mode</span>
-                  <span className="text-[10px] text-white/50">
-                    Spectrum auto-wraps logo shape
-                  </span>
-                </div>
-              </>
-            )}
-
-            {logo && (
-              <div className="mt-3 flex flex-col gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/60">
-                    Crop Mode
-                  </label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {CROP_MODES.map((mode) => {
-                      const active = logoCropMode === mode
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setLogoCropMode(mode)}
-                          aria-pressed={active}
-                          className="rounded-md border py-1.5 text-xs capitalize transition-colors"
-                          style={{
-                            background: active
-                              ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
-                              : '#1a1a1a',
-                            borderColor: active ? '#8b5cf6' : '#2a2a2a',
-                            color: '#fff',
-                          }}
-                        >
-                          {mode}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] text-white/60">
-                    Logo Size ({Math.round(logoSize * 100)}%)
-                  </label>
-                  <Slider
-                    value={logoSize * 100}
-                    min={10}
-                    max={30}
-                    step={1}
-                    onChange={(v) => setLogoSize(v / 100)}
-                    ariaLabel="Logo size"
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </section>
 

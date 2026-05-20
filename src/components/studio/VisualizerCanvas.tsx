@@ -156,14 +156,16 @@ export default function VisualizerCanvas(): JSX.Element {
         )
       } else if (cover.logo) {
         const isPolygon = cfg.visualType === 'polygon'
-        // Polygon mode: clip the logo to the SAME scaled radius the polygon
-        // spectrum uses internally (see polygonSpectrum.ts line 194–195) so
-        // the logo fills the polygon outline exactly.
+        // Polygon mode: clip the logo to the polygon outline. Base radius
+        // matches the spectrum's internal scaling (polygonSpectrum.ts line
+        // 194–195); logoSize acts as a fill multiplier — default 0.25 → 1.0×
+        // (fills polygon exactly), 0.10 → 0.5× (tighter), 0.50+ → up to 2.0×
+        // (overflows polygon edges, clipped by the mask).
         const polygonRadius = isPolygon
           ? Math.min(
               cfg.polygon.radius,
               Math.max(0, Math.min(width, height) / 2 - 20),
-            )
+            ) * Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
           : undefined
         renderLogoOnly(
           ctx,
