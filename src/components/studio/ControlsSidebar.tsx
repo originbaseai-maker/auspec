@@ -335,8 +335,55 @@ export function ControlsSidebar() {
                 </span>
               )}
             </div>
-            <CoverArtUploaderSingle type="coverart" />
-            <CoverArtUploaderSingle type="logo" />
+            {/* Cover Art */}
+            <div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <div
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{
+                    background: 'rgba(59,130,246,0.15)',
+                    border: '1px solid rgba(59,130,246,0.3)',
+                  }}
+                  aria-hidden="true"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <rect x="1" y="1" width="8" height="8" rx="1" stroke="#3b82f6" strokeWidth="1.2" />
+                    <circle cx="3.5" cy="3.5" r="1" fill="#3b82f6" />
+                    <path d="M1 7l2.5-2.5 2 2 1.5-1.5 2 2" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+                  Background Image
+                </span>
+              </div>
+              <CoverArtUploaderSingle type="coverart" />
+            </div>
+
+            {/* Logo Overlay */}
+            <div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <div
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{
+                    background: 'rgba(139,92,246,0.15)',
+                    border: '1px solid rgba(139,92,246,0.3)',
+                  }}
+                  aria-hidden="true"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="5" r="4" stroke="#8b5cf6" strokeWidth="1.2" />
+                    <circle cx="5" cy="5" r="1.5" fill="#8b5cf6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+                  Logo Overlay
+                </span>
+                <span className="ml-auto text-[9px] italic text-white/30">
+                  auto-wraps shape
+                </span>
+              </div>
+              <CoverArtUploaderSingle type="logo" />
+            </div>
           </div>
         </section>
 
