@@ -4,40 +4,43 @@
 Users can upload and play audio files locally in the browser.
 
 ## Status
-- [x] In Progress
+- [x] Complete
 
 ## Tasks
-- [ ] Drag and drop upload zone
-- [ ] File picker fallback
-- [ ] Accept: mp3, wav, m4a, flac
-- [ ] Show filename after upload
-- [ ] Audio player with:
-  - [ ] Play / Pause
-  - [ ] Seek bar
-  - [ ] Current time display
-  - [ ] Duration display
+- [x] Drag and drop upload zone
+- [x] File picker fallback
+- [x] Accept: mp3, wav, m4a, flac
+- [x] Show filename after upload
+- [x] Audio player with:
+  - [x] Play / Pause
+  - [x] Seek bar
+  - [x] Current time display
+  - [x] Duration display
 
-## Important
-Audio stays local only. No cloud storage in this phase.
+## Completed
+Phase 2 — Audio Upload + Playback
+
+## Files Created
+- src/types/audio.ts — AudioFile interface, AudioFormat, detectFormat, isValidAudioFile, formatFileSize, MAX_FILE_SIZE, ACCEPTED_FORMATS, ACCEPTED_MIME_TYPES
+- src/store/useAudioStore.ts — Zustand store with audioFile, isPlaying, currentTime, duration, volume, audioElement + setters + cleanup()
+- src/hooks/useAudioPlayer.ts — useAudioPlayer hook, syncs audio element to store, handles all events
+- src/components/audio/AudioUploader.tsx — drag & drop upload zone with 5 states (idle, dragover, loading, error, hidden)
+- src/components/audio/AudioPlayer.tsx — full player bar with seek, volume, play/pause, remove
+- src/components/audio/index.ts — barrel export
+
+## Files Modified
+- src/pages/StudioPage.tsx — dynamic switch AudioUploader↔CanvasPlaceholder and AudioPlayerBar↔AudioPlayer
+- src/components/studio/CanvasPlaceholder.tsx — shows "Ready to visualize" when audio loaded
+- src/components/studio/AudioPlayerBar.tsx — upload zone now clickable with file picker
+
+## Architecture Notes
+- Audio stays local only — no cloud storage in this phase
+- Object URL lifecycle owned by useAudioStore — always goes through setAudioFile or cleanup to prevent memory leaks
+- Format detection uses both file extension AND MIME type (some browsers send empty MIME for .m4a)
+- useAudioPlayer hook owns the HTMLAudioElement ref — store only holds reference for state subscribers
 
 ## Dependencies
-- Phase 1 complete
-
-## Implementation Notes
-
-### Agent 1 (this PR) — Types + Audio Store
-- `src/types/audio.ts` — `AudioFile` interface (matches Phase2-Contracts.md), `AudioFormat` union, format detection (`detectFormat`), validation (`isValidAudioFile`), human-readable size (`formatFileSize`), `MAX_FILE_SIZE = 200 MB`, `ACCEPTED_FORMATS`, `ACCEPTED_MIME_TYPES`.
-- `src/store/useAudioStore.ts` — Zustand store with the locked shape (`audioFile`, `isPlaying`, `currentTime`, `duration`, `volume`, `audioElement` + setters). Adds `cleanup()` that revokes the current `objectUrl` to prevent memory leaks. `setAudioFile` also revokes the previous `objectUrl` when replacing a file, and resets playback state to a fresh start.
-- `volume` is clamped to `[0, 1]` in the setter.
-
-### Boundaries
-- Format detection uses **both** file extension and MIME type — some browsers send empty/odd MIME types, so the extension fallback matters (e.g. `.m4a` often shows as `audio/mp4`).
-- Object URL lifecycle is owned by the store. UI / hook code MUST go through `setAudioFile` or `cleanup` so we don't leak blobs.
-- Store is intentionally decoupled from `HTMLAudioElement` mechanics. The element ref lives in the player hook (Agent 3); the store only holds a reference for components that need to subscribe to playback state.
-
-### Open for later agents
-- Agent 2: `AudioUploader` (drop zone + file picker, validates with `isValidAudioFile`, enforces `MAX_FILE_SIZE`, builds `AudioFile`, calls `setAudioFile`).
-- Agent 3: `useAudioPlayer` hook + `AudioPlayer` component (wires `audioElement` events to store).
-- Agent 4: Studio page integration / `AudioPlayerBar` slot.
+- Phase 1 complete ✅
 
 ## Notes
+MediaRecorder / WebM export not yet implemented — comes in Phase 12.

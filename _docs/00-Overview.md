@@ -19,7 +19,7 @@ AuSpec is a web-based audio spectrum visualizer. Users upload audio files and ge
 
 ## Current Phase
 - [ ] Phase 1 — Foundation + UI Shell
-- [ ] Phase 2 — Audio Upload + Playback
+- [x] Phase 2 — Audio Upload + Playback
 - [ ] Phase 3 — Web Audio Analyzer Engine
 - [ ] Phase 4 — First Visualizer: Linear Bars
 - [ ] Phase 5 — Circular Spectrum
