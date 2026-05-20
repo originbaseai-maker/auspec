@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Award, Image as ImageIcon, X } from 'lucide-react'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
+import {
+  isValidImageFile,
+  loadImageFile,
+  MAX_IMAGE_SIZE,
+  type CoverArtImage,
+} from '@/types/coverArt'
 
 const ACCEPT_ATTR =
   'image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif'
-const MAX_SIZE_BYTES = 10 * 1024 * 1024
 const MAX_SIZE_LABEL = '10MB'
 
 type ZoneState =
@@ -12,37 +17,12 @@ type ZoneState =
   | { kind: 'dragover' }
   | { kind: 'error'; message: string }
 
-interface ImageItem {
-  file: File
-  name: string
-  objectUrl: string
-  size: number
-  type: string
-}
-
-function isValidImageFile(file: File): boolean {
-  if (file.type.startsWith('image/')) {
-    return /^image\/(jpeg|png|webp|gif)$/i.test(file.type)
-  }
-  return /\.(jpe?g|png|webp|gif)$/i.test(file.name)
-}
-
-function buildItem(file: File): ImageItem {
-  return {
-    file,
-    name: file.name,
-    objectUrl: URL.createObjectURL(file),
-    size: file.size,
-    type: file.type,
-  }
-}
-
 interface UploadZoneProps {
   label: string
   icon: typeof ImageIcon
   shape: 'circle' | 'square'
-  item: ImageItem | null
-  onChange: (item: ImageItem | null) => void
+  item: CoverArtImage | null
+  onChange: (item: CoverArtImage | null) => void
 }
 
 function UploadZone({ label, icon: Icon, shape, item, onChange }: UploadZoneProps) {
@@ -68,17 +48,22 @@ function UploadZone({ label, icon: Icon, shape, item, onChange }: UploadZoneProp
   )
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!isValidImageFile(file)) {
         setError('Use JPG, PNG, WEBP, or GIF.')
         return
       }
-      if (file.size > MAX_SIZE_BYTES) {
+      if (file.size > MAX_IMAGE_SIZE) {
         setError(`Too large. Max ${MAX_SIZE_LABEL}.`)
         return
       }
-      onChange(buildItem(file))
-      setState({ kind: 'idle' })
+      try {
+        const image = await loadImageFile(file)
+        onChange(image)
+        setState({ kind: 'idle' })
+      } catch {
+        setError('Could not read image.')
+      }
     },
     [onChange, setError],
   )
@@ -132,7 +117,6 @@ function UploadZone({ label, icon: Icon, shape, item, onChange }: UploadZoneProp
 
   const onRemove = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
-    if (item?.objectUrl) URL.revokeObjectURL(item.objectUrl)
     onChange(null)
   }
 
@@ -191,7 +175,7 @@ function UploadZone({ label, icon: Icon, shape, item, onChange }: UploadZoneProp
           <div className="flex w-full items-center gap-2 px-2">
             <img
               src={item.objectUrl}
-              alt={item.name}
+              alt={item.file.name}
               className={`h-12 w-12 shrink-0 object-cover ${thumbRounded}`}
               style={{
                 outline: '1px solid #2a2a2a',
@@ -200,9 +184,9 @@ function UploadZone({ label, icon: Icon, shape, item, onChange }: UploadZoneProp
             />
             <p
               className="min-w-0 flex-1 truncate text-[11px] text-white/80"
-              title={item.name}
+              title={item.file.name}
             >
-              {item.name}
+              {item.file.name}
             </p>
             <button
               type="button"

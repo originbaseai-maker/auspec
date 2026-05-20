@@ -6,7 +6,8 @@ import {
   Download,
 } from 'lucide-react'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
-import { useCoverArtStore, type CropMode } from '@/store/useCoverArtStore'
+import { useCoverArtStore } from '@/store/useCoverArtStore'
+import type { CropMode } from '@/types/coverArt'
 import CoverArtUploader from '@/components/coverart/CoverArtUploader'
 import type { VisualType } from '@/lib/visualizerConfig'
 
