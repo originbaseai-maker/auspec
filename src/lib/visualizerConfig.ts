@@ -1,8 +1,15 @@
 import type { LinearBarsConfig } from '@/lib/renderers/linearBars'
 import type { FramePulseConfig } from '@/lib/renderers/framePulse'
+import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
+import type { WaveConfig } from '@/lib/renderers/wave'
+
+export type VisualType = 'bars' | 'circular' | 'wave' | 'particles'
 
 export interface VisualizerConfig {
+  visualType: VisualType
   linearBars: LinearBarsConfig
+  circularSpectrum: CircularSpectrumConfig
+  wave: WaveConfig
   framePulse: FramePulseConfig
 }
 
@@ -18,6 +25,30 @@ export const DEFAULT_LINEAR_BARS: LinearBarsConfig = {
   smoothing: 0.15,
 }
 
+export const DEFAULT_CIRCULAR_SPECTRUM: CircularSpectrumConfig = {
+  radius: 180,
+  innerRadius: 60,
+  barCount: 128,
+  colorStart: '#3b82f6',
+  colorEnd: '#8b5cf6',
+  glowEnabled: true,
+  glowIntensity: 10,
+  rotation: 0,
+  smoothing: 0.15,
+  bassPulse: true,
+}
+
+export const DEFAULT_WAVE: WaveConfig = {
+  colorStart: '#3b82f6',
+  colorEnd: '#8b5cf6',
+  lineThickness: 3,
+  glowEnabled: true,
+  glowIntensity: 8,
+  filled: true,
+  smoothing: 0.3,
+  mirrorMode: false,
+}
+
 export const DEFAULT_FRAME_PULSE: FramePulseConfig = {
   enabled: true,
   baseColor: '#3b82f6',
@@ -28,6 +59,9 @@ export const DEFAULT_FRAME_PULSE: FramePulseConfig = {
 }
 
 export const DEFAULT_VISUALIZER_CONFIG: VisualizerConfig = {
+  visualType: 'bars',
   linearBars: DEFAULT_LINEAR_BARS,
+  circularSpectrum: DEFAULT_CIRCULAR_SPECTRUM,
+  wave: DEFAULT_WAVE,
   framePulse: DEFAULT_FRAME_PULSE,
 }
