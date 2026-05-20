@@ -43,3 +43,8 @@ Phase 4 — Linear Bars Visualizer + Frame Pulse Effect
 - ResizeObserver uses setTransform not scale to avoid compound DPI scaling on resize
 - Renderer configs (LinearBarsConfig, FramePulseConfig) live next to their renderers — single source of truth
 - Composite VisualizerConfig + defaults live in @/lib/visualizerConfig
+
+## Extensions
+- **Circular Spectrum** (Phase 5) — radial bars around a center, optional logo-aware inner radius
+- **Wave** (Phase 6) — line waveform with optional mirror + fill
+- **Polygon Spectrum** (bonus) — bars distributed along the perimeter of triangle / square / pentagon / hexagon / star / diamond. See [[PolygonContracts]].
