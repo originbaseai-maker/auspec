@@ -1,4 +1,9 @@
+import { useAudioStore } from '@/store/useAudioStore';
+
 export function CanvasPlaceholder() {
+  const audioFile = useAudioStore((s) => s.audioFile);
+  const hasAudio = audioFile !== null;
+
   return (
     <div className="relative flex-1 min-w-0 min-h-0 bg-[#0a0a0a] overflow-hidden">
       <div
@@ -77,12 +82,20 @@ export function CanvasPlaceholder() {
             })}
           </svg>
 
-          <h2 className="text-2xl md:text-3xl font-semibold text-white mb-2">
-            Upload audio to start
-          </h2>
-          <p className="text-sm md:text-base text-white/60">
-            Drag &amp; drop or click below
-          </p>
+          {hasAudio ? (
+            <h2 className="text-2xl md:text-3xl font-semibold text-white auspec-canvas-pulse">
+              Ready to visualize
+            </h2>
+          ) : (
+            <>
+              <h2 className="text-2xl md:text-3xl font-semibold text-white mb-2">
+                Upload audio to start
+              </h2>
+              <p className="text-sm md:text-base text-white/60">
+                Drag &amp; drop or click below
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -108,6 +121,13 @@ export function CanvasPlaceholder() {
         .auspec-canvas-spin {
           animation: auspec-spin-slow 60s linear infinite;
           transform-origin: 50% 50%;
+        }
+        @keyframes auspec-text-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.55; }
+        }
+        .auspec-canvas-pulse {
+          animation: auspec-text-pulse 2.4s ease-in-out infinite;
         }
       `}</style>
     </div>

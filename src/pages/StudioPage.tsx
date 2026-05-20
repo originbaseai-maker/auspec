@@ -3,6 +3,8 @@ import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { ControlsSidebar } from '../components/studio/ControlsSidebar';
 import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
+import { AudioUploader, AudioPlayer } from '@/components/audio';
+import { useAudioStore } from '@/store/useAudioStore';
 
 function AuSpecLogo() {
   return (
@@ -43,7 +45,7 @@ function AuSpecLogo() {
   );
 }
 
-function TopBar() {
+function TopBar({ hasAudio }: { hasAudio: boolean }) {
   return (
     <header
       className="h-12 shrink-0 border-b bg-[#111111]"
@@ -61,10 +63,14 @@ function TopBar() {
           </a>
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            title="Upload audio first"
-            className="inline-flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-3 py-1.5 text-sm text-white/80 opacity-50 cursor-not-allowed"
+            disabled={!hasAudio}
+            aria-disabled={!hasAudio}
+            title={hasAudio ? 'Export visualization' : 'Upload audio first'}
+            className={
+              hasAudio
+                ? 'inline-flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-3 py-1.5 text-sm text-white hover:bg-white/5 transition-colors'
+                : 'inline-flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-3 py-1.5 text-sm text-white/80 opacity-50 cursor-not-allowed'
+            }
             style={{ borderColor: '#2a2a2a' }}
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -77,19 +83,22 @@ function TopBar() {
 }
 
 export function StudioPage() {
+  const audioFile = useAudioStore((s) => s.audioFile);
+  const hasAudio = audioFile !== null;
+
   return (
     <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
-      <TopBar />
+      <TopBar hasAudio={hasAudio} />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <PresetsSidebar />
         <main className="flex flex-1 min-w-0 min-h-0">
-          <CanvasPlaceholder />
+          {hasAudio ? <CanvasPlaceholder /> : <AudioUploader />}
         </main>
         <ControlsSidebar />
       </div>
 
-      <AudioPlayerBar />
+      {hasAudio ? <AudioPlayer /> : <AudioPlayerBar />}
     </div>
   );
 }
