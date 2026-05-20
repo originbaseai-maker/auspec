@@ -2,6 +2,7 @@ import {
   BarChart3,
   CircleDot,
   Waves,
+  Hexagon,
   Sparkles,
   Download,
 } from 'lucide-react'
@@ -10,6 +11,7 @@ import { useCoverArtStore } from '@/store/useCoverArtStore'
 import type { CropMode } from '@/types/coverArt'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import type { VisualType } from '@/lib/visualizerConfig'
+import type { PolygonShape } from '@/lib/renderers/polygonSpectrum'
 
 const CROP_MODES: CropMode[] = ['circle', 'square', 'none']
 
@@ -17,8 +19,20 @@ const VISUAL_TYPES: { id: VisualType; label: string; Icon: typeof BarChart3 }[] 
   { id: 'bars', label: 'Bars', Icon: BarChart3 },
   { id: 'circular', label: 'Circular', Icon: CircleDot },
   { id: 'wave', label: 'Wave', Icon: Waves },
+  { id: 'polygon', label: 'Polygon', Icon: Hexagon },
   { id: 'particles', label: 'Particles', Icon: Sparkles },
 ]
+
+const POLYGON_SHAPES: { id: PolygonShape; label: string }[] = [
+  { id: 'triangle', label: '△' },
+  { id: 'square', label: '□' },
+  { id: 'pentagon', label: '⬠' },
+  { id: 'hexagon', label: '⬡' },
+  { id: 'star', label: '✦' },
+  { id: 'diamond', label: '◇' },
+]
+
+const POLYGON_BAR_DIRECTIONS = ['outward', 'inward', 'both'] as const
 
 const COLOR_SWATCHES = [
   '#3b82f6',
@@ -149,6 +163,7 @@ export function ControlsSidebar() {
   const updateLinearBars = useVisualizerStore((s) => s.updateLinearBars)
   const updateCircularSpectrum = useVisualizerStore((s) => s.updateCircularSpectrum)
   const updateWave = useVisualizerStore((s) => s.updateWave)
+  const updatePolygon = useVisualizerStore((s) => s.updatePolygon)
   const updateFramePulse = useVisualizerStore((s) => s.updateFramePulse)
   const backgroundColor = useVisualizerStore((s) => s.backgroundColor)
   const setBackgroundColor = useVisualizerStore((s) => s.setBackgroundColor)
@@ -161,23 +176,29 @@ export function ControlsSidebar() {
       ? config.linearBars.colorStart
       : visualType === 'circular'
         ? config.circularSpectrum.colorStart
-        : config.wave.colorStart
+        : visualType === 'polygon'
+          ? config.polygon.colorStart
+          : config.wave.colorStart
   const secondary =
     visualType === 'bars'
       ? config.linearBars.colorEnd
       : visualType === 'circular'
         ? config.circularSpectrum.colorEnd
-        : config.wave.colorEnd
+        : visualType === 'polygon'
+          ? config.polygon.colorEnd
+          : config.wave.colorEnd
 
   const setPrimary = (color: string) => {
     if (visualType === 'bars') updateLinearBars({ colorStart: color })
     else if (visualType === 'circular') updateCircularSpectrum({ colorStart: color })
     else if (visualType === 'wave') updateWave({ colorStart: color })
+    else if (visualType === 'polygon') updatePolygon({ colorStart: color })
   }
   const setSecondary = (color: string) => {
     if (visualType === 'bars') updateLinearBars({ colorEnd: color })
     else if (visualType === 'circular') updateCircularSpectrum({ colorEnd: color })
     else if (visualType === 'wave') updateWave({ colorEnd: color })
+    else if (visualType === 'polygon') updatePolygon({ colorEnd: color })
   }
 
   const glowEnabled =
@@ -185,23 +206,29 @@ export function ControlsSidebar() {
       ? config.linearBars.glowEnabled
       : visualType === 'circular'
         ? config.circularSpectrum.glowEnabled
-        : config.wave.glowEnabled
+        : visualType === 'polygon'
+          ? config.polygon.glowEnabled
+          : config.wave.glowEnabled
   const glowIntensity =
     visualType === 'bars'
       ? config.linearBars.glowIntensity
       : visualType === 'circular'
         ? config.circularSpectrum.glowIntensity
-        : config.wave.glowIntensity
+        : visualType === 'polygon'
+          ? config.polygon.glowIntensity
+          : config.wave.glowIntensity
 
   const setGlowEnabled = (v: boolean) => {
     if (visualType === 'bars') updateLinearBars({ glowEnabled: v })
     else if (visualType === 'circular') updateCircularSpectrum({ glowEnabled: v })
     else if (visualType === 'wave') updateWave({ glowEnabled: v })
+    else if (visualType === 'polygon') updatePolygon({ glowEnabled: v })
   }
   const setGlowIntensity = (v: number) => {
     if (visualType === 'bars') updateLinearBars({ glowIntensity: v })
     else if (visualType === 'circular') updateCircularSpectrum({ glowIntensity: v })
     else if (visualType === 'wave') updateWave({ glowIntensity: v })
+    else if (visualType === 'polygon') updatePolygon({ glowIntensity: v })
   }
 
   const smoothing =
@@ -209,11 +236,14 @@ export function ControlsSidebar() {
       ? config.linearBars.smoothing
       : visualType === 'circular'
         ? config.circularSpectrum.smoothing
-        : config.wave.smoothing
+        : visualType === 'polygon'
+          ? config.polygon.smoothing
+          : config.wave.smoothing
   const setSmoothing = (v: number) => {
     if (visualType === 'bars') updateLinearBars({ smoothing: v })
     else if (visualType === 'circular') updateCircularSpectrum({ smoothing: v })
     else if (visualType === 'wave') updateWave({ smoothing: v })
+    else if (visualType === 'polygon') updatePolygon({ smoothing: v })
   }
 
   const supportsMirror = visualType === 'bars' || visualType === 'wave'
@@ -228,23 +258,34 @@ export function ControlsSidebar() {
     else if (visualType === 'wave') updateWave({ mirrorMode: v })
   }
 
-  const supportsBarCount = visualType === 'bars' || visualType === 'circular'
+  const supportsBarCount =
+    visualType === 'bars' || visualType === 'circular' || visualType === 'polygon'
   const barCount =
     visualType === 'bars'
       ? config.linearBars.barCount
       : visualType === 'circular'
         ? config.circularSpectrum.barCount
-        : 0
+        : visualType === 'polygon'
+          ? config.polygon.barCount
+          : 0
   const setBarCount = (v: number) => {
     const n = Math.round(v)
     if (visualType === 'bars') updateLinearBars({ barCount: n })
     else if (visualType === 'circular') updateCircularSpectrum({ barCount: n })
+    else if (visualType === 'polygon') updatePolygon({ barCount: n })
   }
 
-  const supportsRotation = visualType === 'circular'
-  const rotation = config.circularSpectrum.rotation
+  const supportsRotation = visualType === 'circular' || visualType === 'polygon'
+  const rotation =
+    visualType === 'polygon' ? config.polygon.rotation : config.circularSpectrum.rotation
+  const setRotation = (v: number) => {
+    if (visualType === 'polygon') updatePolygon({ rotation: v })
+    else if (visualType === 'circular') updateCircularSpectrum({ rotation: v })
+  }
 
   const isParticles = visualType === 'particles'
+  const isPolygon = visualType === 'polygon'
+  const polygonConfig = config.polygon
 
   const coverArt = useCoverArtStore((s) => s.coverArt)
   const logo = useCoverArtStore((s) => s.logo)
@@ -271,7 +312,7 @@ export function ControlsSidebar() {
         {/* 1. Visual Type */}
         <section className="p-4" style={{ borderColor: '#2a2a2a' }}>
           <SectionHeader title="Visual Type" />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {VISUAL_TYPES.map(({ id, label, Icon }) => {
               const active = visualType === id
               const disabled = id === 'particles'
@@ -282,7 +323,7 @@ export function ControlsSidebar() {
                   disabled={disabled}
                   onClick={() => !disabled && setVisualType(id)}
                   aria-pressed={active}
-                  className="flex flex-col items-center justify-center gap-1 rounded-md border py-3 text-xs transition-colors"
+                  className="flex flex-col items-center justify-center gap-1 rounded-md border py-3 text-[11px] transition-colors"
                   style={{
                     background: active
                       ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
@@ -302,6 +343,86 @@ export function ControlsSidebar() {
             })}
           </div>
         </section>
+
+        {/* 1.5 Polygon Shape (only when polygon is active) */}
+        {isPolygon && (
+          <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
+            <SectionHeader title="Shape" />
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {POLYGON_SHAPES.map(({ id, label }) => {
+                const active = polygonConfig.shape === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => updatePolygon({ shape: id })}
+                    aria-pressed={active}
+                    className="flex flex-col items-center justify-center gap-0.5 rounded-md border py-2 transition-all"
+                    style={{
+                      background: active
+                        ? 'linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(139,92,246,0.18) 100%)'
+                        : '#1a1a1a',
+                      borderColor: active ? '#8b5cf6' : '#2a2a2a',
+                    }}
+                  >
+                    <span className="text-lg leading-none text-white">{label}</span>
+                    <span className="text-[9px] capitalize text-white/50">{id}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs text-white/80">Fill Shape</span>
+              <Toggle
+                checked={polygonConfig.fillShape}
+                onChange={(v) => updatePolygon({ fillShape: v })}
+                ariaLabel="Fill shape"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="mb-1 block text-[10px] uppercase tracking-wider text-white/50">
+                Bar Direction
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {POLYGON_BAR_DIRECTIONS.map((dir) => {
+                  const active = polygonConfig.barDirection === dir
+                  return (
+                    <button
+                      key={dir}
+                      type="button"
+                      onClick={() => updatePolygon({ barDirection: dir })}
+                      aria-pressed={active}
+                      className="rounded border py-1 text-[10px] capitalize transition-colors"
+                      style={{
+                        borderColor: active ? '#3b82f6' : '#2a2a2a',
+                        background: active ? 'rgba(59,130,246,0.15)' : '#1a1a1a',
+                        color: active ? '#fff' : 'rgba(255,255,255,0.6)',
+                      }}
+                    >
+                      {dir}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] text-white/60">
+                Radius ({Math.round(polygonConfig.radius)}px)
+              </label>
+              <Slider
+                value={polygonConfig.radius}
+                min={40}
+                max={400}
+                step={1}
+                onChange={(v) => updatePolygon({ radius: v })}
+                ariaLabel="Polygon radius"
+              />
+            </div>
+          </section>
+        )}
 
         {/* 2. Colors */}
         {!isParticles && (
@@ -425,7 +546,7 @@ export function ControlsSidebar() {
                   min={0}
                   max={360}
                   step={1}
-                  onChange={(v) => updateCircularSpectrum({ rotation: v })}
+                  onChange={setRotation}
                   ariaLabel="Rotation"
                 />
               </div>
