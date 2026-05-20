@@ -1,4 +1,8 @@
 import type { CoverArtImage, CropMode } from '@/types/coverArt'
+import {
+  renderLogoInPolygon,
+  type PolygonShape,
+} from '@/lib/renderers/polygonSpectrum'
 
 interface CoverArtRenderConfig {
   coverArtSize: number
@@ -117,14 +121,25 @@ export function renderCoverArt(
   }
 }
 
+export interface LogoOnlyConfig {
+  logoSize: number
+  logoCropMode: CropMode
+  coverArtPosition: { x: number; y: number }
+  /** When set, the logo is clipped to this polygon shape instead of cropped to a circle/square. */
+  polygonShape?: PolygonShape
+  /** Polygon rotation in degrees (matches the spectrum renderer). */
+  polygonRotation?: number
+  /**
+   * Polygon radius in pixels — pre-scaled by the caller so it lines up with
+   * the spectrum's bars. If omitted, defaults to 35% of min(width, height).
+   */
+  polygonRadius?: number
+}
+
 export function renderLogoOnly(
   ctx: CanvasRenderingContext2D,
   logo: CoverArtImage,
-  config: {
-    logoSize: number
-    logoCropMode: CropMode
-    coverArtPosition: { x: number; y: number }
-  },
+  config: LogoOnlyConfig,
   width: number,
   height: number,
 ): void {
@@ -132,6 +147,29 @@ export function renderLogoOnly(
   if (!logoImg) return
 
   const minDim = Math.min(width, height)
+
+  // Polygon clip mode: spectrum's polygon outline doubles as the logo mask.
+  // Anchor at canvas center so it aligns with renderPolygonSpectrum (which
+  // also centers on width/2, height/2).
+  if (config.polygonShape) {
+    const polyRadius = config.polygonRadius ?? minDim * 0.35
+    ctx.save()
+    ctx.shadowBlur = 20
+    ctx.shadowColor = 'rgba(59,130,246,0.3)'
+    renderLogoInPolygon(
+      ctx,
+      logoImg,
+      config.polygonShape,
+      width / 2,
+      height / 2,
+      polyRadius,
+      config.polygonRotation ?? 0,
+    )
+    ctx.restore()
+    return
+  }
+
+  // Default circle/square/none crop centered on user-defined position.
   const logoSizePx = minDim * config.logoSize
   const cx = width * config.coverArtPosition.x
   const cy = height * config.coverArtPosition.y

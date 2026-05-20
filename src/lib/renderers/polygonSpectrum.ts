@@ -38,6 +38,41 @@ export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
   barDirection: 'outward',
 }
 
+/**
+ * Draw a logo image clipped to a polygon shape, cover-fit inside the bounding box.
+ * Used by Smart Logo Mode so the spectrum's polygon outline doubles as the logo mask.
+ */
+export function renderLogoInPolygon(
+  ctx: CanvasRenderingContext2D,
+  logoImg: HTMLImageElement,
+  shape: PolygonShape,
+  cx: number,
+  cy: number,
+  radius: number,
+  rotation: number,
+): void {
+  if (radius <= 0) return
+  const vertices = getPolygonVertices(shape, cx, cy, radius, rotation)
+
+  ctx.save()
+  ctx.beginPath()
+  for (let i = 0; i < vertices.length; i++) {
+    const v = vertices[i]
+    if (i === 0) ctx.moveTo(v.x, v.y)
+    else ctx.lineTo(v.x, v.y)
+  }
+  ctx.closePath()
+  ctx.clip()
+
+  const size = radius * 2
+  const scale = Math.max(size / logoImg.naturalWidth, size / logoImg.naturalHeight)
+  const drawW = logoImg.naturalWidth * scale
+  const drawH = logoImg.naturalHeight * scale
+  ctx.drawImage(logoImg, cx - drawW / 2, cy - drawH / 2, drawW, drawH)
+
+  ctx.restore()
+}
+
 export function getPolygonVertices(
   shape: PolygonShape,
   cx: number,
