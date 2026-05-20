@@ -11,6 +11,7 @@ export interface CoverArtStore {
   coverArtPosition: { x: number; y: number }
   blurredBgEnabled: boolean
   blurredBgIntensity: number
+  autoLogoSync: boolean
 
   setCoverArt: (image: CoverArtImage | null) => void
   setLogo: (image: CoverArtImage | null) => void
@@ -21,6 +22,7 @@ export interface CoverArtStore {
   setCoverArtPosition: (pos: { x: number; y: number }) => void
   setBlurredBgEnabled: (enabled: boolean) => void
   setBlurredBgIntensity: (intensity: number) => void
+  setAutoLogoSync: (v: boolean) => void
   cleanup: () => void
 }
 
@@ -37,6 +39,7 @@ export const useCoverArtStore = create<CoverArtStore>((set, get) => ({
   coverArtPosition: { x: 0.5, y: 0.5 },
   blurredBgEnabled: true,
   blurredBgIntensity: 20,
+  autoLogoSync: true,
 
   setCoverArt: (image) => {
     const prev = get().coverArt
@@ -67,6 +70,7 @@ export const useCoverArtStore = create<CoverArtStore>((set, get) => ({
   setBlurredBgEnabled: (blurredBgEnabled) => set({ blurredBgEnabled }),
   setBlurredBgIntensity: (blurredBgIntensity) =>
     set({ blurredBgIntensity: clamp(blurredBgIntensity, 0, 40) }),
+  setAutoLogoSync: (autoLogoSync) => set({ autoLogoSync }),
 
   cleanup: () => {
     const { coverArt, logo } = get()

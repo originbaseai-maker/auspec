@@ -27,8 +27,10 @@ export default function VisualizerCanvas(): JSX.Element {
   const polygonShape = useVisualizerStore((s) => s.visualizerConfig.polygon.shape)
   const coverArtState = useCoverArtStore()
   const logo = useCoverArtStore((s) => s.logo)
+  const logoSize = useCoverArtStore((s) => s.logoSize)
   const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
+  const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -55,6 +57,44 @@ export default function VisualizerCanvas(): JSX.Element {
       setLogoCropMode('none')
     }
   }, [polygonShape, logo, visualType, logoCropMode, setLogoCropMode])
+
+  // Auto Logo Sync: keep the spectrum sized so bars sit just outside the logo.
+  // When auto is off the user controls polygon.radius / circular.innerRadius
+  // manually via their respective controls.
+  useEffect(() => {
+    if (!autoLogoSync) return
+    if (!logo) return
+    if (visualType !== 'polygon' && visualType !== 'circular') return
+    if (width === 0 || height === 0) return
+
+    const minDim = Math.min(width, height)
+
+    if (visualType === 'polygon') {
+      // Logo display radius at the polygon clip uses the same fallback the
+      // renderer uses (minDim * 0.35) scaled by logoSize * 4.
+      const logoDisplayRadius = minDim * 0.35 * (logoSize * 4)
+      const spectrumRadius = Math.min(
+        logoDisplayRadius + 30,
+        minDim / 2 - 20,
+      )
+      updatePolygon({ radius: Math.round(spectrumRadius) })
+    } else {
+      // circular: inner radius wraps the logo with a 10px gap
+      const logoDisplayRadius = (minDim * logoSize) / 2
+      updateCircularSpectrum({
+        innerRadius: Math.round(logoDisplayRadius + 10),
+      })
+    }
+  }, [
+    logoSize,
+    autoLogoSync,
+    logo,
+    visualType,
+    width,
+    height,
+    updatePolygon,
+    updateCircularSpectrum,
+  ])
 
   const animationRef = useRef<number | null>(null)
   const barsHeightsRef = useRef<Float32Array>(new Float32Array(MAX_BAR_COUNT))
@@ -118,7 +158,34 @@ export default function VisualizerCanvas(): JSX.Element {
           case 'wave':
             renderWave(ctx, data, cfg.wave, width, height)
             break
-          case 'polygon':
+          case 'polygon': {
+            // Draw the logo FIRST so the spectrum bars stay on top.
+            // In auto mode the logo fills the polygon exactly (scale 1.0);
+            // in manual mode the user's logoSize acts as a 0.5–2.0× scale.
+            if (cover.logo) {
+              const minDim = Math.min(width, height)
+              const baseRadius = Math.min(
+                cfg.polygon.radius,
+                Math.max(0, minDim / 2 - 20),
+              )
+              const logoScale = cover.autoLogoSync
+                ? 1.0
+                : Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
+              renderLogoOnly(
+                ctx,
+                cover.logo,
+                {
+                  logoSize: cover.logoSize,
+                  logoCropMode: cover.logoCropMode,
+                  coverArtPosition: cover.coverArtPosition,
+                  polygonShape: cfg.polygon.shape,
+                  polygonRotation: cfg.polygon.rotation,
+                  polygonRadius: baseRadius * logoScale,
+                },
+                width,
+                height,
+              )
+            }
             renderPolygonSpectrum(
               ctx,
               data,
@@ -128,6 +195,7 @@ export default function VisualizerCanvas(): JSX.Element {
               polygonHeightsRef.current,
             )
             break
+          }
           case 'particles':
             break
         }
@@ -154,19 +222,9 @@ export default function VisualizerCanvas(): JSX.Element {
           width,
           height,
         )
-      } else if (cover.logo) {
-        const isPolygon = cfg.visualType === 'polygon'
-        // Polygon mode: clip the logo to the polygon outline. Base radius
-        // matches the spectrum's internal scaling (polygonSpectrum.ts line
-        // 194–195); logoSize acts as a fill multiplier — default 0.25 → 1.0×
-        // (fills polygon exactly), 0.10 → 0.5× (tighter), 0.50+ → up to 2.0×
-        // (overflows polygon edges, clipped by the mask).
-        const polygonRadius = isPolygon
-          ? Math.min(
-              cfg.polygon.radius,
-              Math.max(0, Math.min(width, height) / 2 - 20),
-            ) * Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
-          : undefined
+      } else if (cover.logo && cfg.visualType !== 'polygon') {
+        // Non-polygon modes draw the logo on top with its crop mode.
+        // Polygon mode draws the logo underneath the bars inside its case.
         renderLogoOnly(
           ctx,
           cover.logo,
@@ -174,9 +232,6 @@ export default function VisualizerCanvas(): JSX.Element {
             logoSize: cover.logoSize,
             logoCropMode: cover.logoCropMode,
             coverArtPosition: cover.coverArtPosition,
-            polygonShape: isPolygon ? cfg.polygon.shape : undefined,
-            polygonRotation: isPolygon ? cfg.polygon.rotation : undefined,
-            polygonRadius,
           },
           width,
           height,

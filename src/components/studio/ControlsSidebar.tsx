@@ -273,22 +273,17 @@ export function ControlsSidebar() {
     else if (visualType === 'polygon') updatePolygon({ barCount: n })
   }
 
-  const supportsRotation = visualType === 'circular' || visualType === 'polygon'
-  const rotation =
-    visualType === 'polygon' ? config.polygon.rotation : config.circularSpectrum.rotation
-  const setRotation = (v: number) => {
-    if (visualType === 'polygon') updatePolygon({ rotation: v })
-    else if (visualType === 'circular') updateCircularSpectrum({ rotation: v })
-  }
-
   const isParticles = visualType === 'particles'
   const isPolygon = visualType === 'polygon'
   const polygonConfig = config.polygon
+  const polygonRotation = config.polygon.rotation
 
   const audioFile = useAudioStore((s) => s.audioFile)
   const logo = useCoverArtStore((s) => s.logo)
   const logoSize = useCoverArtStore((s) => s.logoSize)
   const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
+  const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
+  const setAutoLogoSync = useCoverArtStore((s) => s.setAutoLogoSync)
 
   return (
     <aside
@@ -374,21 +369,66 @@ export function ControlsSidebar() {
                 <div className="mt-2 px-1">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-[10px] text-white/50">Logo fill scale</span>
-                    <span className="text-[10px] tabular-nums text-white/40">
-                      {Math.round(logoSize * 100)}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] tabular-nums text-white/40">
+                        {Math.round(logoSize * 100)}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAutoLogoSync(!autoLogoSync)}
+                        aria-pressed={autoLogoSync}
+                        className="rounded px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider transition-all"
+                        style={{
+                          background: autoLogoSync
+                            ? 'linear-gradient(90deg, #3b82f6, #8b5cf6)'
+                            : '#1a1a1a',
+                          border: autoLogoSync
+                            ? '1px solid #3b82f6'
+                            : '1px solid #2a2a2a',
+                          color: autoLogoSync ? '#fff' : 'rgba(255,255,255,0.4)',
+                          boxShadow: autoLogoSync
+                            ? '0 0 8px rgba(59,130,246,0.5)'
+                            : 'none',
+                        }}
+                      >
+                        Auto
+                      </button>
+                    </div>
                   </div>
-                  <Slider
-                    value={logoSize * 100}
-                    min={10}
-                    max={100}
-                    step={1}
-                    onChange={(v) => setLogoSize(v / 100)}
-                    ariaLabel="Logo fill scale"
-                  />
-                  <div className="mt-1 flex justify-between text-[9px] text-white/30">
-                    <span>Fit</span>
-                    <span>Fill</span>
+
+                  <div style={{ opacity: autoLogoSync ? 0.4 : 1 }}>
+                    <Slider
+                      value={logoSize * 100}
+                      min={10}
+                      max={100}
+                      step={1}
+                      onChange={(v) => {
+                        setAutoLogoSync(false)
+                        setLogoSize(v / 100)
+                      }}
+                      ariaLabel="Logo scale"
+                    />
+                    <div className="mt-1 flex justify-between text-[9px] text-white/30">
+                      <span>Fit</span>
+                      <span>Fill</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-[10px] text-white/50">Rotation</span>
+                      <span className="text-[10px] tabular-nums text-white/40">
+                        {Math.round(polygonRotation)}°
+                      </span>
+                    </div>
+                    <Slider
+                      value={polygonRotation}
+                      min={0}
+                      max={360}
+                      step={1}
+                      onChange={(v) => updatePolygon({ rotation: v })}
+                      ariaLabel="Logo rotation"
+                    />
                   </div>
                 </div>
               )}
@@ -623,21 +663,6 @@ export function ControlsSidebar() {
                 ariaLabel="Glow intensity"
               />
             </div>
-            {supportsRotation && (
-              <div>
-                <label className="mb-1 block text-[11px] text-white/60">
-                  Rotation ({Math.round(rotation)}°)
-                </label>
-                <Slider
-                  value={rotation}
-                  min={0}
-                  max={360}
-                  step={1}
-                  onChange={setRotation}
-                  ariaLabel="Rotation"
-                />
-              </div>
-            )}
           </section>
         )}
 
