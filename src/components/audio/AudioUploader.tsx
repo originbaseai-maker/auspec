@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
-import { isValidAudioFile, detectFormat, MAX_FILE_SIZE } from '@/lib/audio';
+import { isValidAudioFile, detectFormat, MAX_FILE_SIZE } from '@/types/audio';
 
 type UploaderState =
   | { kind: 'idle' }
