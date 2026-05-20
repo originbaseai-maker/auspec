@@ -3,6 +3,7 @@ import type { LinearBarsConfig } from '@/lib/renderers/linearBars'
 import type { FramePulseConfig } from '@/lib/renderers/framePulse'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import type { WaveConfig } from '@/lib/renderers/wave'
+import type { PolygonSpectrumConfig } from '@/lib/renderers/polygonSpectrum'
 import {
   DEFAULT_VISUALIZER_CONFIG,
   type VisualizerConfig,
@@ -36,6 +37,7 @@ export interface VisualizerStore {
   updateCircularSpectrum: (config: Partial<CircularSpectrumConfig>) => void
   updateWave: (config: Partial<WaveConfig>) => void
   updateFramePulse: (config: Partial<FramePulseConfig>) => void
+  updatePolygon: (config: Partial<PolygonSpectrumConfig>) => void
   applyPreset: (preset: Preset) => void
 }
 
@@ -107,6 +109,15 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
       },
     })),
 
+  updatePolygon: (config) =>
+    set((state) => ({
+      activePresetId: null,
+      visualizerConfig: {
+        ...state.visualizerConfig,
+        polygon: { ...state.visualizerConfig.polygon, ...config },
+      },
+    })),
+
   applyPreset: (preset) =>
     set((state) => {
       const merged: VisualizerConfig = {
@@ -129,6 +140,10 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
           ...state.visualizerConfig.framePulse,
           ...(preset.config.framePulse ?? {}),
         },
+        polygon: {
+          ...state.visualizerConfig.polygon,
+          ...(preset.config.polygon ?? {}),
+        },
       }
 
       // Sync top-level colors with the new visualType's primary/secondary
@@ -143,6 +158,9 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
       } else if (preset.visualType === 'wave') {
         primaryColor = merged.wave.colorStart
         secondaryColor = merged.wave.colorEnd
+      } else if (preset.visualType === 'polygon') {
+        primaryColor = merged.polygon.colorStart
+        secondaryColor = merged.polygon.colorEnd
       }
 
       return {
@@ -158,7 +176,9 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
               ? merged.circularSpectrum.glowEnabled
               : preset.visualType === 'wave'
                 ? merged.wave.glowEnabled
-                : state.glowEnabled,
+                : preset.visualType === 'polygon'
+                  ? merged.polygon.glowEnabled
+                  : state.glowEnabled,
         activePresetId: preset.id,
       }
     }),
