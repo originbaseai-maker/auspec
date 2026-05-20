@@ -1,5 +1,16 @@
 import type { FrequencyData } from '@/types/analyzer'
-import type { LinearBarsConfig } from '@/types/renderers'
+
+export interface LinearBarsConfig {
+  barCount: number
+  barGap: number
+  minBarHeight: number
+  colorStart: string
+  colorEnd: string
+  glowEnabled: boolean
+  glowIntensity: number
+  mirrorMode: boolean
+  smoothing: number
+}
 
 export function renderLinearBars(
   ctx: CanvasRenderingContext2D,
