@@ -18,6 +18,8 @@ import {
 } from '@/lib/socialFormats';
 import { useAuthStore } from '@/store/useAuthStore';
 import { AuthModal, UserMenu } from '@/components/auth';
+import { ExportModal } from '@/components/studio/ExportModal';
+import { useExportStore } from '@/store/useExportStore';
 
 function AuSpecLogo() {
   return (
@@ -232,6 +234,8 @@ function SaveProjectControl() {
 function TopBar({ hasAudio }: { hasAudio: boolean }) {
   const user = useAuthStore((s) => s.user);
   const [showAuth, setShowAuth] = useState(false);
+  const openExport = useExportStore((s) => s.open);
+  const isExportOpen = useExportStore((s) => s.isOpen);
 
   return (
     <header
@@ -252,6 +256,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
           </a>
           <button
             type="button"
+            onClick={openExport}
             disabled={!hasAudio}
             aria-disabled={!hasAudio}
             title={hasAudio ? 'Export visualization' : 'Upload audio first'}
@@ -280,6 +285,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
         </nav>
       </div>
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {isExportOpen && <ExportModal />}
     </header>
   );
 }
