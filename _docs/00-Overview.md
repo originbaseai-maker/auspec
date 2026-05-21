@@ -28,8 +28,8 @@ AuSpec is a web-based audio spectrum visualizer. Users upload audio files and ge
 - [x] Phase 8 — Cover Art + Logo Upload
 - [x] Phase 9 — Social Format System
 - [x] Phase 10 — Supabase Integration
-- [ ] Phase 11 — Project Dashboard
-- [ ] Phase 12 — Export System
+- [x] Phase 11 — Project Dashboard
+- [x] Phase 12 — Export System
 - [ ] Phase 13 — Pro Features
 - [ ] Phase 14 — AI Visual Prompt Engine
 - [ ] Phase 15 — Railway Render Workers
