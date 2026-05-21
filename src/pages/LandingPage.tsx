@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AudioWaveform, Sliders, Download, Play } from 'lucide-react';
+import { useAuthStore } from '@/store/useAuthStore';
+import { AuthModal, UserMenu } from '@/components/auth';
 
 const LandingPage = () => {
   return (
@@ -33,21 +36,40 @@ const Logo = () => (
   </div>
 );
 
-const Nav = () => (
-  <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/70 backdrop-blur-xl">
-    <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-      <Link to="/" className="flex items-center" aria-label="AuSpec home">
-        <Logo />
-      </Link>
-      <Link
-        to="/studio"
-        className="rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-black transition-all hover:bg-white/90 active:scale-[0.98]"
-      >
-        Open Studio
-      </Link>
-    </div>
-  </nav>
-);
+function Nav() {
+  const user = useAuthStore((s) => s.user);
+  const [showAuth, setShowAuth] = useState(false);
+
+  return (
+    <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/70 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+        <Link to="/" className="flex items-center" aria-label="AuSpec home">
+          <Logo />
+        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/studio"
+            className="rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+          >
+            Open Studio
+          </Link>
+          {user ? (
+            <UserMenu />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAuth(true)}
+              className="rounded-full border border-white/20 px-4 py-1.5 text-[13px] text-white transition-colors hover:bg-white/10"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+      </div>
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+    </nav>
+  );
+}
 
 const Hero = () => (
   <section className="relative overflow-hidden">
