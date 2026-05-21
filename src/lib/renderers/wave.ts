@@ -9,6 +9,8 @@ export interface WaveConfig {
   filled: boolean
   smoothing: number
   mirrorMode: boolean
+  startFrequency: number
+  endFrequency: number
 }
 
 export const DEFAULT_WAVE_CONFIG: WaveConfig = {
@@ -20,6 +22,8 @@ export const DEFAULT_WAVE_CONFIG: WaveConfig = {
   filled: true,
   smoothing: 0.3,
   mirrorMode: false,
+  startFrequency: 20,
+  endFrequency: 20000,
 }
 
 export function renderWave(
