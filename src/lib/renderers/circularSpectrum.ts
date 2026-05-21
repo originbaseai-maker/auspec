@@ -1,4 +1,5 @@
 import type { FrequencyData } from '@/types/analyzer'
+import { getBarColor } from '@/lib/frequencyUtils'
 
 export interface CircularSpectrumConfig {
   radius: number
@@ -11,6 +12,7 @@ export interface CircularSpectrumConfig {
   rotation: number
   smoothing: number
   bassPulse: boolean
+  hueInterpolation: number
 }
 
 export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
@@ -24,6 +26,7 @@ export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
   rotation: 0,
   smoothing: 0.15,
   bassPulse: true,
+  hueInterpolation: 0,
 }
 
 export function renderCircularSpectrum(
@@ -46,6 +49,7 @@ export function renderCircularSpectrum(
     rotation,
     smoothing,
     bassPulse,
+    hueInterpolation,
   } = config
   const { raw, bass } = frequencyData
 
@@ -98,8 +102,10 @@ export function renderCircularSpectrum(
     ctx.shadowBlur = 0
   }
 
-  ctx.strokeStyle = gradient
-  ctx.fillStyle = gradient
+  if (hueInterpolation === 0) {
+    ctx.strokeStyle = gradient
+    ctx.fillStyle = gradient
+  }
   ctx.lineCap = 'round'
 
   // bar thickness as arc-chord length
@@ -120,6 +126,15 @@ export function renderCircularSpectrum(
     const y1 = cy + Math.sin(angle) * pulseAmount
     const x2 = cx + Math.cos(angle) * (pulseAmount + barLength)
     const y2 = cy + Math.sin(angle) * (pulseAmount + barLength)
+
+    if (hueInterpolation > 0) {
+      ctx.strokeStyle = getBarColor(
+        i / barCount,
+        colorStart,
+        colorEnd,
+        hueInterpolation,
+      )
+    }
 
     ctx.beginPath()
     ctx.moveTo(x1, y1)

@@ -29,6 +29,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         rotation: 0,
         smoothing: 0.15,
         bassPulse: true,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,
@@ -57,6 +58,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         filled: false,
         smoothing: 0.3,
         mirrorMode: false,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: false,
@@ -86,6 +88,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         glowIntensity: 14,
         mirrorMode: true,
         smoothing: 0.18,
+        displayMode: 'digital',
+        dotSize: 4,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,
@@ -116,6 +121,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         rotation: 0,
         smoothing: 0.1,
         bassPulse: true,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: false,
@@ -144,6 +150,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         filled: true,
         smoothing: 0.35,
         mirrorMode: false,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: false,
@@ -173,6 +180,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         glowIntensity: 10,
         mirrorMode: false,
         smoothing: 0.18,
+        displayMode: 'digital',
+        dotSize: 4,
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,
@@ -205,6 +215,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillShape: true,
         fillOpacity: 0.08,
         barDirection: 'outward',
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,
@@ -237,6 +248,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillShape: true,
         fillOpacity: 0.06,
         barDirection: 'outward',
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,
@@ -269,6 +281,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillShape: false,
         fillOpacity: 0.1,
         barDirection: 'both',
+        hueInterpolation: 0,
       },
       framePulse: {
         enabled: true,

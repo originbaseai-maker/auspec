@@ -28,6 +28,9 @@ export const DEFAULT_LINEAR_BARS: LinearBarsConfig = {
   glowIntensity: 8,
   mirrorMode: false,
   smoothing: 0.15,
+  displayMode: 'digital',
+  dotSize: 4,
+  hueInterpolation: 0,
 }
 
 export const DEFAULT_CIRCULAR_SPECTRUM: CircularSpectrumConfig = {
@@ -41,6 +44,7 @@ export const DEFAULT_CIRCULAR_SPECTRUM: CircularSpectrumConfig = {
   rotation: 0,
   smoothing: 0.15,
   bassPulse: true,
+  hueInterpolation: 0,
 }
 
 export const DEFAULT_WAVE: WaveConfig = {
@@ -52,6 +56,7 @@ export const DEFAULT_WAVE: WaveConfig = {
   filled: true,
   smoothing: 0.3,
   mirrorMode: false,
+  hueInterpolation: 0,
 }
 
 export const DEFAULT_FRAME_PULSE: FramePulseConfig = {

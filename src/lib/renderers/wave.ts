@@ -1,4 +1,5 @@
 import type { FrequencyData } from '@/types/analyzer'
+import { getBarColor } from '@/lib/frequencyUtils'
 
 export interface WaveConfig {
   colorStart: string
@@ -9,6 +10,7 @@ export interface WaveConfig {
   filled: boolean
   smoothing: number
   mirrorMode: boolean
+  hueInterpolation: number
 }
 
 export const DEFAULT_WAVE_CONFIG: WaveConfig = {
@@ -20,6 +22,7 @@ export const DEFAULT_WAVE_CONFIG: WaveConfig = {
   filled: true,
   smoothing: 0.3,
   mirrorMode: false,
+  hueInterpolation: 0,
 }
 
 export function renderWave(
@@ -38,6 +41,7 @@ export function renderWave(
     glowIntensity,
     filled,
     mirrorMode,
+    hueInterpolation,
   } = config
 
   if (!timeDomain || timeDomain.length === 0) return
@@ -58,25 +62,50 @@ export function renderWave(
     ctx.shadowBlur = 0
   }
 
-  ctx.strokeStyle = gradient
   ctx.lineWidth = lineThickness
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
+  const sampleY = (i: number, flip: boolean) => {
+    const v = timeDomain[i] / 128.0 - 1.0
+    return flip ? centerY - v * centerY * 0.8 : centerY + v * centerY * 0.8
+  }
+
   const drawWavePath = (flip: boolean) => {
-    ctx.beginPath()
-    for (let i = 0; i < timeDomain.length; i++) {
-      const v = timeDomain[i] / 128.0 - 1.0
-      const y = flip
-        ? centerY - v * centerY * 0.8
-        : centerY + v * centerY * 0.8
-      const x = i * sliceWidth
-      if (i === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
+    if (hueInterpolation > 0) {
+      // Per-segment stroke so each chunk picks up its own hue.
+      for (let i = 0; i < timeDomain.length - 1; i++) {
+        ctx.strokeStyle = getBarColor(
+          i / timeDomain.length,
+          colorStart,
+          colorEnd,
+          hueInterpolation,
+        )
+        ctx.beginPath()
+        ctx.moveTo(i * sliceWidth, sampleY(i, flip))
+        ctx.lineTo((i + 1) * sliceWidth, sampleY(i + 1, flip))
+        ctx.stroke()
+      }
+    } else {
+      ctx.strokeStyle = gradient
+      ctx.beginPath()
+      for (let i = 0; i < timeDomain.length; i++) {
+        const x = i * sliceWidth
+        const y = sampleY(i, flip)
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
     }
-    ctx.stroke()
 
     if (filled) {
+      ctx.beginPath()
+      for (let i = 0; i < timeDomain.length; i++) {
+        const x = i * sliceWidth
+        const y = sampleY(i, flip)
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
       ctx.lineTo(width, centerY)
       ctx.lineTo(0, centerY)
       ctx.closePath()
