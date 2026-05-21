@@ -32,6 +32,20 @@ const POLYGON_SHAPES: { id: PolygonShape; label: string }[] = [
 
 const POLYGON_BAR_DIRECTIONS = ['outward', 'inward', 'both'] as const
 
+const DISPLAY_MODES = [
+  { id: 'digital', label: 'Digital', icon: '▐▌' },
+  { id: 'analog_lines', label: 'Lines', icon: '〜' },
+  { id: 'analog_dots', label: 'Dots', icon: '···' },
+] as const
+type DisplayMode = (typeof DISPLAY_MODES)[number]['id']
+
+const SIDE_MODES = [
+  { id: 'both', label: 'Both' },
+  { id: 'side_a', label: 'Side A' },
+  { id: 'side_b', label: 'Side B' },
+] as const
+type SideMode = (typeof SIDE_MODES)[number]['id']
+
 const COLOR_SWATCHES = [
   '#3b82f6',
   '#8b5cf6',
@@ -277,6 +291,83 @@ export function ControlsSidebar() {
   const isPolygon = visualType === 'polygon'
   const polygonConfig = config.polygon
   const polygonRotation = config.polygon.rotation
+
+  // Display Mode (bars + wave)
+  const currentDisplayMode: DisplayMode =
+    (visualType === 'bars'
+      ? (config.linearBars as { displayMode?: DisplayMode }).displayMode
+      : visualType === 'wave'
+        ? (config.wave as { displayMode?: DisplayMode }).displayMode
+        : undefined) ?? 'digital'
+  const setDisplayMode = (mode: DisplayMode) => {
+    if (visualType === 'bars') updateLinearBars({ displayMode: mode } as Parameters<typeof updateLinearBars>[0])
+    else if (visualType === 'wave') updateWave({ displayMode: mode } as Parameters<typeof updateWave>[0])
+  }
+
+  // Hue Interpolation (all visual types)
+  const hueInterpolation =
+    (visualType === 'bars'
+      ? (config.linearBars as { hueInterpolation?: number }).hueInterpolation
+      : visualType === 'circular'
+        ? (config.circularSpectrum as { hueInterpolation?: number }).hueInterpolation
+        : visualType === 'wave'
+          ? (config.wave as { hueInterpolation?: number }).hueInterpolation
+          : visualType === 'polygon'
+            ? (config.polygon as { hueInterpolation?: number }).hueInterpolation
+            : undefined) ?? 0
+  const setHueInterpolation = (v: number) => {
+    if (visualType === 'bars') updateLinearBars({ hueInterpolation: v } as Parameters<typeof updateLinearBars>[0])
+    else if (visualType === 'circular') updateCircularSpectrum({ hueInterpolation: v } as Parameters<typeof updateCircularSpectrum>[0])
+    else if (visualType === 'wave') updateWave({ hueInterpolation: v } as Parameters<typeof updateWave>[0])
+    else if (visualType === 'polygon') updatePolygon({ hueInterpolation: v } as Parameters<typeof updatePolygon>[0])
+  }
+
+  // Frequency Range (all visual types)
+  const startFrequency =
+    (visualType === 'bars'
+      ? (config.linearBars as { startFrequency?: number }).startFrequency
+      : visualType === 'circular'
+        ? (config.circularSpectrum as { startFrequency?: number }).startFrequency
+        : visualType === 'wave'
+          ? (config.wave as { startFrequency?: number }).startFrequency
+          : visualType === 'polygon'
+            ? (config.polygon as { startFrequency?: number }).startFrequency
+            : undefined) ?? 20
+  const endFrequency =
+    (visualType === 'bars'
+      ? (config.linearBars as { endFrequency?: number }).endFrequency
+      : visualType === 'circular'
+        ? (config.circularSpectrum as { endFrequency?: number }).endFrequency
+        : visualType === 'wave'
+          ? (config.wave as { endFrequency?: number }).endFrequency
+          : visualType === 'polygon'
+            ? (config.polygon as { endFrequency?: number }).endFrequency
+            : undefined) ?? 20000
+  const setStartFrequency = (v: number) => {
+    if (visualType === 'bars') updateLinearBars({ startFrequency: v } as Parameters<typeof updateLinearBars>[0])
+    else if (visualType === 'circular') updateCircularSpectrum({ startFrequency: v } as Parameters<typeof updateCircularSpectrum>[0])
+    else if (visualType === 'wave') updateWave({ startFrequency: v } as Parameters<typeof updateWave>[0])
+    else if (visualType === 'polygon') updatePolygon({ startFrequency: v } as Parameters<typeof updatePolygon>[0])
+  }
+  const setEndFrequency = (v: number) => {
+    if (visualType === 'bars') updateLinearBars({ endFrequency: v } as Parameters<typeof updateLinearBars>[0])
+    else if (visualType === 'circular') updateCircularSpectrum({ endFrequency: v } as Parameters<typeof updateCircularSpectrum>[0])
+    else if (visualType === 'wave') updateWave({ endFrequency: v } as Parameters<typeof updateWave>[0])
+    else if (visualType === 'polygon') updatePolygon({ endFrequency: v } as Parameters<typeof updatePolygon>[0])
+  }
+
+  // Side Mode (bars + circular)
+  const supportsSideMode = visualType === 'bars' || visualType === 'circular'
+  const currentSideMode: SideMode =
+    (visualType === 'bars'
+      ? (config.linearBars as { sideMode?: SideMode }).sideMode
+      : visualType === 'circular'
+        ? (config.circularSpectrum as { sideMode?: SideMode }).sideMode
+        : undefined) ?? 'both'
+  const setSideMode = (mode: SideMode) => {
+    if (visualType === 'bars') updateLinearBars({ sideMode: mode } as Parameters<typeof updateLinearBars>[0])
+    else if (visualType === 'circular') updateCircularSpectrum({ sideMode: mode } as Parameters<typeof updateCircularSpectrum>[0])
+  }
 
   const audioFile = useAudioStore((s) => s.audioFile)
   const logo = useCoverArtStore((s) => s.logo)
@@ -663,6 +754,25 @@ export function ControlsSidebar() {
                 ariaLabel="Glow intensity"
               />
             </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[10px] text-white/50">Hue Shift</label>
+                <span className="text-[10px] tabular-nums text-white/40">
+                  {hueInterpolation === 0 ? 'Off' : `${hueInterpolation}°`}
+                </span>
+              </div>
+              <Slider
+                value={hueInterpolation}
+                min={0}
+                max={360}
+                step={5}
+                onChange={setHueInterpolation}
+                ariaLabel="Hue interpolation"
+              />
+              <p className="mt-1 text-[9px] text-white/30">
+                0 = gradient · 180 = rainbow · 360 = full cycle
+              </p>
+            </div>
           </section>
         )}
 
@@ -682,6 +792,75 @@ export function ControlsSidebar() {
               <span>32</span>
               <span>{barCount}</span>
               <span>256</span>
+            </div>
+          </section>
+        )}
+
+        {/* 5.1 Display Mode (bars + wave) */}
+        {(visualType === 'bars' || visualType === 'wave') && (
+          <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
+            <SectionHeader title="Display Mode" />
+            <div className="grid grid-cols-3 gap-1">
+              {DISPLAY_MODES.map(({ id, label, icon }) => {
+                const active = currentDisplayMode === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setDisplayMode(id)}
+                    aria-pressed={active}
+                    className="flex flex-col items-center rounded border py-2 transition-all"
+                    style={{
+                      borderColor: active ? '#3b82f6' : '#2a2a2a',
+                      background: active ? 'rgba(59,130,246,0.15)' : '#1a1a1a',
+                    }}
+                  >
+                    <span className="text-base leading-none text-white">{icon}</span>
+                    <span className="mt-1 text-[9px] text-white/60">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* 5.2 Frequency Range (all non-particles) */}
+        {!isParticles && (
+          <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
+            <SectionHeader title="Frequency Range" />
+            <div className="space-y-2">
+              <div>
+                <div className="mb-1 flex justify-between">
+                  <label className="text-[10px] text-white/50">Start</label>
+                  <span className="text-[10px] tabular-nums text-white/40">
+                    {startFrequency} Hz
+                  </span>
+                </div>
+                <Slider
+                  value={startFrequency}
+                  min={20}
+                  max={2000}
+                  step={10}
+                  onChange={setStartFrequency}
+                  ariaLabel="Start frequency"
+                />
+              </div>
+              <div>
+                <div className="mb-1 flex justify-between">
+                  <label className="text-[10px] text-white/50">End</label>
+                  <span className="text-[10px] tabular-nums text-white/40">
+                    {endFrequency} Hz
+                  </span>
+                </div>
+                <Slider
+                  value={endFrequency}
+                  min={2000}
+                  max={20000}
+                  step={100}
+                  onChange={setEndFrequency}
+                  ariaLabel="End frequency"
+                />
+              </div>
             </div>
           </section>
         )}
@@ -706,18 +885,48 @@ export function ControlsSidebar() {
           </section>
         )}
 
-        {/* 7. Mirror Mode */}
-        {supportsMirror && (
+        {/* 7. Mirror Mode + Side Direction */}
+        {(supportsMirror || supportsSideMode) && (
           <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
             <SectionHeader title="Mirror Mode" />
-            <div className="flex items-center justify-between">
-              <label className="text-sm text-white/90">Symmetric</label>
-              <Toggle
-                checked={mirrorMode}
-                onChange={setMirrorMode}
-                ariaLabel="Mirror mode"
-              />
-            </div>
+            {supportsMirror && (
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-white/90">Symmetric</label>
+                <Toggle
+                  checked={mirrorMode}
+                  onChange={setMirrorMode}
+                  ariaLabel="Mirror mode"
+                />
+              </div>
+            )}
+            {supportsSideMode && (
+              <div className={supportsMirror ? 'mt-2' : ''}>
+                <label className="mb-1 block text-[10px] text-white/50">
+                  Direction
+                </label>
+                <div className="grid grid-cols-3 gap-1">
+                  {SIDE_MODES.map(({ id, label }) => {
+                    const active = currentSideMode === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setSideMode(id)}
+                        aria-pressed={active}
+                        className="rounded border py-1 text-[10px] transition-colors"
+                        style={{
+                          borderColor: active ? '#3b82f6' : '#2a2a2a',
+                          background: active ? 'rgba(59,130,246,0.15)' : '#1a1a1a',
+                          color: active ? '#fff' : 'rgba(255,255,255,0.6)',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
