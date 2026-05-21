@@ -1,5 +1,7 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor } from '@/lib/frequencyUtils'
+import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
+
+const FALLBACK_SAMPLE_RATE = 44100
 
 export type PolygonShape =
   | 'triangle'
@@ -23,6 +25,8 @@ export interface PolygonSpectrumConfig {
   fillOpacity: number
   barDirection: 'outward' | 'inward' | 'both'
   hueInterpolation: number
+  startFrequency: number
+  endFrequency: number
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -39,6 +43,8 @@ export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
   fillOpacity: 0.1,
   barDirection: 'outward',
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
 }
 
 /**
@@ -221,10 +227,21 @@ export function renderPolygonSpectrum(
     fillOpacity,
     barDirection,
     hueInterpolation,
+    startFrequency,
+    endFrequency,
   } = config
   const { raw } = frequencyData
 
   if (!raw || raw.length === 0) return
+
+  const { startBin, endBin } = getFrequencyBinRange(
+    raw.length * 2,
+    FALLBACK_SAMPLE_RATE,
+    startFrequency,
+    endFrequency,
+  )
+  const slicedRaw = raw.subarray(startBin, endBin + 1)
+  const sourceLen = slicedRaw.length || 1
 
   const cx = width / 2
   const cy = height / 2
@@ -244,7 +261,7 @@ export function renderPolygonSpectrum(
   const g1 = parseInt(colorStart.slice(3, 5), 16)
   const b1 = parseInt(colorStart.slice(5, 7), 16)
 
-  const step = Math.max(1, Math.floor(raw.length / barCount))
+  const step = Math.max(1, Math.floor(sourceLen / barCount))
 
   ctx.save()
 
@@ -286,7 +303,7 @@ export function renderPolygonSpectrum(
   ctx.lineWidth = 2
 
   for (let i = 0; i < barCount; i++) {
-    const rawValue = raw[i * step] ?? 0
+    const rawValue = slicedRaw[i * step] ?? 0
     const targetH = (rawValue / 255) * maxBarHeight
     previousHeights[i] =
       previousHeights[i] + (targetH - previousHeights[i]) * smoothing

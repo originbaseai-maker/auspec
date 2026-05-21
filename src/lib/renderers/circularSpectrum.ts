@@ -1,5 +1,7 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor } from '@/lib/frequencyUtils'
+import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
+
+export type CircularSideMode = 'both' | 'side_a' | 'side_b'
 
 export interface CircularSpectrumConfig {
   radius: number
@@ -13,7 +15,12 @@ export interface CircularSpectrumConfig {
   smoothing: number
   bassPulse: boolean
   hueInterpolation: number
+  startFrequency: number
+  endFrequency: number
+  sideMode: CircularSideMode
 }
+
+const FALLBACK_SAMPLE_RATE = 44100
 
 export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
   radius: 180,
@@ -27,6 +34,9 @@ export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
   smoothing: 0.15,
   bassPulse: true,
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
+  sideMode: 'both',
 }
 
 export function renderCircularSpectrum(
@@ -50,10 +60,25 @@ export function renderCircularSpectrum(
     smoothing,
     bassPulse,
     hueInterpolation,
+    startFrequency,
+    endFrequency,
+    sideMode,
   } = config
   const { raw, bass } = frequencyData
 
   if (!raw || raw.length === 0) return
+
+  const { startBin, endBin } = getFrequencyBinRange(
+    raw.length * 2,
+    FALLBACK_SAMPLE_RATE,
+    startFrequency,
+    endFrequency,
+  )
+  const slicedRaw = raw.subarray(startBin, endBin + 1)
+  const sourceLen = slicedRaw.length || 1
+
+  const drawOutward = sideMode !== 'side_b'
+  const drawInward = sideMode !== 'side_a'
 
   const cx = width / 2
   const cy = height / 2
@@ -84,7 +109,9 @@ export function renderCircularSpectrum(
 
   // Available radial space for bars
   const barMaxLength = Math.max(8, effectiveOuterRadius - effectiveInnerRadius)
-  const step = Math.floor(raw.length / barCount) || 1
+  const step = Math.max(1, Math.floor(sourceLen / barCount))
+  // Inward bars can extend at most to the center; cap so they don't cross it.
+  const inwardMaxLength = Math.max(0, pulseAmount - 4)
 
   const rotationRad = (rotation * Math.PI) / 180
   const angleStep = (Math.PI * 2) / barCount
@@ -113,7 +140,7 @@ export function renderCircularSpectrum(
   ctx.lineWidth = barThickness
 
   for (let i = 0; i < barCount; i++) {
-    const rawValue = raw[i * step] ?? 0
+    const rawValue = slicedRaw[i * step] ?? 0
     const targetLength = (rawValue / 255) * barMaxLength
 
     previousHeights[i] =
@@ -121,11 +148,11 @@ export function renderCircularSpectrum(
 
     const barLength = previousHeights[i]
     const angle = i * angleStep + rotationRad
+    const cosA = Math.cos(angle)
+    const sinA = Math.sin(angle)
 
-    const x1 = cx + Math.cos(angle) * pulseAmount
-    const y1 = cy + Math.sin(angle) * pulseAmount
-    const x2 = cx + Math.cos(angle) * (pulseAmount + barLength)
-    const y2 = cy + Math.sin(angle) * (pulseAmount + barLength)
+    const x1 = cx + cosA * pulseAmount
+    const y1 = cy + sinA * pulseAmount
 
     if (hueInterpolation > 0) {
       ctx.strokeStyle = getBarColor(
@@ -136,10 +163,24 @@ export function renderCircularSpectrum(
       )
     }
 
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
+    if (drawOutward) {
+      const x2 = cx + cosA * (pulseAmount + barLength)
+      const y2 = cy + sinA * (pulseAmount + barLength)
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+    }
+
+    if (drawInward && inwardMaxLength > 0) {
+      const inwardLen = Math.min(barLength, inwardMaxLength)
+      const x3 = cx + cosA * (pulseAmount - inwardLen)
+      const y3 = cy + sinA * (pulseAmount - inwardLen)
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x3, y3)
+      ctx.stroke()
+    }
   }
 
   // inner circle outline — skipped in Smart Logo Mode so we don't draw on the logo

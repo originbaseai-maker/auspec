@@ -1,7 +1,8 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor } from '@/lib/frequencyUtils'
+import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
 
 export type DisplayMode = 'digital' | 'analog_lines' | 'analog_dots'
+export type BarsSideMode = 'both' | 'side_a' | 'side_b'
 
 export interface LinearBarsConfig {
   barCount: number
@@ -16,7 +17,12 @@ export interface LinearBarsConfig {
   displayMode: DisplayMode
   dotSize: number
   hueInterpolation: number
+  startFrequency: number
+  endFrequency: number
+  sideMode: BarsSideMode
 }
+
+const FALLBACK_SAMPLE_RATE = 44100
 
 export function renderLinearBars(
   ctx: CanvasRenderingContext2D,
@@ -39,12 +45,25 @@ export function renderLinearBars(
     displayMode,
     dotSize,
     hueInterpolation,
+    startFrequency,
+    endFrequency,
+    sideMode,
   } = config
   const { raw } = frequencyData
 
+  // Frequency range slicing — only sample bins inside [startFrequency, endFrequency].
+  const { startBin, endBin } = getFrequencyBinRange(
+    raw.length * 2,
+    FALLBACK_SAMPLE_RATE,
+    startFrequency,
+    endFrequency,
+  )
+  const slicedRaw = raw.subarray(startBin, endBin + 1)
+  const sourceLen = slicedRaw.length || 1
+
   const totalGap = barGap * (barCount - 1)
   const barWidth = Math.max(1, (width - totalGap) / barCount)
-  const step = Math.floor(raw.length / barCount) || 1
+  const step = Math.max(1, Math.floor(sourceLen / barCount))
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
@@ -53,10 +72,15 @@ export function renderLinearBars(
     ctx.shadowBlur = 0
   }
 
-  // First pass: advance the smoothed heights so every display mode shares the
-  // same per-frame smoothing.
+  // sideMode only has visual effect when mirrorMode is on (selects which half).
+  const drawTop = sideMode !== 'side_b'
+  const drawBottom = sideMode !== 'side_a'
+  const centerY = height / 2
+
+  // Smoothing pass — runs every frame regardless of display mode so the
+  // perceived response is consistent when switching modes.
   for (let i = 0; i < barCount; i++) {
-    const rawValue = raw[i * step] ?? 0
+    const rawValue = slicedRaw[i * step] ?? 0
     const targetHeight = Math.max(
       minBarHeight,
       (rawValue / 255) * height * (mirrorMode ? 0.5 : 1),
@@ -66,64 +90,33 @@ export function renderLinearBars(
   }
 
   if (displayMode === 'analog_lines') {
-    // Smooth polyline through bar peaks instead of solid rectangles.
-    // Bezier-smoothed using midpoint control points for a curve that
-    // hugs every peak.
+    // Smooth quadratic-bezier polyline through every bar peak.
+    const peakY = (i: number, flip: boolean): number => {
+      const h = previousHeights[i]
+      if (mirrorMode) return flip ? centerY + h : centerY - h
+      return flip ? h : height - h
+    }
+
     const drawPeakCurve = (flip: boolean) => {
       ctx.beginPath()
-      const peakY = (i: number) => {
-        const h = previousHeights[i]
-        if (mirrorMode) {
-          const centerY = height / 2
-          return flip ? centerY + h : centerY - h
-        }
-        return flip ? h : height - h
-      }
-
-      // Start at first peak
-      const x0 = barWidth / 2
-      ctx.moveTo(x0, peakY(0))
-
+      ctx.moveTo(barWidth / 2, peakY(0, flip))
       for (let i = 0; i < barCount - 1; i++) {
         const xCur = i * (barWidth + barGap) + barWidth / 2
         const xNext = (i + 1) * (barWidth + barGap) + barWidth / 2
-        const yCur = peakY(i)
-        const yNext = peakY(i + 1)
-        // Midpoint as the end of a quadratic curve from current → next
         const xMid = (xCur + xNext) / 2
-        const yMid = (yCur + yNext) / 2
-        ctx.quadraticCurveTo(xCur, yCur, xMid, yMid)
+        const yMid = (peakY(i, flip) + peakY(i + 1, flip)) / 2
+        ctx.quadraticCurveTo(xCur, peakY(i, flip), xMid, yMid)
       }
-      // Final segment to last point
       const xLast = (barCount - 1) * (barWidth + barGap) + barWidth / 2
-      ctx.lineTo(xLast, peakY(barCount - 1))
+      ctx.lineTo(xLast, peakY(barCount - 1, flip))
     }
 
-    // hue interpolation across the line: stroke with a precomputed gradient
-    // if hue mode is off, otherwise stroke segment-by-segment.
     if (hueInterpolation > 0) {
-      // Segment-by-segment with per-segment hue color.
+      // Per-segment color so the rainbow runs along the curve.
       const drawSegments = (flip: boolean) => {
         for (let i = 0; i < barCount - 1; i++) {
           const xCur = i * (barWidth + barGap) + barWidth / 2
           const xNext = (i + 1) * (barWidth + barGap) + barWidth / 2
-          const hCur = previousHeights[i]
-          const hNext = previousHeights[i + 1]
-          const centerY = height / 2
-          const yCur = mirrorMode
-            ? flip
-              ? centerY + hCur
-              : centerY - hCur
-            : flip
-              ? hCur
-              : height - hCur
-          const yNext = mirrorMode
-            ? flip
-              ? centerY + hNext
-              : centerY - hNext
-            : flip
-              ? hNext
-              : height - hNext
           ctx.strokeStyle = getBarColor(
             i / barCount,
             colorStart,
@@ -133,13 +126,17 @@ export function renderLinearBars(
           ctx.lineWidth = 2
           ctx.lineCap = 'round'
           ctx.beginPath()
-          ctx.moveTo(xCur, yCur)
-          ctx.lineTo(xNext, yNext)
+          ctx.moveTo(xCur, peakY(i, flip))
+          ctx.lineTo(xNext, peakY(i + 1, flip))
           ctx.stroke()
         }
       }
-      drawSegments(false)
-      if (mirrorMode) drawSegments(true)
+      if (!mirrorMode) {
+        drawSegments(false)
+      } else {
+        if (drawTop) drawSegments(false)
+        if (drawBottom) drawSegments(true)
+      }
     } else {
       const gradient = ctx.createLinearGradient(0, height, 0, 0)
       gradient.addColorStop(0, colorStart)
@@ -148,11 +145,18 @@ export function renderLinearBars(
       ctx.lineWidth = 2
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      drawPeakCurve(false)
-      ctx.stroke()
-      if (mirrorMode) {
-        drawPeakCurve(true)
+      if (!mirrorMode) {
+        drawPeakCurve(false)
         ctx.stroke()
+      } else {
+        if (drawTop) {
+          drawPeakCurve(false)
+          ctx.stroke()
+        }
+        if (drawBottom) {
+          drawPeakCurve(true)
+          ctx.stroke()
+        }
       }
     }
 
@@ -161,7 +165,6 @@ export function renderLinearBars(
   }
 
   if (displayMode === 'analog_dots') {
-    // Series of dots along each bar's height instead of a filled rectangle.
     const dotSpacing = dotSize * 2.5
     const radius = dotSize / 2
 
@@ -177,16 +180,23 @@ export function renderLinearBars(
         hueInterpolation,
       )
 
-      const baseY = mirrorMode ? height / 2 : height
+      const baseY = mirrorMode ? centerY : height
       for (let d = 0; d < numDots; d++) {
         const offset = d * dotSpacing + radius
-        const dotY = baseY - offset
-        ctx.beginPath()
-        ctx.arc(x, dotY, radius, 0, Math.PI * 2)
-        ctx.fill()
         if (mirrorMode) {
+          if (drawTop) {
+            ctx.beginPath()
+            ctx.arc(x, baseY - offset, radius, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          if (drawBottom) {
+            ctx.beginPath()
+            ctx.arc(x, baseY + offset, radius, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        } else {
           ctx.beginPath()
-          ctx.arc(x, baseY + offset, radius, 0, Math.PI * 2)
+          ctx.arc(x, baseY - offset, radius, 0, Math.PI * 2)
           ctx.fill()
         }
       }
@@ -196,39 +206,31 @@ export function renderLinearBars(
     return
   }
 
-  // 'digital' — solid rectangles (existing behavior, now hue-aware)
-  if (hueInterpolation > 0) {
-    for (let i = 0; i < barCount; i++) {
-      const barHeight = previousHeights[i]
-      const x = i * (barWidth + barGap)
+  // 'digital' — solid rectangles (default behavior)
+  const useHue = hueInterpolation > 0
+  if (!useHue) {
+    const gradient = ctx.createLinearGradient(0, height, 0, 0)
+    gradient.addColorStop(0, colorStart)
+    gradient.addColorStop(1, colorEnd)
+    ctx.fillStyle = gradient
+  }
+
+  for (let i = 0; i < barCount; i++) {
+    const barHeight = previousHeights[i]
+    const x = i * (barWidth + barGap)
+    if (useHue) {
       ctx.fillStyle = getBarColor(
         i / barCount,
         colorStart,
         colorEnd,
         hueInterpolation,
       )
-      if (mirrorMode) {
-        const centerY = height / 2
-        ctx.fillRect(x, centerY - barHeight, barWidth, barHeight * 2)
-      } else {
-        ctx.fillRect(x, height - barHeight, barWidth, barHeight)
-      }
     }
-  } else {
-    const gradient = ctx.createLinearGradient(0, height, 0, 0)
-    gradient.addColorStop(0, colorStart)
-    gradient.addColorStop(1, colorEnd)
-    ctx.fillStyle = gradient
-
-    for (let i = 0; i < barCount; i++) {
-      const barHeight = previousHeights[i]
-      const x = i * (barWidth + barGap)
-      if (mirrorMode) {
-        const centerY = height / 2
-        ctx.fillRect(x, centerY - barHeight, barWidth, barHeight * 2)
-      } else {
-        ctx.fillRect(x, height - barHeight, barWidth, barHeight)
-      }
+    if (mirrorMode) {
+      if (drawTop) ctx.fillRect(x, centerY - barHeight, barWidth, barHeight)
+      if (drawBottom) ctx.fillRect(x, centerY, barWidth, barHeight)
+    } else {
+      ctx.fillRect(x, height - barHeight, barWidth, barHeight)
     }
   }
 

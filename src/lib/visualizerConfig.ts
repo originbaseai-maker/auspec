@@ -31,6 +31,9 @@ export const DEFAULT_LINEAR_BARS: LinearBarsConfig = {
   displayMode: 'digital',
   dotSize: 4,
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
+  sideMode: 'both',
 }
 
 export const DEFAULT_CIRCULAR_SPECTRUM: CircularSpectrumConfig = {
@@ -45,6 +48,9 @@ export const DEFAULT_CIRCULAR_SPECTRUM: CircularSpectrumConfig = {
   smoothing: 0.15,
   bassPulse: true,
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
+  sideMode: 'both',
 }
 
 export const DEFAULT_WAVE: WaveConfig = {
@@ -57,6 +63,8 @@ export const DEFAULT_WAVE: WaveConfig = {
   smoothing: 0.3,
   mirrorMode: false,
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
 }
 
 export const DEFAULT_FRAME_PULSE: FramePulseConfig = {

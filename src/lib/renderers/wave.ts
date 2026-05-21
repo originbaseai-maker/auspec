@@ -11,6 +11,8 @@ export interface WaveConfig {
   smoothing: number
   mirrorMode: boolean
   hueInterpolation: number
+  startFrequency: number
+  endFrequency: number
 }
 
 export const DEFAULT_WAVE_CONFIG: WaveConfig = {
@@ -23,6 +25,8 @@ export const DEFAULT_WAVE_CONFIG: WaveConfig = {
   smoothing: 0.3,
   mirrorMode: false,
   hueInterpolation: 0,
+  startFrequency: 20,
+  endFrequency: 20000,
 }
 
 export function renderWave(
