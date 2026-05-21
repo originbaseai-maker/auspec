@@ -8,11 +8,13 @@ import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader, AudioPlayer } from '@/components/audio';
 import { GlobalDropZone } from '@/components/studio/GlobalDropZone';
 import { useAudioStore } from '@/store/useAudioStore';
-import { useFormatStore } from '@/store/useFormatStore';
-import { SOCIAL_FORMATS, getFormat } from '@/lib/socialFormats';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
-import { getFormat, type SocialFormat } from '@/lib/socialFormats';
+import {
+  SOCIAL_FORMATS,
+  getFormat,
+  type FormatConfig,
+} from '@/lib/socialFormats';
 
 function AuSpecLogo() {
   return (
@@ -171,7 +173,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
   );
 }
 
-function FormatFlashOverlay({ format }: { format: SocialFormat }) {
+function FormatFlashOverlay({ format }: { format: FormatConfig }) {
   return (
     <div
       className="pointer-events-none absolute inset-0 flex items-center justify-center z-10"
