@@ -4,6 +4,7 @@ let ctx: AudioContext | null = null
 let source: MediaElementAudioSourceNode | null = null
 let analyser: AnalyserNode | null = null
 let connectedElement: HTMLAudioElement | null = null
+let recordingDest: MediaStreamAudioDestinationNode | null = null
 
 export function getAudioContext(): AudioContext {
   if (!ctx || ctx.state === 'closed') {
@@ -62,8 +63,14 @@ export function disconnectAll(): void {
   } catch {
     // already disconnected
   }
+  try {
+    recordingDest?.disconnect()
+  } catch {
+    // already disconnected
+  }
   source = null
   analyser = null
+  recordingDest = null
   connectedElement = null
   // Intentionally do NOT close the AudioContext — recreating it is expensive
   // and browsers limit how many can exist simultaneously.
@@ -71,4 +78,28 @@ export function disconnectAll(): void {
 
 export function getAnalyser(): AnalyserNode | null {
   return analyser
+}
+
+/**
+ * Returns a MediaStreamAudioDestinationNode tapped off the analyzer's source.
+ * Used by the recorder (Phase 11) to capture audio alongside the canvas stream.
+ *
+ * MediaElementAudioSourceNode is one-shot per HTMLAudioElement — calling
+ * createMediaElementSource again throws InvalidStateError. So we reuse the
+ * existing source (created by connectMediaElement for the analyzer) and add
+ * the recording destination as another output. If the analyzer hasn't wired
+ * up yet (audio loaded but never played), this hooks it up first.
+ */
+export function getOrCreateRecordingDestination(
+  element: HTMLAudioElement,
+): MediaStreamAudioDestinationNode | null {
+  if (!source || connectedElement !== element) {
+    connectMediaElement(element)
+  }
+  if (!source || !ctx) return null
+  if (!recordingDest) {
+    recordingDest = ctx.createMediaStreamDestination()
+    source.connect(recordingDest)
+  }
+  return recordingDest
 }

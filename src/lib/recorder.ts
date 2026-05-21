@@ -1,3 +1,5 @@
+import { getOrCreateRecordingDestination } from '@/lib/audioContext'
+
 export interface RecordingOptions {
   duration: number
   frameRate: number
@@ -43,6 +45,7 @@ export function startRecording(
   canvas: HTMLCanvasElement,
   options: RecordingOptions,
   onStateChange: (state: RecordingState) => void,
+  audioElement?: HTMLAudioElement | null,
 ): () => void {
   const chunks: Blob[] = []
   let stopped = false
@@ -60,7 +63,25 @@ export function startRecording(
     }
   }
 
-  const stream = canvas.captureStream(options.frameRate)
+  // Combine canvas video with the analyzer's audio source (Web Audio's
+  // MediaStreamAudioDestinationNode tap — see audioContext.ts).
+  const videoStream = canvas.captureStream(options.frameRate)
+  const combinedStream = new MediaStream()
+  for (const track of videoStream.getVideoTracks()) combinedStream.addTrack(track)
+
+  if (audioElement) {
+    try {
+      const dest = getOrCreateRecordingDestination(audioElement)
+      if (dest) {
+        for (const track of dest.stream.getAudioTracks()) {
+          combinedStream.addTrack(track)
+        }
+      }
+    } catch (err) {
+      // Non-fatal — record silent video and warn.
+      console.warn('[recorder] audio capture failed:', err)
+    }
+  }
 
   const mimeType = MediaRecorder.isTypeSupported(options.mimeType)
     ? options.mimeType
@@ -68,7 +89,7 @@ export function startRecording(
 
   let recorder: MediaRecorder
   try {
-    recorder = new MediaRecorder(stream, {
+    recorder = new MediaRecorder(combinedStream, {
       mimeType,
       videoBitsPerSecond: options.videoBitsPerSecond,
     })

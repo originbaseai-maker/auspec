@@ -11,6 +11,7 @@ import { useExportStore } from '@/store/useExportStore'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { startRecording, getSupportedMimeType } from '@/lib/recorder'
 import { useFormatStore } from '@/store/useFormatStore'
+import { useAudioStore } from '@/store/useAudioStore'
 import { getFormat } from '@/lib/socialFormats'
 
 const DURATION_OPTIONS = [
@@ -86,6 +87,7 @@ export function ExportModal() {
 
   const stopRef = useRef<(() => void) | null>(null)
   const activeFormat = useFormatStore((s) => s.activeFormat)
+  const audioElement = useAudioStore((s) => s.audioElement)
   const format = getFormat(activeFormat)
 
   useEffect(() => {
@@ -114,6 +116,7 @@ export function ExportModal() {
       canvas,
       { ...options, mimeType: getSupportedMimeType() },
       (s) => setState(s),
+      audioElement,
     )
     stopRef.current = stopFn
   }
