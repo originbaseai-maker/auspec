@@ -4,11 +4,11 @@ import {
   Waves,
   Hexagon,
   Sparkles,
-  Download,
 } from 'lucide-react'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
+import { useExportStore } from '@/store/useExportStore'
 import { useFormatStore } from '@/store/useFormatStore'
 import { SOCIAL_FORMATS } from '@/lib/socialFormats'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
@@ -372,6 +372,8 @@ export function ControlsSidebar() {
   }
 
   const audioFile = useAudioStore((s) => s.audioFile)
+  const openExport = useExportStore((s) => s.open)
+  const hasAudio = audioFile !== null
   const logo = useCoverArtStore((s) => s.logo)
   const logoSize = useCoverArtStore((s) => s.logoSize)
   const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
@@ -1002,18 +1004,50 @@ export function ControlsSidebar() {
 
         {/* 9. Export */}
         <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
-          <SectionHeader title="Export" comingSoon />
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            title="Export coming in Phase 11"
-            className="flex w-full items-center justify-center gap-2 rounded-md border bg-[#1a1a1a] py-2 text-sm text-white/80 cursor-not-allowed opacity-60"
-            style={{ borderColor: '#2a2a2a' }}
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Export Video
-          </button>
+          <div className="mb-3 flex items-center justify-between">
+            <SectionHeader title="Export" />
+          </div>
+
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={openExport}
+              disabled={!hasAudio}
+              title={
+                hasAudio ? 'Export visualization as video' : 'Upload audio first'
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              style={{
+                background: hasAudio
+                  ? 'linear-gradient(90deg, #3b82f6, #8b5cf6)'
+                  : '#2a2a2a',
+              }}
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2 3a1 1 0 0 1 1-1h6l4 4v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3z"
+                  opacity=".3"
+                />
+                <path
+                  d="M9 2v3.5A1.5 1.5 0 0 0 10.5 7H14M6 10l2 2 2-2M8 7v5"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+              Export Video
+            </button>
+
+            <p className="text-center text-[9px] text-white/30">
+              WebM · up to 15 Mbps · canvas size
+            </p>
+          </div>
         </section>
       </div>
     </aside>
