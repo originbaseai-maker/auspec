@@ -1,4 +1,5 @@
 import type { FrequencyData } from '@/types/analyzer'
+import { getBarColor } from '@/lib/frequencyUtils'
 
 export type PolygonShape =
   | 'triangle'
@@ -21,6 +22,7 @@ export interface PolygonSpectrumConfig {
   fillShape: boolean
   fillOpacity: number
   barDirection: 'outward' | 'inward' | 'both'
+  hueInterpolation: number
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -36,6 +38,7 @@ export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
   fillShape: false,
   fillOpacity: 0.1,
   barDirection: 'outward',
+  hueInterpolation: 0,
 }
 
 /**
@@ -217,6 +220,7 @@ export function renderPolygonSpectrum(
     fillShape,
     fillOpacity,
     barDirection,
+    hueInterpolation,
   } = config
   const { raw } = frequencyData
 
@@ -234,13 +238,11 @@ export function renderPolygonSpectrum(
   const vertices = getPolygonVertices(shape, cx, cy, scaledRadius, rotation)
   const perimeterPts = getPerimeterPoints(vertices, barCount)
 
-  // Parse gradient endpoints once per frame
+  // Parse colorStart hex once for the polygon fill / outline.
+  // Per-bar color is delegated to getBarColor() so hue interpolation works.
   const r1 = parseInt(colorStart.slice(1, 3), 16)
   const g1 = parseInt(colorStart.slice(3, 5), 16)
   const b1 = parseInt(colorStart.slice(5, 7), 16)
-  const r2 = parseInt(colorEnd.slice(1, 3), 16)
-  const g2 = parseInt(colorEnd.slice(3, 5), 16)
-  const b2 = parseInt(colorEnd.slice(5, 7), 16)
 
   const step = Math.max(1, Math.floor(raw.length / barCount))
 
@@ -292,11 +294,12 @@ export function renderPolygonSpectrum(
 
     const { x, y, nx, ny } = perimeterPts[i]
 
-    const t = i / barCount
-    const r = Math.round(r1 + (r2 - r1) * t)
-    const g = Math.round(g1 + (g2 - g1) * t)
-    const b = Math.round(b1 + (b2 - b1) * t)
-    ctx.strokeStyle = `rgb(${r},${g},${b})`
+    ctx.strokeStyle = getBarColor(
+      i / barCount,
+      colorStart,
+      colorEnd,
+      hueInterpolation,
+    )
 
     if (barDirection === 'outward' || barDirection === 'both') {
       ctx.beginPath()
