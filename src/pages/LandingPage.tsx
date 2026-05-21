@@ -5,13 +5,27 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { AuthModal, UserMenu } from '@/components/auth';
 
 const LandingPage = () => {
+  const [showAuth, setShowAuth] = useState(false);
+
   return (
     <div className="min-h-screen bg-black text-white antialiased selection:bg-violet-500/30">
-      <Nav />
-      <Hero />
-      <Features />
-      <Preview />
-      <Footer />
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+
+      <Nav onSignIn={() => setShowAuth(true)} />
+
+      <div
+        style={{
+          transition: 'filter 0.3s ease, opacity 0.3s ease',
+          filter: showAuth ? 'blur(3px) brightness(0.3)' : 'none',
+          pointerEvents: showAuth ? 'none' : 'auto',
+        }}
+      >
+        <Hero />
+        <Features />
+        <Preview />
+        <Footer />
+      </div>
+
       <LandingStyles />
     </div>
   );
@@ -36,9 +50,8 @@ const Logo = () => (
   </div>
 );
 
-function Nav() {
+function Nav({ onSignIn }: { onSignIn: () => void }) {
   const user = useAuthStore((s) => s.user);
-  const [showAuth, setShowAuth] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-black/70 backdrop-blur-xl">
@@ -58,7 +71,7 @@ function Nav() {
           ) : (
             <button
               type="button"
-              onClick={() => setShowAuth(true)}
+              onClick={onSignIn}
               className="rounded-full border border-white/20 px-4 py-1.5 text-[13px] text-white transition-colors hover:bg-white/10"
             >
               Sign In
@@ -66,7 +79,6 @@ function Nav() {
           )}
         </div>
       </div>
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </nav>
   );
 }
