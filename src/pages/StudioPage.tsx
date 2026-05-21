@@ -15,6 +15,8 @@ import {
   getFormat,
   type FormatConfig,
 } from '@/lib/socialFormats';
+import { useAuthStore } from '@/store/useAuthStore';
+import { AuthModal, UserMenu } from '@/components/auth';
 
 function AuSpecLogo() {
   return (
@@ -136,6 +138,9 @@ function FormatSelector() {
 }
 
 function TopBar({ hasAudio }: { hasAudio: boolean }) {
+  const user = useAuthStore((s) => s.user);
+  const [showAuth, setShowAuth] = useState(false);
+
   return (
     <header
       className="h-12 shrink-0 border-b bg-[#111111]"
@@ -167,8 +172,21 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Export
           </button>
+          {user ? (
+            <UserMenu />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAuth(true)}
+              className="rounded-md border px-3 py-1.5 text-sm text-white/80 hover:text-white transition-colors"
+              style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+            >
+              Sign In
+            </button>
+          )}
         </nav>
       </div>
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </header>
   );
 }
