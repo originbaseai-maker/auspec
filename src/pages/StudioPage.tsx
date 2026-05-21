@@ -10,11 +10,14 @@ import { GlobalDropZone } from '@/components/studio/GlobalDropZone';
 import { useAudioStore } from '@/store/useAudioStore';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
+import { useProjectStore } from '@/store/useProjectStore';
 import {
   SOCIAL_FORMATS,
   getFormat,
   type FormatConfig,
 } from '@/lib/socialFormats';
+import { useAuthStore } from '@/store/useAuthStore';
+import { AuthModal, UserMenu } from '@/components/auth';
 
 function AuSpecLogo() {
   return (
@@ -135,7 +138,101 @@ function FormatSelector() {
   );
 }
 
+function SaveProjectControl() {
+  const user = useAuthStore((s) => s.user);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const saveProject = useProjectStore((s) => s.saveProject);
+
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (!user) return null;
+
+  const handleSave = async () => {
+    if (!saveName.trim()) return;
+    setSaving(true);
+    try {
+      await saveProject(saveName.trim());
+      setSaveModalOpen(false);
+      setSaveName('');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setSaveModalOpen(true)}
+        className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm text-white/80 hover:text-white transition-colors"
+        style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+      >
+        {activeProjectId ? 'Update' : 'Save'}
+      </button>
+
+      {saveModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Save project"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSaveModalOpen(false);
+          }}
+        >
+          <div
+            className="w-72 rounded-xl border bg-[#111] p-5 shadow-2xl"
+            style={{ borderColor: '#2a2a2a' }}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-white">
+              {activeProjectId ? 'Update Project' : 'Save Project'}
+            </h3>
+            <input
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSave();
+                else if (e.key === 'Escape') setSaveModalOpen(false);
+              }}
+              placeholder="Project name..."
+              className="mb-4 w-full rounded-md border bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#3b82f6]"
+              style={{ borderColor: '#2a2a2a' }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving || !saveName.trim()}
+                className="flex-1 rounded-md py-2 text-sm font-medium text-white disabled:opacity-50"
+                style={{
+                  background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                }}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaveModalOpen(false)}
+                className="flex-1 rounded-md border py-2 text-sm text-white/70"
+                style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function TopBar({ hasAudio }: { hasAudio: boolean }) {
+  const user = useAuthStore((s) => s.user);
+  const [showAuth, setShowAuth] = useState(false);
+
   return (
     <header
       className="h-12 shrink-0 border-b bg-[#111111]"
@@ -145,6 +242,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
         <AuSpecLogo />
 
         <nav className="flex items-center gap-2">
+          <SaveProjectControl />
           <FormatSelector />
           <a
             href="/dashboard"
@@ -167,8 +265,21 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Export
           </button>
+          {user ? (
+            <UserMenu />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAuth(true)}
+              className="rounded-md border px-3 py-1.5 text-sm text-white/80 hover:text-white transition-colors"
+              style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+            >
+              Sign In
+            </button>
+          )}
         </nav>
       </div>
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </header>
   );
 }
