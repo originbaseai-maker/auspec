@@ -7,6 +7,7 @@ export interface Preset {
   config: Partial<VisualizerConfig>
   backgroundColor?: string
   description?: string
+  sensitivity?: number
 }
 
 export const BUILT_IN_PRESETS: Preset[] = [
@@ -16,6 +17,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'circular',
     description: 'Cyan + purple radial pulse',
     backgroundColor: '#000000',
+    sensitivity: 75,
     config: {
       visualType: 'circular',
       circularSpectrum: {
@@ -50,6 +52,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'wave',
     description: 'Clean white waveform',
     backgroundColor: '#000000',
+    sensitivity: 55,
     config: {
       visualType: 'wave',
       wave: {
@@ -81,6 +84,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'bars',
     description: 'Pink + cyan mirror bars',
     backgroundColor: '#0a0a0f',
+    sensitivity: 85,
     config: {
       visualType: 'bars',
       linearBars: {
@@ -116,6 +120,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'circular',
     description: 'Warm gold + amber slow pulse',
     backgroundColor: '#100805',
+    sensitivity: 60,
     config: {
       visualType: 'circular',
       circularSpectrum: {
@@ -150,6 +155,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'wave',
     description: 'Soft blue waveform for voice',
     backgroundColor: '#0f172a',
+    sensitivity: 50,
     config: {
       visualType: 'wave',
       wave: {
@@ -181,6 +187,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'bars',
     description: 'Teal + lime energetic bars',
     backgroundColor: '#052e2b',
+    sensitivity: 70,
     config: {
       visualType: 'bars',
       linearBars: {
@@ -216,6 +223,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'polygon',
     description: 'Blue + violet hexagon pulse',
     backgroundColor: '#000000',
+    sensitivity: 75,
     config: {
       visualType: 'polygon',
       polygon: {
@@ -251,6 +259,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'polygon',
     description: 'Orange + red triangle energy',
     backgroundColor: '#0a0000',
+    sensitivity: 80,
     config: {
       visualType: 'polygon',
       polygon: {
@@ -286,6 +295,7 @@ export const BUILT_IN_PRESETS: Preset[] = [
     visualType: 'polygon',
     description: 'Cyan star with both-direction bars',
     backgroundColor: '#000510',
+    sensitivity: 70,
     config: {
       visualType: 'polygon',
       polygon: {

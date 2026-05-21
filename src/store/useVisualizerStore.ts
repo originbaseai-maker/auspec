@@ -122,7 +122,7 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
     set((state) => {
       const merged: VisualizerConfig = {
         ...state.visualizerConfig,
-        ...preset.config,
+        ...(preset.config as Partial<VisualizerConfig>),
         visualType: preset.visualType,
         linearBars: {
           ...state.visualizerConfig.linearBars,
@@ -146,21 +146,29 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         },
       }
 
-      // Sync top-level colors with the new visualType's primary/secondary
+      // Derive top-level mirror fields from the active visual type so every
+      // sidebar control reflects the new preset.
       let primaryColor = state.primaryColor
       let secondaryColor = state.secondaryColor
-      if (preset.visualType === 'bars') {
+      let glowEnabled = state.glowEnabled
+
+      const vt = preset.visualType
+      if (vt === 'bars') {
         primaryColor = merged.linearBars.colorStart
         secondaryColor = merged.linearBars.colorEnd
-      } else if (preset.visualType === 'circular') {
+        glowEnabled = merged.linearBars.glowEnabled
+      } else if (vt === 'circular') {
         primaryColor = merged.circularSpectrum.colorStart
         secondaryColor = merged.circularSpectrum.colorEnd
-      } else if (preset.visualType === 'wave') {
+        glowEnabled = merged.circularSpectrum.glowEnabled
+      } else if (vt === 'wave') {
         primaryColor = merged.wave.colorStart
         secondaryColor = merged.wave.colorEnd
-      } else if (preset.visualType === 'polygon') {
+        glowEnabled = merged.wave.glowEnabled
+      } else if (vt === 'polygon') {
         primaryColor = merged.polygon.colorStart
         secondaryColor = merged.polygon.colorEnd
+        glowEnabled = merged.polygon.glowEnabled
       }
 
       return {
@@ -169,16 +177,8 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         primaryColor,
         secondaryColor,
         backgroundColor: preset.backgroundColor ?? state.backgroundColor,
-        glowEnabled:
-          preset.visualType === 'bars'
-            ? merged.linearBars.glowEnabled
-            : preset.visualType === 'circular'
-              ? merged.circularSpectrum.glowEnabled
-              : preset.visualType === 'wave'
-                ? merged.wave.glowEnabled
-                : preset.visualType === 'polygon'
-                  ? merged.polygon.glowEnabled
-                  : state.glowEnabled,
+        glowEnabled,
+        sensitivity: preset.sensitivity ?? state.sensitivity,
         activePresetId: preset.id,
       }
     }),

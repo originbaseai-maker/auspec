@@ -1,4 +1,4 @@
-import { useRef, useState, type JSX } from 'react'
+import { useEffect, useRef, useState, type JSX } from 'react'
 import { Check, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import { usePresetStore } from '@/store/usePresetStore'
@@ -50,6 +50,13 @@ function PresetItem({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(preset.name)
   const inputRef = useRef<HTMLInputElement>(null)
+  const itemRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isActive])
 
   const startEdit = (e: React.MouseEvent) => {
     if (isBuiltIn) return
@@ -73,6 +80,7 @@ function PresetItem({
   return (
     <li>
       <div
+        ref={itemRef}
         className="group flex items-center gap-2 rounded-md border px-2 py-2 cursor-pointer transition-all"
         style={{
           background: isActive
