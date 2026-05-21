@@ -1,21 +1,27 @@
 # Phase 8 — Cover Art + Logo Upload
 
-## Goal
-Users can upload album cover or creator logo to display in the visualization.
-
 ## Status
-- [ ] Not Started
+- [x] Complete
 
 ## Features
-- Upload album cover image
-- Upload creator logo
-- Center placement on canvas
-- Circle crop mode
-- Square crop mode
-- Adjustable size
-- Blurred background generation from cover art
+- [x] Upload album cover image
+- [x] Upload creator logo
+- [x] Center placement on canvas
+- [x] Circle crop mode
+- [x] Square crop mode
+- [x] Adjustable size (10–50% of canvas)
+- [x] Blurred background generation from cover art
+
+## Files Created
+- src/types/coverArt.ts — CropMode, CoverArtImage, loadImageFile, isValidImageFile
+- src/store/useCoverArtStore.ts — Zustand store, objectUrl cleanup
+- src/lib/renderers/coverArt.ts — renderCoverArt(), blurred bg, crop modes, logo overlay
+- src/components/coverart/CoverArtUploader.tsx — two-zone uploader with previews
+- src/components/coverart/index.ts — barrel export
+
+## Files Modified
+- src/components/studio/VisualizerCanvas.tsx — renders cover art after visualizer
+- src/components/studio/ControlsSidebar.tsx — Cover Art section with controls
 
 ## Dependencies
-- Phase 7 complete
-
-## Notes
+- Phase 7 complete ✅

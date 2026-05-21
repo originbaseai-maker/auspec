@@ -18,21 +18,27 @@ AuSpec is a web-based audio spectrum visualizer. Users upload audio files and ge
 7. User exports visual as video
 
 ## Current Phase
-- [ ] Phase 1 — Foundation + UI Shell
-- [ ] Phase 2 — Audio Upload + Playback
-- [ ] Phase 3 — Web Audio Analyzer Engine
-- [ ] Phase 4 — First Visualizer: Linear Bars
-- [ ] Phase 5 — Circular Spectrum
-- [ ] Phase 6 — Design Controls Panel
+- [x] Phase 1 — Foundation + UI Shell
+- [x] Phase 2 — Audio Upload + Playback
+- [x] Phase 3 — Web Audio Analyzer Engine
+- [x] Phase 4 — First Visualizer: Linear Bars
+- [x] Phase 5 — Circular Spectrum
+- [x] Phase 6 — Design Controls Panel
 - [ ] Phase 7 — Presets
-- [ ] Phase 8 — Cover Art + Logo Upload
-- [ ] Phase 9 — Social Format System
+- [x] Phase 8 — Cover Art + Logo Upload
+- [x] Phase 9 — Social Format System
 - [ ] Phase 10 — Supabase Integration
 - [ ] Phase 11 — Project Dashboard
 - [ ] Phase 12 — Export System
 - [ ] Phase 13 — Pro Features
 - [ ] Phase 14 — AI Visual Prompt Engine
 - [ ] Phase 15 — Railway Render Workers
+
+## Bonus Features (implemented alongside phases)
+- [x] Polygon Spectrum — 6 shapes (triangle, square, pentagon, hexagon, star, diamond)
+- [x] Smart Logo Mode — spectrum auto-wraps logo shape
+- [x] Frame Pulse Effect — beat-reactive canvas border
+- [x] Phase 6 Extended — analog dots/lines, hue interpolation, frequency range, side A/B
 
 ## Links
 - GitHub: https://github.com/originbaseai-maker/auspec

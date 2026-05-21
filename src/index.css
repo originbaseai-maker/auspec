@@ -1,0 +1,203 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/Geist-Variable.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2-variations');
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg: #000000;
+  --color-bg-secondary: #111111;
+  --color-surface: #1a1a1a;
+  --color-border: #2a2a2a;
+  --color-text: #ffffff;
+  --color-text-muted: #666666;
+  --color-brand-blue: #3b82f6;
+  --color-brand-violet: #8b5cf6;
+  --color-brand-cyan: #06b6d4;
+  --color-brand-purple: #a855f7;
+
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Layout spacing */
+  --space-sidebar: 200px;
+  --space-control-panel: 240px;
+  --space-player-bar: 72px;
+  --space-top-bar: 48px;
+
+  /* Animation */
+  --anim-fast: 150ms;
+  --anim-base: 200ms;
+  --anim-slow: 300ms;
+
+  /* Blur */
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 32px;
+
+  /* Brand gradient */
+  --gradient-brand: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Selection */
+::selection {
+  background: rgba(139, 92, 246, 0.4);
+  color: #ffffff;
+}
+::-moz-selection {
+  background: rgba(139, 92, 246, 0.4);
+  color: #ffffff;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2a transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
+}
+
+input,
+textarea,
+select {
+  background-color: transparent;
+  color: inherit;
+}
+
+@utility text-gradient-brand {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+@utility bg-gradient-brand {
+  background: var(--gradient-brand);
+}
+
+@utility glow-blue {
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.4);
+}
+
+@utility glow-violet {
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.4);
+}
+
+/* Visualizer control sliders */
+.auspec-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+.auspec-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+}
+.auspec-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+}
+.auspec-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #8b5cf6;
+  margin-top: -4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.auspec-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #8b5cf6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.auspec-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35);
+}
