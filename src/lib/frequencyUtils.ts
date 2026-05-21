@@ -1,24 +1,3 @@
-/**
- * Returns the FFT bin indices that correspond to a Hz frequency range.
- * @param fftSize    Number of FFT points (e.g. 2048)
- * @param sampleRate Audio context sample rate (usually 44100 or 48000)
- * @param startHz    Lower frequency bound in Hz
- * @param endHz      Upper frequency bound in Hz
- */
-export function getFrequencyBinRange(
-  fftSize: number,
-  sampleRate: number,
-  startHz: number,
-  endHz: number,
-): { startBin: number; endBin: number } {
-  const nyquist = sampleRate / 2
-  const binCount = fftSize / 2
-  const hzPerBin = nyquist / binCount
-  const startBin = Math.max(0, Math.floor(startHz / hzPerBin))
-  const endBin = Math.min(binCount - 1, Math.ceil(endHz / hzPerBin))
-  return { startBin, endBin }
-}
-
 export function calcBinIndex(
   hz: number,
   sampleRate: number,

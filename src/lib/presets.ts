@@ -30,6 +30,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         smoothing: 0.15,
         bassPulse: true,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
+        sideMode: 'both',
       },
       framePulse: {
         enabled: true,
@@ -59,6 +62,8 @@ export const BUILT_IN_PRESETS: Preset[] = [
         smoothing: 0.3,
         mirrorMode: false,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
       },
       framePulse: {
         enabled: false,
@@ -91,6 +96,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         displayMode: 'digital',
         dotSize: 4,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
+        sideMode: 'both',
       },
       framePulse: {
         enabled: true,
@@ -122,6 +130,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         smoothing: 0.1,
         bassPulse: true,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
+        sideMode: 'both',
       },
       framePulse: {
         enabled: false,
@@ -151,6 +162,8 @@ export const BUILT_IN_PRESETS: Preset[] = [
         smoothing: 0.35,
         mirrorMode: false,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
       },
       framePulse: {
         enabled: false,
@@ -183,6 +196,9 @@ export const BUILT_IN_PRESETS: Preset[] = [
         displayMode: 'digital',
         dotSize: 4,
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
+        sideMode: 'both',
       },
       framePulse: {
         enabled: true,
@@ -216,6 +232,8 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillOpacity: 0.08,
         barDirection: 'outward',
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
       },
       framePulse: {
         enabled: true,
@@ -249,6 +267,8 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillOpacity: 0.06,
         barDirection: 'outward',
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
       },
       framePulse: {
         enabled: true,
@@ -282,6 +302,8 @@ export const BUILT_IN_PRESETS: Preset[] = [
         fillOpacity: 0.1,
         barDirection: 'both',
         hueInterpolation: 0,
+        startFrequency: 20,
+        endFrequency: 20000,
       },
       framePulse: {
         enabled: true,

@@ -38,6 +38,7 @@ AuSpec is a web-based audio spectrum visualizer. Users upload audio files and ge
 - [x] Polygon Spectrum — 6 shapes (triangle, square, pentagon, hexagon, star, diamond)
 - [x] Smart Logo Mode — spectrum auto-wraps logo shape
 - [x] Frame Pulse Effect — beat-reactive canvas border
+- [x] Phase 6 Extended — analog dots/lines, hue interpolation, frequency range, side A/B
 
 ## Links
 - GitHub: https://github.com/originbaseai-maker/auspec
