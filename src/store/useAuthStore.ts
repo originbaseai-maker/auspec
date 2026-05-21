@@ -36,10 +36,23 @@ export const useAuthStore = create<AuthStore>((set) => ({
   initialize: () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({ user: session?.user ?? null, loading: false })
+      if (session?.user) {
+        void loadProjectsForUser()
+      }
     })
 
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ user: session?.user ?? null, loading: false })
+      if (session?.user) {
+        void loadProjectsForUser()
+      }
     })
   },
 }))
+
+// Lazy import to break the circular dep — useProjectStore imports types
+// from this module's neighbors and pulls supabase too.
+async function loadProjectsForUser(): Promise<void> {
+  const { useProjectStore } = await import('@/store/useProjectStore')
+  await useProjectStore.getState().loadProjects()
+}

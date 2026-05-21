@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Check, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import { usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useProjectStore } from '@/store/useProjectStore'
+import { useAuthStore } from '@/store/useAuthStore'
 
 function PresetDot({ preset }: { preset: Preset }): JSX.Element {
   const cfg = preset.config
@@ -230,6 +233,17 @@ export function PresetsSidebar(): JSX.Element {
     setShowSaveModal(false)
   }
 
+  // Cloud projects (Phase 10) — shown in the lower section
+  const navigate = useNavigate()
+  const projects = useProjectStore((s) => s.projects)
+  const loadProject = useProjectStore((s) => s.loadProject)
+  const user = useAuthStore((s) => s.user)
+
+  const handleLoadProject = (id: string) => {
+    loadProject(id)
+    navigate('/studio')
+  }
+
   return (
     <>
       {showSaveModal && (
@@ -320,13 +334,41 @@ export function PresetsSidebar(): JSX.Element {
           <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
             Projects
           </p>
-          <div
-            className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
-            style={{ borderColor: '#2a2a2a' }}
-          >
-            <FolderOpen className="h-4 w-4 text-white/40 mb-1" aria-hidden="true" />
-            <p className="text-[9px] text-white/40">Coming in Phase 10</p>
-          </div>
+          {user && projects.length > 0 ? (
+            <ul className="space-y-1">
+              {projects.slice(0, 5).map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleLoadProject(p.id)}
+                    className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:border-[#3b82f6]/40"
+                    style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+                  >
+                    <FolderOpen
+                      className="h-3 w-3 shrink-0 text-white/50"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate text-[11px] text-white/80">
+                      {p.name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div
+              className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
+              style={{ borderColor: '#2a2a2a' }}
+            >
+              <FolderOpen
+                className="h-4 w-4 text-white/40 mb-1"
+                aria-hidden="true"
+              />
+              <p className="text-[9px] text-white/40">
+                {user ? 'No projects yet' : 'Sign in to save'}
+              </p>
+            </div>
+          )}
         </div>
       </aside>
     </>
