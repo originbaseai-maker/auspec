@@ -7,6 +7,7 @@ import { renderWave } from '@/lib/renderers/wave'
 import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
+import { canvasRegistry } from '@/lib/canvasRegistry'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
@@ -120,6 +121,13 @@ export default function VisualizerCanvas(): JSX.Element {
   useEffect(() => {
     coverArtStateRef.current = coverArtState
   }, [coverArtState])
+
+  // Expose the canvas to the recorder via a module-level registry so
+  // captureStream() can be called from outside the React tree.
+  useEffect(() => {
+    canvasRegistry.set(canvasRef.current)
+    return () => canvasRegistry.set(null)
+  }, [canvasRef])
 
   useEffect(() => {
     if (!ctx || width === 0 || height === 0) return
