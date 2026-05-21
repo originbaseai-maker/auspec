@@ -9,6 +9,8 @@ import {
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
+import { useFormatStore } from '@/store/useFormatStore'
+import { SOCIAL_FORMATS } from '@/lib/socialFormats'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import type { VisualType } from '@/lib/visualizerConfig'
 import type { PolygonShape } from '@/lib/renderers/polygonSpectrum'
@@ -375,6 +377,8 @@ export function ControlsSidebar() {
   const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const setAutoLogoSync = useCoverArtStore((s) => s.setAutoLogoSync)
+  const activeFormat = useFormatStore((s) => s.activeFormat)
+  const setFormat = useFormatStore((s) => s.setFormat)
 
   return (
     <aside
@@ -960,6 +964,39 @@ export function ControlsSidebar() {
                 className="h-6 w-6 rounded-full border border-[#2a2a2a] bg-transparent cursor-pointer"
               />
             </div>
+          </div>
+        </section>
+
+        {/* 8.5 Format */}
+        <section className="border-t p-4" style={{ borderColor: '#2a2a2a' }}>
+          <SectionHeader title="Format" />
+          <div className="grid grid-cols-2 gap-1.5">
+            {SOCIAL_FORMATS.map((f) => {
+              const active = activeFormat === f.id
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFormat(f.id)}
+                  aria-pressed={active}
+                  className="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-left transition-all"
+                  style={{
+                    borderColor: active ? '#3b82f6' : '#2a2a2a',
+                    background: active ? 'rgba(59,130,246,0.12)' : '#1a1a1a',
+                  }}
+                >
+                  <span className="text-xs" aria-hidden="true">{f.icon}</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[10px] font-medium text-white/90">
+                      {f.aspectRatio}
+                    </p>
+                    <p className="truncate text-[9px] text-white/40">
+                      {f.platform}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </section>
 
