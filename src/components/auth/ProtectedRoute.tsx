@@ -9,14 +9,38 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const loading = useAuthStore((s) => s.loading)
   const navigate = useNavigate()
   const [showAuth, setShowAuth] = useState(false)
+  const [waitingForOAuth, setWaitingForOAuth] = useState(false)
+
+  // OAuth callback detection: when we land on this route via an OAuth
+  // redirect the URL carries `#access_token=...` (implicit grant) or
+  // `?code=...` / `?error=...` (PKCE). Supabase's auth listener processes
+  // these asynchronously — give it ~2 s before falling back to the sign-in
+  // prompt so we don't flash the prompt over an in-flight session.
+  useEffect(() => {
+    const hash = window.location.hash
+    const params = new URLSearchParams(window.location.search)
+    const hasOAuthCallback =
+      hash.includes('access_token') ||
+      params.has('error') ||
+      params.has('code')
+
+    if (hasOAuthCallback) {
+      setWaitingForOAuth(true)
+      const timer = window.setTimeout(() => setWaitingForOAuth(false), 2000)
+      return () => window.clearTimeout(timer)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !waitingForOAuth) {
       setShowAuth(true)
     }
-  }, [loading, user])
+    if (user) {
+      setShowAuth(false)
+    }
+  }, [loading, user, waitingForOAuth])
 
-  if (loading) {
+  if (loading || waitingForOAuth) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
         <Loader2 className="h-6 w-6 animate-spin text-white/40" aria-hidden="true" />
