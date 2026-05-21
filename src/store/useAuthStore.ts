@@ -7,6 +7,7 @@ export interface AuthStore {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
+  signInWithGoogle: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   initialize: () => void
 }
@@ -25,6 +26,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   signUp: async (email, password) => {
     const { error } = await supabase.auth.signUp({ email, password })
+    return { error: error?.message ?? null }
+  },
+
+  signInWithGoogle: async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/studio`,
+      },
+    })
     return { error: error?.message ?? null }
   },
 
