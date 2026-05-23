@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
 import { isValidAudioFile, detectFormat, MAX_FILE_SIZE } from '@/types/audio';
+import { DemoSongsLibrary } from './DemoSongsLibrary';
 
 type UploaderState =
   | { kind: 'idle' }
@@ -144,7 +145,7 @@ export function AudioUploader() {
   const borderColor = isError ? errorBorder : isDragOver ? activeBorder : baseBorder;
 
   return (
-    <div className="flex h-full w-full items-center justify-center p-6 sm:p-10">
+    <div className="flex h-full w-full flex-col items-center gap-8 overflow-y-auto p-6 sm:p-8">
       <input
         ref={inputRef}
         type="file"
@@ -167,8 +168,8 @@ export function AudioUploader() {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={[
-          'group relative flex h-full max-h-[560px] w-full max-w-3xl flex-col items-center justify-center',
-          'rounded-2xl border-2 border-dashed bg-[#0a0a0a] px-8 py-16 text-center',
+          'group relative flex min-h-[280px] w-full max-w-3xl shrink-0 flex-col items-center justify-center',
+          'rounded-2xl border-2 border-dashed bg-[#0a0a0a] px-8 py-12 text-center',
           'transition-all duration-300 ease-out',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
           isDragOver && 'scale-[1.015] bg-[rgba(59,130,246,0.05)]',
@@ -196,6 +197,16 @@ export function AudioUploader() {
           <IdleState isDragOver={isDragOver} />
         )}
       </div>
+
+      <div className="flex w-full max-w-2xl items-center gap-3">
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-[10px] uppercase tracking-wider text-white/30">
+          or
+        </span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
+
+      <DemoSongsLibrary />
     </div>
   );
 }
