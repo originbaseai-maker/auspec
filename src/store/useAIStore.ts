@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 
-interface AIHistoryEntry {
+const HISTORY_STORAGE_KEY = 'auspec-ai-history'
+const HISTORY_LIMIT = 20
+
+export interface AIHistoryEntry {
   id: string
   prompt: string
   result: string | null
@@ -17,25 +20,22 @@ export interface AIStore {
   clearHistory: () => void
 }
 
-const STORAGE_KEY = 'auspec-ai-history'
-const MAX_HISTORY = 20
-
 function loadHistory(): AIHistoryEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY)
     if (!raw) return []
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(raw) as AIHistoryEntry[]
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
 }
 
-function saveHistory(h: AIHistoryEntry[]) {
+function saveHistory(entries: AIHistoryEntry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(h.slice(-MAX_HISTORY)))
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries))
   } catch {
-    // Quota exceeded / privacy mode — history is best-effort, not load-bearing.
+    /* ignore */
   }
 }
 
@@ -47,14 +47,14 @@ export const useAIStore = create<AIStore>((set, get) => ({
   setPrompt: (prompt) => set({ prompt }),
   setLoading: (isLoading) => set({ isLoading }),
 
-  addHistoryEntry: (entry) => {
-    const newEntry: AIHistoryEntry = {
-      id: `ai-${Date.now()}`,
-      prompt: entry.prompt,
-      result: entry.result,
+  addHistoryEntry: ({ prompt, result }) => {
+    const entry: AIHistoryEntry = {
+      id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      prompt,
+      result,
       ts: Date.now(),
     }
-    const next = [...get().history, newEntry].slice(-MAX_HISTORY)
+    const next = [...get().history, entry].slice(-HISTORY_LIMIT)
     saveHistory(next)
     set({ history: next })
   },
