@@ -31,7 +31,21 @@ export function useAudioPlayer() {
     const audio = audioRef.current
     if (!audio) return
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime)
+    const onTimeUpdate = () => {
+      const t = audio.currentTime
+      setCurrentTime(t)
+
+      const { trimStart, trimEnd, loop } = useAudioStore.getState()
+
+      if (trimEnd !== null && t >= trimEnd) {
+        if (loop) {
+          audio.currentTime = trimStart
+        } else {
+          audio.pause()
+          setIsPlaying(false)
+        }
+      }
+    }
     const onDurationChange = () => setDuration(audio.duration)
     const onEnded = () => setIsPlaying(false)
     const onPlay = () => setIsPlaying(true)
@@ -52,11 +66,27 @@ export function useAudioPlayer() {
     }
   }, [setCurrentTime, setDuration, setIsPlaying])
 
+  const play = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const { trimStart } = useAudioStore.getState()
+    if (audio.currentTime < trimStart) audio.currentTime = trimStart
+    void audio.play()
+    setIsPlaying(true)
+  }, [setIsPlaying])
+
+  const pause = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    setIsPlaying(false)
+  }, [setIsPlaying])
+
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return
-    if (isPlaying) audioRef.current.pause()
-    else void audioRef.current.play()
-  }, [isPlaying])
+    if (isPlaying) pause()
+    else play()
+  }, [isPlaying, pause, play])
 
   const seek = useCallback(
     (time: number) => {
@@ -89,6 +119,8 @@ export function useAudioPlayer() {
     currentTime,
     duration,
     volume,
+    play,
+    pause,
     togglePlay,
     seek,
     setVolume: handleVolume,
