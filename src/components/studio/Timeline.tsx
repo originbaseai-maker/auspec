@@ -1,6 +1,20 @@
 import { useRef, useState, useEffect } from 'react'
-import { Play, Pause, Repeat, Scissors, Volume2, VolumeX } from 'lucide-react'
+import {
+  Pause,
+  Play,
+  Repeat,
+  Scissors,
+  Upload,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react'
 import { useAudioStore } from '@/store/useAudioStore'
+import {
+  detectFormat,
+  isValidAudioFile,
+  MAX_FILE_SIZE,
+} from '@/types/audio'
 
 function formatTime(s: number): string {
   if (!isFinite(s) || s < 0) s = 0
@@ -42,7 +56,54 @@ export function Timeline() {
   const [muted, setMuted] = useState(false)
   const [showCutMenu, setShowCutMenu] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState<DragTarget>(null)
+
+  const setAudioFile = useAudioStore((s) => s.setAudioFile)
+  const cleanup = useAudioStore((s) => s.cleanup)
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+
+    if (!isValidAudioFile(file)) {
+      alert('Please select a valid audio file (MP3, WAV, M4A, FLAC)')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File too large. Max 200 MB.')
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(file)
+    const duration = await new Promise<number>((resolve) => {
+      const probe = new Audio(objectUrl)
+      probe.onloadedmetadata = () => resolve(probe.duration || 0)
+      probe.onerror = () => resolve(0)
+    })
+
+    // setAudioFile owns objectUrl lifecycle — it revokes the previous URL
+    // and resets playback/trim state.
+    setAudioFile({
+      file,
+      name: file.name,
+      duration,
+      size: file.size,
+      format: detectFormat(file),
+      objectUrl,
+    })
+  }
+
+  const handleRemove = () => {
+    if (confirm('Remove current audio?')) {
+      cleanup()
+    }
+  }
 
   const effectiveTrimEnd = trimEnd ?? duration
 
@@ -345,6 +406,52 @@ export function Timeline() {
             <Volume2 className="h-3.5 w-3.5" />
           )}
         </button>
+
+        <div
+          className="mx-1 w-px self-stretch"
+          style={{ background: '#2a2a2a' }}
+          aria-hidden="true"
+        />
+
+        <button
+          type="button"
+          onClick={handleUploadClick}
+          title="Replace audio"
+          aria-label="Replace audio"
+          className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors hover:text-white"
+          style={{
+            borderColor: '#2a2a2a',
+            background: '#1a1a1a',
+            color: 'rgba(255,255,255,0.7)',
+          }}
+        >
+          <Upload className="h-3.5 w-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleRemove}
+          title="Remove audio"
+          aria-label="Remove audio"
+          className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors hover:border-red-500/40 hover:bg-red-500/15 hover:text-red-400"
+          style={{
+            borderColor: '#2a2a2a',
+            background: '#1a1a1a',
+            color: 'rgba(255,255,255,0.7)',
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*,.mp3,.wav,.m4a,.flac"
+          onChange={handleFileChange}
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
       </div>
     </div>
   )
