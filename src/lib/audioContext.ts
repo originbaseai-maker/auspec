@@ -97,6 +97,13 @@ export function getOrCreateRecordingDestination(
     connectMediaElement(element)
   }
   if (!source || !ctx) return null
+  // If the user hasn't played the audio yet, the AudioContext is still in
+  // its initial suspended state. captureStream tracks built on a suspended
+  // context stay silent even after play() — explicitly resume so audio
+  // flows the moment recording starts.
+  if (ctx.state === 'suspended') {
+    void ctx.resume()
+  }
   if (!recordingDest) {
     recordingDest = ctx.createMediaStreamDestination()
     source.connect(recordingDest)

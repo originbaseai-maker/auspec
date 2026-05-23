@@ -7,11 +7,13 @@ import { renderWave } from '@/lib/renderers/wave'
 import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
+import { drawFrame } from '@/lib/renderers/frame'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
+import { useFrameStore } from '@/store/useFrameStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -35,6 +37,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const previewMode = useAudioStore((s) => s.previewMode)
+  const frameConfig = useFrameStore()
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -109,10 +112,15 @@ export default function VisualizerCanvas(): JSX.Element {
   const dataRef = useRef(frequencyData)
   const coverArtStateRef = useRef(coverArtState)
   const previewModeRef = useRef(previewMode)
+  const frameConfigRef = useRef(frameConfig)
 
   useEffect(() => {
     previewModeRef.current = previewMode
   }, [previewMode])
+
+  useEffect(() => {
+    frameConfigRef.current = frameConfig
+  }, [frameConfig])
 
   useEffect(() => {
     configRef.current = config
@@ -263,6 +271,12 @@ export default function VisualizerCanvas(): JSX.Element {
           height,
         )
       }
+
+      // Frame draws LAST so its border, shadow, ambilight, and reflection
+      // sit on top of everything. Painted onto the canvas (not as CSS) so
+      // captureStream() includes it in exported video.
+      const bassEnergy = data ? data.bass / 255 : 0
+      drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
 
       animationRef.current = requestAnimationFrame(render)
     }
