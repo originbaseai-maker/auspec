@@ -51,7 +51,17 @@ export function useAudioPlayer() {
       }
     }
     const onDurationChange = () => setDuration(audio.duration)
-    const onEnded = () => setIsPlaying(false)
+    const onEnded = () => {
+      const { loop, trimStart } = useAudioStore.getState()
+      if (loop) {
+        // Restart from trimStart (or 0 if no trim was set). The play/pause
+        // event listeners below will sync isPlaying for us.
+        audio.currentTime = trimStart
+        void audio.play()
+        return
+      }
+      setIsPlaying(false)
+    }
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
 

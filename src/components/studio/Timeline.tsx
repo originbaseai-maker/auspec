@@ -40,6 +40,7 @@ export function Timeline() {
   }
 
   const [muted, setMuted] = useState(false)
+  const [showCutMenu, setShowCutMenu] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState<DragTarget>(null)
 
@@ -249,19 +250,79 @@ export function Timeline() {
         >
           <Repeat className="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          onClick={resetTrim}
-          title="Reset trim"
-          className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors hover:text-white"
-          style={{
-            borderColor: '#2a2a2a',
-            background: '#1a1a1a',
-            color: 'rgba(255,255,255,0.7)',
-          }}
-        >
-          <Scissors className="h-3.5 w-3.5" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowCutMenu((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={showCutMenu}
+            title="Trim controls"
+            className="flex h-8 w-8 items-center justify-center rounded-md border transition-colors hover:text-white"
+            style={{
+              borderColor: showCutMenu ? 'rgba(59,130,246,0.4)' : '#2a2a2a',
+              background: showCutMenu ? 'rgba(59,130,246,0.15)' : '#1a1a1a',
+              color: showCutMenu ? '#3b82f6' : 'rgba(255,255,255,0.7)',
+            }}
+          >
+            <Scissors className="h-3.5 w-3.5" />
+          </button>
+
+          {showCutMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowCutMenu(false)}
+                aria-hidden="true"
+              />
+              <div
+                role="menu"
+                className="absolute bottom-full right-0 z-50 mb-2 w-48 rounded-lg border p-1 shadow-2xl"
+                style={{ borderColor: '#2a2a2a', background: '#131313' }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTrimStart(currentTime)
+                    setShowCutMenu(false)
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[11px] text-white/80 hover:bg-white/5 hover:text-white"
+                >
+                  <span className="text-[#3b82f6]" aria-hidden="true">▶</span>
+                  Set start at {formatTime(currentTime)}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTrimEnd(currentTime)
+                    setShowCutMenu(false)
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[11px] text-white/80 hover:bg-white/5 hover:text-white"
+                >
+                  <span className="text-[#8b5cf6]" aria-hidden="true">◀</span>
+                  Set end at {formatTime(currentTime)}
+                </button>
+                <div
+                  className="my-1 h-px"
+                  style={{ background: '#2a2a2a' }}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    resetTrim()
+                    setShowCutMenu(false)
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[11px] text-white/60 hover:bg-white/5 hover:text-white"
+                >
+                  ↻ Reset trim
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => {

@@ -10,7 +10,11 @@ import {
 } from '@/lib/demoSongs'
 import type { AudioFile } from '@/types/audio'
 
-export function DemoSongsLibrary() {
+interface Props {
+  onSongLoaded?: () => void
+}
+
+export function DemoSongsLibrary({ onSongLoaded }: Props = {}) {
   const [activeGenre, setActiveGenre] = useState<DemoGenre>('rock_pop')
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const setAudioFile = useAudioStore((s) => s.setAudioFile)
@@ -36,6 +40,7 @@ export function DemoSongsLibrary() {
       }
 
       setAudioFile(audioFile)
+      onSongLoaded?.()
     } catch {
       // Placeholder UX while Suno-generated MP3s aren't in /public/demos/ yet.
       // Replace with a toast once a proper notification system lands.
