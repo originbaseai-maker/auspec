@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { Play, Pause, Repeat, Scissors, Volume2, VolumeX } from 'lucide-react'
 import { useAudioStore } from '@/store/useAudioStore'
-import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 
 function formatTime(s: number): string {
   if (!isFinite(s) || s < 0) s = 0
@@ -13,7 +12,6 @@ function formatTime(s: number): string {
 type DragTarget = 'start' | 'end' | 'playhead' | null
 
 export function Timeline() {
-  const { play, pause } = useAudioPlayer()
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const currentTime = useAudioStore((s) => s.currentTime)
   const duration = useAudioStore((s) => s.duration)
@@ -25,6 +23,21 @@ export function Timeline() {
   const resetTrim = useAudioStore((s) => s.resetTrim)
   const setLoop = useAudioStore((s) => s.setLoop)
   const audioElement = useAudioStore((s) => s.audioElement)
+
+  // Play/pause act on the live audio element from the store (owned by the
+  // AudioElement component). isPlaying updates via the play/pause event
+  // listeners attached in useAudioPlayer, so we don't set it here.
+  const handlePlayPause = () => {
+    if (!audioElement) return
+    if (isPlaying) {
+      audioElement.pause()
+    } else {
+      if (audioElement.currentTime < trimStart) {
+        audioElement.currentTime = trimStart
+      }
+      void audioElement.play()
+    }
+  }
 
   const [muted, setMuted] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -82,7 +95,7 @@ export function Timeline() {
     >
       <button
         type="button"
-        onClick={() => (isPlaying ? pause() : play())}
+        onClick={handlePlayPause}
         aria-label={isPlaying ? 'Pause' : 'Play'}
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg"
         style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}

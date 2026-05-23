@@ -17,7 +17,11 @@ export function useAudioPlayer() {
   } = useAudioStore()
 
   useEffect(() => {
-    if (audioRef.current) setAudioElement(audioRef.current)
+    // Only the instance that actually owns the audio element should write
+    // to the store. Other consumers (e.g. an old call site that no longer
+    // renders <audio>) must NOT overwrite the live element with null.
+    if (!audioRef.current) return
+    setAudioElement(audioRef.current)
     return () => setAudioElement(null)
   }, [setAudioElement])
 

@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.auspec.ai/studio',
+        redirectTo: `${window.location.origin}/studio`,
       },
     })
     return { error: error?.message ?? null }

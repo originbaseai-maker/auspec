@@ -4,6 +4,7 @@ import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
+import { AudioElement } from '../components/studio/AudioElement';
 import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
@@ -383,6 +384,7 @@ export function StudioPage() {
           </aside>
         </div>
 
+        {hasAudio && <AudioElement />}
         {hasAudio ? <Timeline /> : <AudioPlayerBar />}
       </div>
 
