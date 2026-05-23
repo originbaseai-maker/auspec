@@ -7,6 +7,7 @@ export type StudioCategory =
   | 'background'
   | 'logo'
   | 'colors'
+  | 'frame'
 
 export interface CategoryConfig {
   id: StudioCategory
@@ -20,6 +21,7 @@ export interface CategoryConfig {
     | 'background'
     | 'logo'
     | 'colors'
+    | 'frame'
   hasAI: boolean
 }
 
@@ -42,4 +44,5 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
   { id: 'background', label: 'Background', icon: 'background', hasAI: false },
   { id: 'logo', label: 'Logo', icon: 'logo', hasAI: false },
   { id: 'colors', label: 'Colors', icon: 'colors', hasAI: true },
+  { id: 'frame', label: 'Frame', icon: 'frame', hasAI: false },
 ]

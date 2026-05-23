@@ -24,7 +24,7 @@ export function CategoryGrid() {
 
   return (
     <div className="p-4">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {STUDIO_CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id
           return (
@@ -34,7 +34,7 @@ export function CategoryGrid() {
               onClick={() => handleClick(cat)}
               aria-pressed={isActive}
               aria-label={cat.label}
-              className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border p-3 transition-all"
+              className="relative flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border p-2 transition-all"
               style={{
                 borderColor: isActive
                   ? 'rgba(59,130,246,0.5)'
@@ -47,9 +47,9 @@ export function CategoryGrid() {
                   : 'none',
               }}
             >
-              <CategoryIcon icon={cat.icon} size={36} />
+              <CategoryIcon icon={cat.icon} size={30} />
               <span
-                className="text-[11px] font-medium"
+                className="text-[10px] font-medium"
                 style={{
                   color: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
                 }}

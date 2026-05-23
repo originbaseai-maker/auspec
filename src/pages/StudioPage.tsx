@@ -6,6 +6,7 @@ import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
+import { FrameWrapper } from '../components/studio/FrameWrapper';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader } from '@/components/audio';
@@ -434,8 +435,7 @@ export function StudioPage() {
             style={{ containerType: 'size' }}
           >
             {showCanvas ? (
-              <div
-                className="relative flex overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.04]"
+              <FrameWrapper
                 style={{
                   aspectRatio: `${format.width} / ${format.height}`,
                   width: `min(100cqw, calc(100cqh * ${format.width} / ${format.height}))`,
@@ -450,13 +450,13 @@ export function StudioPage() {
                     <PreviewUploadButton />
                   </>
                 )}
-              </div>
+              </FrameWrapper>
             ) : (
               <AudioUploader />
             )}
           </main>
           <aside
-            className="w-[280px] shrink-0 border-l overflow-y-auto"
+            className="w-[320px] shrink-0 border-l overflow-y-auto"
             style={{ borderColor: '#1a1a1a', background: '#0a0a0a' }}
           >
             <CategoryGrid />

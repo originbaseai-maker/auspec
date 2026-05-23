@@ -122,6 +122,31 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           <circle cx="14" cy="26" r="6" fill="#8b5cf6" opacity="0.9" />
         </svg>
       )
+    case 'frame':
+      return (
+        <svg {...props}>
+          <rect
+            x="4"
+            y="6"
+            width="32"
+            height="28"
+            rx="3"
+            fill="none"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="2.5"
+          />
+          <rect
+            x="9"
+            y="11"
+            width="22"
+            height="18"
+            rx="1"
+            fill="rgba(255,255,255,0.15)"
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="0.8"
+          />
+        </svg>
+      )
     default:
       return null
   }
