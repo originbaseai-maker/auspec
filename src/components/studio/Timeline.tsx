@@ -123,9 +123,9 @@ export function Timeline() {
           setDragging('playhead')
         }}
       >
-        <div className="absolute inset-x-2 inset-y-0 flex items-center justify-center gap-[1.5px]">
-          {Array.from({ length: 120 }).map((_, i) => {
-            const pos = i / 120
+        <div className="absolute inset-0 flex items-center justify-between px-1">
+          {Array.from({ length: 200 }).map((_, i) => {
+            const pos = i / 200
             const t = pos * duration
             const inTrim = t >= trimStart && t <= effectiveTrimEnd
             const played = t < currentTime && inTrim
@@ -140,6 +140,7 @@ export function Timeline() {
                   width: 2,
                   height: `${h}px`,
                   borderRadius: 1,
+                  flex: '0 0 auto',
                   background: played
                     ? 'linear-gradient(180deg, #3b82f6, #8b5cf6)'
                     : inTrim
