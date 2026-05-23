@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
-import { ControlsSidebar } from '../components/studio/ControlsSidebar';
+import { CategoryGrid } from '../components/studio/CategoryGrid';
+import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
+import { Timeline } from '../components/studio/Timeline';
 import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
-import { AudioUploader, AudioPlayer } from '@/components/audio';
+import { AudioUploader } from '@/components/audio';
 import { GlobalDropZone } from '@/components/studio/GlobalDropZone';
 import { useAudioStore } from '@/store/useAudioStore';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
@@ -42,6 +44,16 @@ function AuSpecLogo() {
         }}
       />
       <span className="text-sm font-semibold tracking-tight">AuSpec</span>
+      <span
+        className="ml-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+        style={{
+          borderColor: '#8b5cf6',
+          color: '#8b5cf6',
+          background: 'rgba(139,92,246,0.08)',
+        }}
+      >
+        PRO
+      </span>
     </a>
   );
 }
@@ -362,10 +374,16 @@ export function StudioPage() {
               <AudioUploader />
             )}
           </main>
-          <ControlsSidebar />
+          <aside
+            className="w-[280px] shrink-0 border-l overflow-y-auto"
+            style={{ borderColor: '#1a1a1a', background: '#0a0a0a' }}
+          >
+            <CategoryGrid />
+            <CategoryDetailPanel />
+          </aside>
         </div>
 
-        {hasAudio ? <AudioPlayer /> : <AudioPlayerBar />}
+        {hasAudio ? <Timeline /> : <AudioPlayerBar />}
       </div>
 
       <style>{`
