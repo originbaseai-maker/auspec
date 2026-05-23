@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Upload, Sparkles } from 'lucide-react';
+import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
-import { CanvasPlaceholder } from '../components/studio/CanvasPlaceholder';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader } from '@/components/audio';
@@ -328,11 +328,85 @@ function FormatFlashOverlay({ format }: { format: FormatConfig }) {
   );
 }
 
+function PreviewUploadButton() {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const setAudioFile = useAudioStore((s) => s.setAudioFile);
+
+  const onChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!isValidAudioFile(file)) return;
+    if (file.size > MAX_FILE_SIZE) return;
+    const objectUrl = URL.createObjectURL(file);
+    const duration = await new Promise<number>((resolve) => {
+      const audio = new Audio(objectUrl);
+      audio.onloadedmetadata = () => resolve(audio.duration || 0);
+      audio.onerror = () => resolve(0);
+    });
+    setAudioFile({
+      file,
+      name: file.name,
+      duration,
+      size: file.size,
+      format: detectFormat(file),
+      objectUrl,
+    });
+  };
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/flac,audio/x-flac,.mp3,.wav,.m4a,.flac"
+        onChange={onChange}
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="absolute bottom-4 right-4 z-10 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-white shadow-lg transition-all hover:scale-[1.02]"
+        style={{
+          borderColor: 'rgba(255,255,255,0.12)',
+          background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <Upload className="h-4 w-4" aria-hidden="true" />
+        Upload Audio
+      </button>
+    </>
+  );
+}
+
+function PreviewBadge() {
+  return (
+    <div
+      className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full px-3 py-1"
+      style={{
+        background: 'rgba(0,0,0,0.6)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
+    >
+      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/60">
+        <Sparkles className="h-3 w-3 text-[#8b5cf6]" aria-hidden="true" />
+        Preview Mode
+      </span>
+    </div>
+  );
+}
+
 export function StudioPage() {
   const audioFile = useAudioStore((s) => s.audioFile);
+  const previewMode = useAudioStore((s) => s.previewMode);
   useAnalyzer();
   const hasAudio = audioFile !== null;
-  const showVisualizer = hasAudio;
+  const showCanvas = hasAudio || previewMode;
 
   const activeFormat = useFormatStore((s) => s.activeFormat);
   const format = getFormat(activeFormat);
@@ -359,7 +433,7 @@ export function StudioPage() {
             className="relative flex flex-1 min-w-0 min-h-0 items-center justify-center overflow-hidden bg-[#0a0a0a] p-4"
             style={{ containerType: 'size' }}
           >
-            {hasAudio ? (
+            {showCanvas ? (
               <div
                 className="relative flex overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.04]"
                 style={{
@@ -368,8 +442,14 @@ export function StudioPage() {
                   height: `min(100cqh, calc(100cqw * ${format.height} / ${format.width}))`,
                 }}
               >
-                {showVisualizer ? <VisualizerCanvas /> : <CanvasPlaceholder />}
+                <VisualizerCanvas />
                 {showFormatFlash && <FormatFlashOverlay format={format} />}
+                {!hasAudio && previewMode && (
+                  <>
+                    <PreviewBadge />
+                    <PreviewUploadButton />
+                  </>
+                )}
               </div>
             ) : (
               <AudioUploader />

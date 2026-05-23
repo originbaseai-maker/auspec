@@ -8,8 +8,10 @@ import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
 import { canvasRegistry } from '@/lib/canvasRegistry'
+import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
+import { useAudioStore } from '@/store/useAudioStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -32,6 +34,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
+  const previewMode = useAudioStore((s) => s.previewMode)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -105,6 +108,11 @@ export default function VisualizerCanvas(): JSX.Element {
   const bgRef = useRef(backgroundColor)
   const dataRef = useRef(frequencyData)
   const coverArtStateRef = useRef(coverArtState)
+  const previewModeRef = useRef(previewMode)
+
+  useEffect(() => {
+    previewModeRef.current = previewMode
+  }, [previewMode])
 
   useEffect(() => {
     configRef.current = config
@@ -133,9 +141,19 @@ export default function VisualizerCanvas(): JSX.Element {
     if (!ctx || width === 0 || height === 0) return
 
     const render = () => {
-      const data = dataRef.current
+      const realData = dataRef.current
       const cfg = configRef.current
       const cover = coverArtStateRef.current
+
+      // Preview Mode: when no real frequency data is flowing (no audio loaded,
+      // or audio paused), synthesize a beat-driven spectrum so the user can
+      // design the visualizer without music. Real data wins as soon as it
+      // arrives.
+      const data =
+        realData ??
+        (previewModeRef.current
+          ? generateMockFrequencyData(performance.now() / 1000)
+          : null)
 
       ctx.fillStyle = bgRef.current
       ctx.fillRect(0, 0, width, height)

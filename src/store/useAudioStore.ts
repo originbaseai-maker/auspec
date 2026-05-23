@@ -11,6 +11,7 @@ export interface AudioStore {
   trimStart: number
   trimEnd: number | null
   loop: boolean
+  previewMode: boolean
 
   setAudioFile: (file: AudioFile | null) => void
   setIsPlaying: (playing: boolean) => void
@@ -22,6 +23,7 @@ export interface AudioStore {
   setTrimEnd: (s: number | null) => void
   resetTrim: () => void
   setLoop: (loop: boolean) => void
+  setPreviewMode: (b: boolean) => void
   cleanup: () => void
 }
 
@@ -35,6 +37,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   trimStart: 0,
   trimEnd: null,
   loop: false,
+  previewMode: true,
 
   setAudioFile: (audioFile) => {
     const prev = get().audioFile
@@ -60,6 +63,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   setTrimEnd: (trimEnd) => set({ trimEnd }),
   resetTrim: () => set({ trimStart: 0, trimEnd: null }),
   setLoop: (loop) => set({ loop }),
+  setPreviewMode: (previewMode) => set({ previewMode }),
 
   cleanup: () => {
     const { audioFile } = get()
