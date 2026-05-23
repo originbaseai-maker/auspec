@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Check, FolderOpen, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import { usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { AIZone } from './AIZone'
 
 function PresetDot({ preset }: { preset: Preset }): JSX.Element {
   const cfg = preset.config
@@ -80,6 +81,10 @@ function PresetItem({
     setEditing(false)
   }
 
+  const deleteLabel = isBuiltIn
+    ? `Hide ${preset.name}`
+    : `Delete ${preset.name}`
+
   return (
     <li>
       <div
@@ -120,23 +125,26 @@ function PresetItem({
             </>
           )}
         </div>
-        {!isBuiltIn && !editing && (
+        {!editing && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={startEdit}
-              aria-label={`Rename ${preset.name}`}
-              className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
-            >
-              <Pencil className="h-3 w-3" aria-hidden="true" />
-            </button>
+            {!isBuiltIn && (
+              <button
+                type="button"
+                onClick={startEdit}
+                aria-label={`Rename ${preset.name}`}
+                className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                <Pencil className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete(preset.id)
               }}
-              aria-label={`Delete ${preset.name}`}
+              aria-label={deleteLabel}
+              title={isBuiltIn ? 'Hide preset (restorable)' : 'Delete preset'}
               className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-red-500/20 hover:text-red-400"
             >
               <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -203,13 +211,13 @@ function SavePresetModal({ onSave, onCancel }: SavePresetModalProps): JSX.Elemen
 export function PresetsSidebar(): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false)
 
-  // User preset CRUD lives in usePresetStore; active highlight + apply
-  // continue to live in useVisualizerStore so the existing auto-clear-on-
-  // mutation logic keeps working.
   const userPresets = usePresetStore((s) => s.userPresets)
+  const builtInHidden = usePresetStore((s) => s.builtInHidden)
   const saveCurrentAsPreset = usePresetStore((s) => s.saveCurrentAsPreset)
   const renamePreset = usePresetStore((s) => s.renamePreset)
   const deletePreset = usePresetStore((s) => s.deletePreset)
+  const hideBuiltIn = usePresetStore((s) => s.hideBuiltIn)
+  const restoreAllBuiltIn = usePresetStore((s) => s.restoreAllBuiltIn)
 
   const activePresetId = useVisualizerStore((s) => s.activePresetId)
   const applyPreset = useVisualizerStore((s) => s.applyPreset)
@@ -228,12 +236,10 @@ export function PresetsSidebar(): JSX.Element {
       visualizerConfig,
       backgroundColor,
     )
-    // Round-trip through applyPreset so activePresetId picks up the new one.
     applyPreset(newPreset)
     setShowSaveModal(false)
   }
 
-  // Cloud projects (Phase 10) — shown in the lower section
   const navigate = useNavigate()
   const projects = useProjectStore((s) => s.projects)
   const loadProject = useProjectStore((s) => s.loadProject)
@@ -243,6 +249,10 @@ export function PresetsSidebar(): JSX.Element {
     loadProject(id)
     navigate('/studio')
   }
+
+  const visibleBuiltIns = BUILT_IN_PRESETS.filter(
+    (p) => !builtInHidden.includes(p.id),
+  )
 
   return (
     <>
@@ -280,24 +290,40 @@ export function PresetsSidebar(): JSX.Element {
           <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
             Built-in
           </p>
-          <ul className="space-y-1.5 mb-4">
-            {BUILT_IN_PRESETS.map((preset) => (
-              <PresetItem
-                key={preset.id}
-                preset={preset}
-                isActive={activePresetId === preset.id}
-                isBuiltIn={true}
-                onApply={handleApply}
-                onRename={renamePreset}
-                onDelete={deletePreset}
-              />
-            ))}
-          </ul>
+          {visibleBuiltIns.length > 0 ? (
+            <ul className="space-y-1.5">
+              {visibleBuiltIns.map((preset) => (
+                <PresetItem
+                  key={preset.id}
+                  preset={preset}
+                  isActive={activePresetId === preset.id}
+                  isBuiltIn={true}
+                  onApply={handleApply}
+                  onRename={renamePreset}
+                  onDelete={hideBuiltIn}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[10px] text-white/30">All built-ins hidden.</p>
+          )}
+          {builtInHidden.length > 0 && (
+            <button
+              type="button"
+              onClick={restoreAllBuiltIn}
+              className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] text-white/50 hover:text-white/80 transition-colors"
+              style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden="true" />
+              Restore {builtInHidden.length} default preset
+              {builtInHidden.length !== 1 ? 's' : ''}
+            </button>
+          )}
 
           {userPresets.length > 0 ? (
             <>
               <div
-                className="mb-2 border-t pt-3"
+                className="mt-4 mb-2 border-t pt-3"
                 style={{ borderColor: '#2a2a2a' }}
               >
                 <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
@@ -320,7 +346,7 @@ export function PresetsSidebar(): JSX.Element {
             </>
           ) : (
             <div
-              className="mt-2 rounded-md border border-dashed px-3 py-4 text-center"
+              className="mt-4 rounded-md border border-dashed px-3 py-4 text-center"
               style={{ borderColor: '#2a2a2a' }}
             >
               <p className="text-[10px] text-white/30">
@@ -328,48 +354,50 @@ export function PresetsSidebar(): JSX.Element {
               </p>
             </div>
           )}
+
+          <div className="mt-4 border-t pt-3" style={{ borderColor: '#2a2a2a' }}>
+            <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
+              Projects
+            </p>
+            {user && projects.length > 0 ? (
+              <ul className="space-y-1">
+                {projects.slice(0, 5).map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleLoadProject(p.id)}
+                      className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:border-[#3b82f6]/40"
+                      style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+                    >
+                      <FolderOpen
+                        className="h-3 w-3 shrink-0 text-white/50"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate text-[11px] text-white/80">
+                        {p.name}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
+                style={{ borderColor: '#2a2a2a' }}
+              >
+                <FolderOpen
+                  className="h-4 w-4 text-white/40 mb-1"
+                  aria-hidden="true"
+                />
+                <p className="text-[9px] text-white/40">
+                  {user ? 'No projects yet' : 'Sign in to save'}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="border-t p-3" style={{ borderColor: '#2a2a2a' }}>
-          <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
-            Projects
-          </p>
-          {user && projects.length > 0 ? (
-            <ul className="space-y-1">
-              {projects.slice(0, 5).map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadProject(p.id)}
-                    className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:border-[#3b82f6]/40"
-                    style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
-                  >
-                    <FolderOpen
-                      className="h-3 w-3 shrink-0 text-white/50"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate text-[11px] text-white/80">
-                      {p.name}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div
-              className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
-              style={{ borderColor: '#2a2a2a' }}
-            >
-              <FolderOpen
-                className="h-4 w-4 text-white/40 mb-1"
-                aria-hidden="true"
-              />
-              <p className="text-[9px] text-white/40">
-                {user ? 'No projects yet' : 'Sign in to save'}
-              </p>
-            </div>
-          )}
-        </div>
+        <AIZone />
       </aside>
     </>
   )
