@@ -4,8 +4,8 @@ import type {
   PolygonSpectrumConfig,
 } from '@/lib/renderers/polygonSpectrum'
 import {
-  ColorRow,
   FreqRangeBlock,
+  PaletteEditor,
   PanelGroup,
   SegmentedGroup,
   Slider,
@@ -52,28 +52,12 @@ export function PolygonPanel() {
   return (
     <div className="space-y-5">
       <PanelGroup title="Colors">
-        <div className="space-y-2">
-          <div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
-              Primary
-            </p>
-            <ColorRow
-              value={cfg.colorStart}
-              onChange={(c) => update({ colorStart: c })}
-              ariaLabel="primary color"
-            />
-          </div>
-          <div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
-              Secondary
-            </p>
-            <ColorRow
-              value={cfg.colorEnd}
-              onChange={(c) => update({ colorEnd: c })}
-              ariaLabel="secondary color"
-            />
-          </div>
-        </div>
+        <PaletteEditor
+          palette={cfg.palette}
+          onChange={(palette) => update({ palette })}
+          fallbackStart={cfg.colorStart}
+          fallbackEnd={cfg.colorEnd}
+        />
       </PanelGroup>
 
       <PanelGroup title="Shape">

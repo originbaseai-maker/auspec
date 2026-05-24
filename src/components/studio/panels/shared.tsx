@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import { Plus, X } from 'lucide-react'
+import { PRESET_PALETTES } from '@/lib/colorPalette'
+
 export const COLOR_SWATCHES = [
   '#3b82f6',
   '#8b5cf6',
@@ -286,5 +290,158 @@ export function PanelGroup({
       {title && <SectionHeader title={title} hint={hint} />}
       {children}
     </section>
+  )
+}
+
+const MAX_PALETTE_SIZE = 7
+const MIN_PALETTE_SIZE = 2
+
+/**
+ * Editor for a multi-color palette (3-7 stops).
+ *
+ * When `palette` is `undefined`, the editor displays [fallbackStart,
+ * fallbackEnd] as if it were a 2-stop palette — letting users tweak
+ * legacy 2-color configs without thinking about modes. Editing any stop
+ * commits a defined palette via `onChange`. Pressing "Reset to 2-color
+ * gradient" calls `onChange(undefined)` to return to legacy mode.
+ */
+export function PaletteEditor({
+  palette,
+  onChange,
+  fallbackStart,
+  fallbackEnd,
+}: {
+  palette: string[] | undefined
+  onChange: (palette: string[] | undefined) => void
+  fallbackStart: string
+  fallbackEnd: string
+}) {
+  const [showPresets, setShowPresets] = useState(false)
+
+  const colors = palette ?? [fallbackStart, fallbackEnd]
+  const isPaletteMode = palette !== undefined && palette.length >= 2
+
+  const updateColor = (index: number, color: string) => {
+    const next = [...colors]
+    next[index] = color
+    onChange(next)
+  }
+
+  const addColor = () => {
+    if (colors.length >= MAX_PALETTE_SIZE) return
+    onChange([...colors, '#ffffff'])
+  }
+
+  const removeColor = (index: number) => {
+    if (colors.length <= MIN_PALETTE_SIZE) return
+    onChange(colors.filter((_, i) => i !== index))
+  }
+
+  const applyPreset = (preset: string[]) => {
+    onChange([...preset])
+    setShowPresets(false)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-1.5">
+        {colors.map((color, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              type="color"
+              value={color.startsWith('#') ? color : '#ffffff'}
+              onChange={(e) => updateColor(i, e.target.value)}
+              className="h-7 w-9 cursor-pointer rounded border bg-transparent"
+              style={{ borderColor: '#2a2a2a' }}
+              aria-label={`Color stop ${i + 1}`}
+            />
+            <input
+              type="text"
+              value={color}
+              onChange={(e) => updateColor(i, e.target.value)}
+              className="flex-1 rounded border bg-[#0f0f0f] px-2 py-1 text-[11px] text-white outline-none focus:border-[#3b82f6]"
+              style={{ borderColor: '#2a2a2a' }}
+              aria-label={`Color stop ${i + 1} hex`}
+            />
+            {colors.length > MIN_PALETTE_SIZE && (
+              <button
+                type="button"
+                onClick={() => removeColor(i)}
+                aria-label={`Remove color ${i + 1}`}
+                className="flex h-7 w-7 items-center justify-center rounded text-white/40 hover:bg-red-500/15 hover:text-red-400"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="h-3 w-full rounded border"
+        style={{
+          borderColor: '#2a2a2a',
+          background: `linear-gradient(90deg, ${colors.join(', ')})`,
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={addColor}
+          disabled={colors.length >= MAX_PALETTE_SIZE}
+          className="flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] text-white/70 hover:text-white disabled:opacity-40"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          <Plus className="h-3 w-3" aria-hidden="true" />
+          Add color ({colors.length}/{MAX_PALETTE_SIZE})
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPresets((v) => !v)}
+          aria-expanded={showPresets}
+          className="rounded-md border px-2 py-1.5 text-[10px] text-white/70 hover:text-white"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          Presets
+        </button>
+      </div>
+
+      {showPresets && (
+        <div
+          className="space-y-1 rounded-md border p-2"
+          style={{ borderColor: '#2a2a2a', background: '#0a0a0a' }}
+        >
+          {PRESET_PALETTES.map((p) => (
+            <button
+              key={p.name}
+              type="button"
+              onClick={() => applyPreset(p.colors)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-white/5"
+            >
+              <div
+                className="h-3 w-12 rounded"
+                style={{
+                  background: `linear-gradient(90deg, ${p.colors.join(', ')})`,
+                }}
+                aria-hidden="true"
+              />
+              <span className="text-[11px] text-white/80">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isPaletteMode && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          className="w-full text-center text-[9px] text-white/30 hover:text-white/60"
+        >
+          ↺ Reset to 2-color gradient
+        </button>
+      )}
+    </div>
   )
 }

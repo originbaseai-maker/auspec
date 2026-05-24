@@ -1,5 +1,10 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
+import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  addPaletteStops,
+  lastColor,
+  resolveBarColor,
+} from '@/lib/colorPalette'
 
 export type DisplayMode = 'digital' | 'analog_lines' | 'analog_dots'
 export type BarsSideMode = 'both' | 'side_a' | 'side_b'
@@ -10,6 +15,8 @@ export interface LinearBarsConfig {
   minBarHeight: number
   colorStart: string
   colorEnd: string
+  /** Optional multi-color palette (3-7). When set, overrides colorStart/colorEnd. */
+  palette?: string[]
   glowEnabled: boolean
   glowIntensity: number
   mirrorMode: boolean
@@ -38,6 +45,7 @@ export function renderLinearBars(
     minBarHeight,
     colorStart,
     colorEnd,
+    palette,
     glowEnabled,
     glowIntensity,
     mirrorMode,
@@ -67,7 +75,7 @@ export function renderLinearBars(
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
-    ctx.shadowColor = colorEnd
+    ctx.shadowColor = lastColor(palette, colorEnd)
   } else {
     ctx.shadowBlur = 0
   }
@@ -111,14 +119,16 @@ export function renderLinearBars(
       ctx.lineTo(xLast, peakY(barCount - 1, flip))
     }
 
-    if (hueInterpolation > 0) {
-      // Per-segment color so the rainbow runs along the curve.
+    const hasPerSegmentColor = hueInterpolation > 0 || (palette && palette.length >= 2)
+    if (hasPerSegmentColor) {
+      // Per-segment color so the rainbow/palette runs along the curve.
       const drawSegments = (flip: boolean) => {
         for (let i = 0; i < barCount - 1; i++) {
           const xCur = i * (barWidth + barGap) + barWidth / 2
           const xNext = (i + 1) * (barWidth + barGap) + barWidth / 2
-          ctx.strokeStyle = getBarColor(
+          ctx.strokeStyle = resolveBarColor(
             i / barCount,
+            palette,
             colorStart,
             colorEnd,
             hueInterpolation,
@@ -139,8 +149,7 @@ export function renderLinearBars(
       }
     } else {
       const gradient = ctx.createLinearGradient(0, height, 0, 0)
-      gradient.addColorStop(0, colorStart)
-      gradient.addColorStop(1, colorEnd)
+      addPaletteStops(gradient, palette, colorStart, colorEnd)
       ctx.strokeStyle = gradient
       ctx.lineWidth = 2
       ctx.lineCap = 'round'
@@ -173,8 +182,9 @@ export function renderLinearBars(
       const x = i * (barWidth + barGap) + barWidth / 2
       const numDots = Math.max(1, Math.floor(barHeight / dotSpacing))
 
-      ctx.fillStyle = getBarColor(
+      ctx.fillStyle = resolveBarColor(
         i / barCount,
+        palette,
         colorStart,
         colorEnd,
         hueInterpolation,
@@ -206,21 +216,24 @@ export function renderLinearBars(
     return
   }
 
-  // 'digital' — solid rectangles (default behavior)
-  const useHue = hueInterpolation > 0
-  if (!useHue) {
+  // 'digital' — solid rectangles (default behavior).
+  // Hue rainbow OR a palette force per-bar coloring (palette colors don't
+  // map cleanly to a single canvas gradient running along Y); otherwise
+  // the legacy 2-color vertical gradient is fine.
+  const usePerBar = hueInterpolation > 0 || (palette && palette.length >= 2)
+  if (!usePerBar) {
     const gradient = ctx.createLinearGradient(0, height, 0, 0)
-    gradient.addColorStop(0, colorStart)
-    gradient.addColorStop(1, colorEnd)
+    addPaletteStops(gradient, palette, colorStart, colorEnd)
     ctx.fillStyle = gradient
   }
 
   for (let i = 0; i < barCount; i++) {
     const barHeight = previousHeights[i]
     const x = i * (barWidth + barGap)
-    if (useHue) {
-      ctx.fillStyle = getBarColor(
+    if (usePerBar) {
+      ctx.fillStyle = resolveBarColor(
         i / barCount,
+        palette,
         colorStart,
         colorEnd,
         hueInterpolation,

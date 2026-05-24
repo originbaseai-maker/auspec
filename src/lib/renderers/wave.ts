@@ -1,9 +1,22 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor } from '@/lib/frequencyUtils'
+import {
+  addPaletteStops,
+  firstColor,
+  lastColor,
+  parseColor,
+  resolveBarColor,
+} from '@/lib/colorPalette'
+
+function withAlpha(color: string, alpha: number): string {
+  const { r, g, b } = parseColor(color)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 export interface WaveConfig {
   colorStart: string
   colorEnd: string
+  /** Optional multi-color palette (3-7). When set, overrides colorStart/colorEnd. */
+  palette?: string[]
   lineThickness: number
   glowEnabled: boolean
   glowIntensity: number
@@ -40,6 +53,7 @@ export function renderWave(
   const {
     colorStart,
     colorEnd,
+    palette,
     lineThickness,
     glowEnabled,
     glowIntensity,
@@ -54,17 +68,18 @@ export function renderWave(
   const centerY = height / 2
 
   const gradient = ctx.createLinearGradient(0, 0, width, 0)
-  gradient.addColorStop(0, colorStart)
-  gradient.addColorStop(1, colorEnd)
+  addPaletteStops(gradient, palette, colorStart, colorEnd)
 
   ctx.save()
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
-    ctx.shadowColor = colorEnd
+    ctx.shadowColor = lastColor(palette, colorEnd)
   } else {
     ctx.shadowBlur = 0
   }
+
+  const usePerSegment = hueInterpolation > 0 || (palette && palette.length >= 2)
 
   ctx.lineWidth = lineThickness
   ctx.lineCap = 'round'
@@ -76,11 +91,12 @@ export function renderWave(
   }
 
   const drawWavePath = (flip: boolean) => {
-    if (hueInterpolation > 0) {
-      // Per-segment stroke so each chunk picks up its own hue.
+    if (usePerSegment) {
+      // Per-segment stroke so each chunk picks up its own hue/palette stop.
       for (let i = 0; i < timeDomain.length - 1; i++) {
-        ctx.strokeStyle = getBarColor(
+        ctx.strokeStyle = resolveBarColor(
           i / timeDomain.length,
+          palette,
           colorStart,
           colorEnd,
           hueInterpolation,
@@ -113,9 +129,13 @@ export function renderWave(
       ctx.lineTo(width, centerY)
       ctx.lineTo(0, centerY)
       ctx.closePath()
+      // The fill uses palette endpoints at low alpha so the filled area
+      // tints toward the line color without overwhelming it.
       const fillGradient = ctx.createLinearGradient(0, 0, width, 0)
-      fillGradient.addColorStop(0, colorStart + '33')
-      fillGradient.addColorStop(1, colorEnd + '33')
+      const fillStart = firstColor(palette, colorStart)
+      const fillEnd = lastColor(palette, colorEnd)
+      fillGradient.addColorStop(0, withAlpha(fillStart, 0.2))
+      fillGradient.addColorStop(1, withAlpha(fillEnd, 0.2))
       ctx.fillStyle = fillGradient
       ctx.fill()
     }

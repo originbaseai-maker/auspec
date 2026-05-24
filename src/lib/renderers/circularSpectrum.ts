@@ -1,5 +1,11 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
+import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  addPaletteStops,
+  firstColor,
+  lastColor,
+  resolveBarColor,
+} from '@/lib/colorPalette'
 
 export type CircularSideMode = 'both' | 'side_a' | 'side_b'
 
@@ -9,6 +15,8 @@ export interface CircularSpectrumConfig {
   barCount: number
   colorStart: string
   colorEnd: string
+  /** Optional multi-color palette (3-7). When set, overrides colorStart/colorEnd. */
+  palette?: string[]
   glowEnabled: boolean
   glowIntensity: number
   rotation: number
@@ -54,6 +62,7 @@ export function renderCircularSpectrum(
     barCount,
     colorStart,
     colorEnd,
+    palette,
     glowEnabled,
     glowIntensity,
     rotation,
@@ -116,20 +125,30 @@ export function renderCircularSpectrum(
   const rotationRad = (rotation * Math.PI) / 180
   const angleStep = (Math.PI * 2) / barCount
 
-  const gradient = ctx.createRadialGradient(cx, cy, effectiveInnerRadius, cx, cy, effectiveOuterRadius)
-  gradient.addColorStop(0, colorStart)
-  gradient.addColorStop(1, colorEnd)
+  const gradient = ctx.createRadialGradient(
+    cx,
+    cy,
+    effectiveInnerRadius,
+    cx,
+    cy,
+    effectiveOuterRadius,
+  )
+  addPaletteStops(gradient, palette, colorStart, colorEnd)
 
   ctx.save()
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
-    ctx.shadowColor = colorEnd
+    ctx.shadowColor = lastColor(palette, colorEnd)
   } else {
     ctx.shadowBlur = 0
   }
 
-  if (hueInterpolation === 0) {
+  // Palette OR hue rainbow force per-bar coloring; radial gradient only works
+  // for the legacy 2-color case where every bar's color comes from its radial
+  // position (which they all share, since bars run radially).
+  const usePerBar = hueInterpolation > 0 || (palette && palette.length >= 2)
+  if (!usePerBar) {
     ctx.strokeStyle = gradient
     ctx.fillStyle = gradient
   }
@@ -154,9 +173,10 @@ export function renderCircularSpectrum(
     const x1 = cx + cosA * pulseAmount
     const y1 = cy + sinA * pulseAmount
 
-    if (hueInterpolation > 0) {
-      ctx.strokeStyle = getBarColor(
+    if (usePerBar) {
+      ctx.strokeStyle = resolveBarColor(
         i / barCount,
+        palette,
         colorStart,
         colorEnd,
         hueInterpolation,
@@ -185,11 +205,12 @@ export function renderCircularSpectrum(
 
   // inner circle outline — skipped in Smart Logo Mode so we don't draw on the logo
   if (!hasLogo) {
+    const outlineColor = firstColor(palette, colorStart)
     ctx.beginPath()
     ctx.lineWidth = 2
-    ctx.strokeStyle = colorStart
+    ctx.strokeStyle = outlineColor
     ctx.shadowBlur = glowEnabled ? glowIntensity * 1.5 : 0
-    ctx.shadowColor = colorStart
+    ctx.shadowColor = outlineColor
     ctx.arc(cx, cy, pulseAmount, 0, Math.PI * 2)
     ctx.stroke()
   }

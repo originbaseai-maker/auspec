@@ -1,5 +1,11 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getBarColor, getFrequencyBinRange } from '@/lib/frequencyUtils'
+import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  firstColor,
+  lastColor,
+  parseColor,
+  resolveBarColor,
+} from '@/lib/colorPalette'
 
 const FALLBACK_SAMPLE_RATE = 44100
 
@@ -17,6 +23,8 @@ export interface PolygonSpectrumConfig {
   barCount: number
   colorStart: string
   colorEnd: string
+  /** Optional multi-color palette (3-7). When set, overrides colorStart/colorEnd. */
+  palette?: string[]
   glowEnabled: boolean
   glowIntensity: number
   rotation: number
@@ -219,6 +227,7 @@ export function renderPolygonSpectrum(
     barCount,
     colorStart,
     colorEnd,
+    palette,
     glowEnabled,
     glowIntensity,
     rotation,
@@ -255,11 +264,11 @@ export function renderPolygonSpectrum(
   const vertices = getPolygonVertices(shape, cx, cy, scaledRadius, rotation)
   const perimeterPts = getPerimeterPoints(vertices, barCount)
 
-  // Parse colorStart hex once for the polygon fill / outline.
-  // Per-bar color is delegated to getBarColor() so hue interpolation works.
-  const r1 = parseInt(colorStart.slice(1, 3), 16)
-  const g1 = parseInt(colorStart.slice(3, 5), 16)
-  const b1 = parseInt(colorStart.slice(5, 7), 16)
+  // Polygon fill + outline use the FIRST palette color (or fallback start)
+  // as the accent. Per-bar color is delegated to resolveBarColor() below so
+  // palette / hue interpolation both work along the perimeter.
+  const accentColor = firstColor(palette, colorStart)
+  const { r: r1, g: g1, b: b1 } = parseColor(accentColor)
 
   const step = Math.max(1, Math.floor(sourceLen / barCount))
 
@@ -289,13 +298,13 @@ export function renderPolygonSpectrum(
   ctx.strokeStyle = `rgba(${r1},${g1},${b1},0.4)`
   ctx.lineWidth = 1.5
   ctx.shadowBlur = glowEnabled ? glowIntensity * 0.5 : 0
-  ctx.shadowColor = colorStart
+  ctx.shadowColor = accentColor
   ctx.stroke()
 
   // 3. Spectrum bars along perimeter
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
-    ctx.shadowColor = colorEnd
+    ctx.shadowColor = lastColor(palette, colorEnd)
   } else {
     ctx.shadowBlur = 0
   }
@@ -311,8 +320,9 @@ export function renderPolygonSpectrum(
 
     const { x, y, nx, ny } = perimeterPts[i]
 
-    ctx.strokeStyle = getBarColor(
+    ctx.strokeStyle = resolveBarColor(
       i / barCount,
+      palette,
       colorStart,
       colorEnd,
       hueInterpolation,
