@@ -12,7 +12,16 @@ import { TextPanel } from './panels/TextPanel'
 import { AIPanel } from './panels/AIPanel'
 import { FramePanel } from './panels/FramePanel'
 
-export function CategoryDetailPanel() {
+interface Props {
+  /**
+   * When true, skip the panel's own card chrome (border, title row,
+   * internal X button) and let the surrounding container provide them.
+   * Used inside the mobile bottom sheet which has its own header.
+   */
+  hideHeader?: boolean
+}
+
+export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
 
@@ -46,6 +55,10 @@ export function CategoryDetailPanel() {
       default:
         return null
     }
+  }
+
+  if (hideHeader) {
+    return <div className="p-4">{renderPanel()}</div>
   }
 
   return (

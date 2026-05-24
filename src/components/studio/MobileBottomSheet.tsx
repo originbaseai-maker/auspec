@@ -1,12 +1,19 @@
 import { useEffect, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 
 interface Props {
   open: boolean
   onClose: () => void
+  /**
+   * When provided, a ChevronLeft button appears to the left of the
+   * title. Use this to model an in-sheet "back" action without closing
+   * the whole sheet (e.g. detail view → grid view).
+   */
+  onBack?: () => void
   title: string
   children: ReactNode
-  height?: '50%' | '70%' | '90%'
+  /** Accepts a percentage string or any valid CSS height. Animates smoothly between values. */
+  height?: string
 }
 
 /**
@@ -19,6 +26,7 @@ interface Props {
 export function MobileBottomSheet({
   open,
   onClose,
+  onBack,
   title,
   children,
   height = '70%',
@@ -55,6 +63,10 @@ export function MobileBottomSheet({
         style={{
           borderColor: '#2a2a2a',
           height,
+          // The slide-up animation runs once on mount; the height
+          // transition runs every time `height` changes (e.g. when the
+          // Tools sheet shrinks for a detail view).
+          transition: 'height 250ms cubic-bezier(0.32, 0.72, 0, 1)',
           animation: 'auspec-sheet-slide 250ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
@@ -68,7 +80,19 @@ export function MobileBottomSheet({
           className="flex shrink-0 items-center justify-between border-b px-4 py-2"
           style={{ borderColor: '#1a1a1a' }}
         >
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <div className="flex items-center gap-1">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label="Back"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-white/60 hover:text-white"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <h3 className="text-sm font-semibold text-white">{title}</h3>
+          </div>
           <button
             type="button"
             onClick={onClose}

@@ -22,7 +22,9 @@ import { useAudioStore } from '@/store/useAudioStore';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
+import { useStudioUIStore } from '@/store/useStudioUIStore';
 import { useViewport } from '@/hooks/useViewport';
+import { STUDIO_CATEGORIES } from '@/types/studio';
 import {
   SOCIAL_FORMATS,
   getFormat,
@@ -591,6 +593,11 @@ export function StudioPage() {
   const prevFormat = useRef(activeFormat);
 
   const [mobileTab, setMobileTab] = useState<MobileTabId | null>(null);
+  const activeCategory = useStudioUIStore((s) => s.activeCategory);
+  const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory);
+  const activeCategoryLabel = activeCategory
+    ? STUDIO_CATEGORIES.find((c) => c.id === activeCategory)?.label ?? 'Tools'
+    : 'Tools';
 
   useEffect(() => {
     if (prevFormat.current === activeFormat) return;
@@ -653,12 +660,20 @@ export function StudioPage() {
           <MobileBottomSheet
             open={mobileTab === 'tools'}
             onClose={() => setMobileTab(null)}
-            title="Tools"
-            height="90%"
+            onBack={
+              activeCategory ? () => setActiveCategory(null) : undefined
+            }
+            title={activeCategoryLabel}
+            // 50% when adjusting a category so the canvas stays visible
+            // above; 70% when picking a category so the full grid fits.
+            height={activeCategory ? '50%' : '70%'}
           >
             <div className="pb-4">
-              <CategoryGrid />
-              <CategoryDetailPanel />
+              {activeCategory ? (
+                <CategoryDetailPanel hideHeader />
+              ) : (
+                <CategoryGrid />
+              )}
             </div>
           </MobileBottomSheet>
         </div>
