@@ -1,4 +1,5 @@
 import type { VisualizerConfig, VisualType } from '@/lib/visualizerConfig'
+import type { FrameConfig } from '@/store/useFrameStore'
 
 export interface Preset {
   id: string
@@ -8,6 +9,13 @@ export interface Preset {
   backgroundColor?: string
   description?: string
   sensitivity?: number
+  /**
+   * Optional full snapshot of frame state. Undefined on legacy presets
+   * (built-ins and user-saved presets from before frame integration);
+   * applyPreset treats that as "reset the frame to defaults" so the
+   * previous preset's frame doesn't bleed over.
+   */
+  frameConfig?: FrameConfig
 }
 
 export const BUILT_IN_PRESETS: Preset[] = [

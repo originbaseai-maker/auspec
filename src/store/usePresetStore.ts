@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import type { VisualizerConfig, VisualType } from '@/lib/visualizerConfig'
+import { useFrameStore, type FrameConfig } from './useFrameStore'
 
 const STORAGE_KEY = 'auspec-user-presets'
 const HIDDEN_STORAGE_KEY = 'auspec-builtin-hidden'
@@ -102,6 +103,22 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
   favorites: loadFavorites(),
 
   saveCurrentAsPreset: (name, visualType, config, backgroundColor) => {
+    const frameState = useFrameStore.getState()
+    const frameConfig: FrameConfig = {
+      enabled: frameState.enabled,
+      color: frameState.color,
+      thickness: frameState.thickness,
+      smoothness: frameState.smoothness,
+      haloEnabled: frameState.haloEnabled,
+      haloIntensity: frameState.haloIntensity,
+      shadowEnabled: frameState.shadowEnabled,
+      shadowIntensity: frameState.shadowIntensity,
+      shadowColor: frameState.shadowColor,
+      reflectionEnabled: frameState.reflectionEnabled,
+      reflectionIntensity: frameState.reflectionIntensity,
+      pulseEnabled: frameState.pulseEnabled,
+      pulseIntensity: frameState.pulseIntensity,
+    }
     const newPreset: Preset = {
       id: `user-${Date.now()}`,
       name,
@@ -109,6 +126,7 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
       description: 'Custom preset',
       backgroundColor,
       config,
+      frameConfig,
     }
     const updated = [...get().userPresets, newPreset]
     saveToStorage(updated)

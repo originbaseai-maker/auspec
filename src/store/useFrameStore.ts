@@ -23,23 +23,7 @@ export interface FrameConfig {
   pulseIntensity: number // 0–100
 }
 
-export interface FrameStore extends FrameConfig {
-  setEnabled: (v: boolean) => void
-  setColor: (v: string) => void
-  setThickness: (v: number) => void
-  setSmoothness: (v: number) => void
-  setHaloEnabled: (v: boolean) => void
-  setHaloIntensity: (v: number) => void
-  setShadowEnabled: (v: boolean) => void
-  setShadowIntensity: (v: number) => void
-  setShadowColor: (v: string) => void
-  setReflectionEnabled: (v: boolean) => void
-  setReflectionIntensity: (v: number) => void
-  setPulseEnabled: (v: boolean) => void
-  setPulseIntensity: (v: number) => void
-}
-
-export const useFrameStore = create<FrameStore>((set) => ({
+export const DEFAULT_FRAME_CONFIG: FrameConfig = {
   enabled: false,
   color: '#3b82f6',
   thickness: 0,
@@ -57,6 +41,30 @@ export const useFrameStore = create<FrameStore>((set) => ({
 
   pulseEnabled: false,
   pulseIntensity: 50,
+}
+
+export interface FrameStore extends FrameConfig {
+  setEnabled: (v: boolean) => void
+  setColor: (v: string) => void
+  setThickness: (v: number) => void
+  setSmoothness: (v: number) => void
+  setHaloEnabled: (v: boolean) => void
+  setHaloIntensity: (v: number) => void
+  setShadowEnabled: (v: boolean) => void
+  setShadowIntensity: (v: number) => void
+  setShadowColor: (v: string) => void
+  setReflectionEnabled: (v: boolean) => void
+  setReflectionIntensity: (v: number) => void
+  setPulseEnabled: (v: boolean) => void
+  setPulseIntensity: (v: number) => void
+  /** Reset to defaults — used when switching to a preset without frame data. */
+  resetToDefaults: () => void
+  /** Replace all frame state with the given config (used when applying a preset). */
+  applyConfig: (config: FrameConfig) => void
+}
+
+export const useFrameStore = create<FrameStore>((set) => ({
+  ...DEFAULT_FRAME_CONFIG,
 
   setEnabled: (enabled) => set({ enabled }),
   setColor: (color) => set({ color }),
@@ -75,4 +83,22 @@ export const useFrameStore = create<FrameStore>((set) => ({
   setPulseEnabled: (pulseEnabled) => set({ pulseEnabled }),
   setPulseIntensity: (pulseIntensity) =>
     set({ pulseIntensity: clamp(pulseIntensity, 0, 100) }),
+
+  resetToDefaults: () => set({ ...DEFAULT_FRAME_CONFIG }),
+  applyConfig: (config) =>
+    set({
+      enabled: config.enabled,
+      color: config.color,
+      thickness: clamp(config.thickness, 0, 40),
+      smoothness: clamp(config.smoothness, 0, 50),
+      haloEnabled: config.haloEnabled,
+      haloIntensity: clamp(config.haloIntensity, 0, 100),
+      shadowEnabled: config.shadowEnabled,
+      shadowIntensity: clamp(config.shadowIntensity, 0, 100),
+      shadowColor: config.shadowColor,
+      reflectionEnabled: config.reflectionEnabled,
+      reflectionIntensity: clamp(config.reflectionIntensity, 0, 100),
+      pulseEnabled: config.pulseEnabled,
+      pulseIntensity: clamp(config.pulseIntensity, 0, 100),
+    }),
 }))

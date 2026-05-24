@@ -10,6 +10,7 @@ import {
   type VisualType,
 } from '@/lib/visualizerConfig'
 import type { Preset } from '@/lib/presets'
+import { useFrameStore } from './useFrameStore'
 
 export type { VisualType }
 export type CanvasRatio = '16:9' | '9:16' | '1:1' | '4:5' | '21:9'
@@ -118,7 +119,17 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
       },
     })),
 
-  applyPreset: (preset) =>
+  applyPreset: (preset) => {
+    // Frame state is a separate store, so reset/apply it explicitly here.
+    // Without this, the previous preset's frame stays active and layers
+    // over the new one.
+    const frameStore = useFrameStore.getState()
+    if (preset.frameConfig) {
+      frameStore.applyConfig(preset.frameConfig)
+    } else {
+      frameStore.resetToDefaults()
+    }
+
     set((state) => {
       const merged: VisualizerConfig = {
         ...state.visualizerConfig,
@@ -181,5 +192,6 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         sensitivity: preset.sensitivity ?? state.sensitivity,
         activePresetId: preset.id,
       }
-    }),
+    })
+  },
 }))

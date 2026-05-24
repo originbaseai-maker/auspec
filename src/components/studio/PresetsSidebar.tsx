@@ -34,10 +34,16 @@ function PresetDot({ preset }: { preset: Preset }): JSX.Element {
     start = cfg.polygon.colorStart
     end = cfg.polygon.colorEnd
   }
+  const frameEnabled = preset.frameConfig?.enabled === true
   return (
     <span
       className="h-4 w-4 shrink-0 rounded-full"
-      style={{ background: `linear-gradient(135deg, ${start}, ${end})` }}
+      style={{
+        background: `linear-gradient(135deg, ${start}, ${end})`,
+        boxShadow: frameEnabled
+          ? `0 0 0 1.5px ${preset.frameConfig?.color ?? '#3b82f6'}`
+          : 'none',
+      }}
       aria-hidden="true"
     />
   )
