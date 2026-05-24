@@ -50,6 +50,15 @@ export class AnalyzerEngine {
   private sampleRate: number
   private bins: BandBins
   private readonly tickBound: () => void
+  /**
+   * Stable wrapper object emitted every tick. Fields are mutated in
+   * place so consumers (mainly VisualizerCanvas via its dataRef) always
+   * see fresh values, while React's `setState(sameRef)` short-circuits
+   * via Object.is — no per-frame reconciliation. Components that need
+   * to re-render on data change (e.g. the dev overlay) must run their
+   * own tick.
+   */
+  private latestData: FrequencyData
 
   constructor(
     analyser: AnalyserNode,
@@ -67,6 +76,16 @@ export class AnalyzerEngine {
     this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(analyser.fftSize))
     this.bins = this.computeBins()
     this.tickBound = () => this.tick()
+    this.latestData = {
+      raw: this.frequencyBuffer,
+      timeDomain: this.timeDomainBuffer,
+      bass: 0,
+      mid: 0,
+      treble: 0,
+      rms: 0,
+      peak: 0,
+      beatEnergy: 0,
+    }
   }
 
   start(): void {
@@ -96,6 +115,10 @@ export class AnalyzerEngine {
       this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize))
       this.bins = this.computeBins()
       this.beatHistory.length = 0
+      // Repoint the stable wrapper at the new buffers so consumers keep
+      // reading live data after fftSize changes.
+      this.latestData.raw = this.frequencyBuffer
+      this.latestData.timeDomain = this.timeDomainBuffer
     }
   }
 
@@ -160,16 +183,17 @@ export class AnalyzerEngine {
     history.push(bass)
     if (history.length > BEAT_HISTORY_MAX) history.shift()
 
-    this.onFrame({
-      raw: this.frequencyBuffer,
-      bass,
-      mid,
-      treble,
-      rms,
-      peak,
-      beatEnergy,
-      timeDomain: this.timeDomainBuffer,
-    })
+    // Mutate the stable wrapper in place — same reference every tick so
+    // React's setState dedupes (no per-frame reconciliation). The canvas
+    // reads .raw / .bass / etc. directly from this live object.
+    const live = this.latestData
+    live.bass = bass
+    live.mid = mid
+    live.treble = treble
+    live.rms = rms
+    live.peak = peak
+    live.beatEnergy = beatEnergy
+    this.onFrame(live)
 
     this.animationId = requestAnimationFrame(this.tickBound)
   }

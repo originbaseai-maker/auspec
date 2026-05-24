@@ -37,7 +37,28 @@ function Row({ label, value }: { label: string; value: string | number | boolean
 
 export function AnalyzerDebugOverlay() {
   const [visible, setVisible] = useState(false)
+  const [, setTick] = useState(0)
   const { frequencyData, isAnalyzing, analyzerConfig } = useAnalyzer()
+
+  // The analyzer emits a STABLE FrequencyData reference (fields mutated
+  // in place) so React's setState dedupes the per-frame push — great for
+  // perf, but it means this overlay would freeze. We run our own rAF
+  // tick whenever the overlay is visible to force re-reads of the live
+  // values. ~10 Hz is plenty for a numeric readout.
+  useEffect(() => {
+    if (!visible) return
+    let raf = 0
+    let lastTick = 0
+    const tick = (t: number) => {
+      if (t - lastTick >= 100) {
+        setTick((n) => n + 1)
+        lastTick = t
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [visible])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

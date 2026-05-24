@@ -9,7 +9,7 @@ export interface RecordingOptions {
 
 export const DEFAULT_RECORDING_OPTIONS: RecordingOptions = {
   duration: 30,
-  frameRate: 30,
+  frameRate: 60,
   videoBitsPerSecond: 5_000_000,
   mimeType: 'video/webm',
 }
