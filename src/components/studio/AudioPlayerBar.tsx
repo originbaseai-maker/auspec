@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { Play, Upload } from 'lucide-react';
+import { ChevronUp, Music, Upload } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
 import type { AudioFile } from '@/types/audio';
+import { DemoSongsLibrary } from '@/components/audio/DemoSongsLibrary';
 
 const FORMATS = ['mp3', 'wav', 'm4a', 'flac'] as const;
 const ACCEPT = '.mp3,.wav,.m4a,.flac,audio/mpeg,audio/wav,audio/mp4,audio/flac';
@@ -29,6 +30,7 @@ export function AudioPlayerBar() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const setAudioFile = useAudioStore((s) => s.setAudioFile);
   const [error, setError] = useState<string | null>(null);
+  const [showDemos, setShowDemos] = useState(false);
 
   const openPicker = () => {
     setError(null);
@@ -116,33 +118,52 @@ export function AudioPlayerBar() {
           </div>
         </div>
 
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          aria-label="Play"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-[#1a1a1a] text-white/80 opacity-50 cursor-not-allowed"
-          style={{ borderColor: '#2a2a2a' }}
-        >
-          <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-        </button>
-
-        <div
-          className="hidden md:flex flex-1 max-w-[280px] items-center gap-3 opacity-50"
-          aria-disabled="true"
-        >
-          <div
-            className="relative h-1.5 flex-1 rounded-full bg-[#1a1a1a] overflow-hidden"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={0}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowDemos((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={showDemos}
+            className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all hover:border-white/30"
+            style={{
+              borderColor: showDemos ? 'rgba(59,130,246,0.5)' : '#2a2a2a',
+              background: showDemos
+                ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15))'
+                : '#1a1a1a',
+              color: 'rgba(255,255,255,0.9)',
+            }}
           >
-            <div className="h-full w-0 bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6]" />
-          </div>
-          <span className="text-xs tabular-nums text-white/70 whitespace-nowrap">
-            0:00 / 0:00
-          </span>
+            <Music className="h-4 w-4" aria-hidden="true" />
+            <span className="font-medium">Demo Songs</span>
+            <ChevronUp
+              className="h-3.5 w-3.5 transition-transform"
+              style={{
+                transform: showDemos ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+              aria-hidden="true"
+            />
+          </button>
+
+          {showDemos && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowDemos(false)}
+                aria-hidden="true"
+              />
+              <div
+                role="dialog"
+                aria-label="Demo songs"
+                className="absolute bottom-full right-0 z-50 mb-3 w-[420px] max-h-[60vh] overflow-y-auto rounded-xl border p-4 shadow-2xl"
+                style={{
+                  borderColor: '#2a2a2a',
+                  background: 'linear-gradient(180deg, #131313, #0a0a0a)',
+                }}
+              >
+                <DemoSongsLibrary onSongLoaded={() => setShowDemos(false)} />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </footer>

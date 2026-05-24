@@ -17,7 +17,11 @@ export function useAudioPlayer() {
   } = useAudioStore()
 
   useEffect(() => {
-    if (audioRef.current) setAudioElement(audioRef.current)
+    // Only the instance that actually owns the audio element should write
+    // to the store. Other consumers (e.g. an old call site that no longer
+    // renders <audio>) must NOT overwrite the live element with null.
+    if (!audioRef.current) return
+    setAudioElement(audioRef.current)
     return () => setAudioElement(null)
   }, [setAudioElement])
 
@@ -31,9 +35,33 @@ export function useAudioPlayer() {
     const audio = audioRef.current
     if (!audio) return
 
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime)
+    const onTimeUpdate = () => {
+      const t = audio.currentTime
+      setCurrentTime(t)
+
+      const { trimStart, trimEnd, loop } = useAudioStore.getState()
+
+      if (trimEnd !== null && t >= trimEnd) {
+        if (loop) {
+          audio.currentTime = trimStart
+        } else {
+          audio.pause()
+          setIsPlaying(false)
+        }
+      }
+    }
     const onDurationChange = () => setDuration(audio.duration)
-    const onEnded = () => setIsPlaying(false)
+    const onEnded = () => {
+      const { loop, trimStart } = useAudioStore.getState()
+      if (loop) {
+        // Restart from trimStart (or 0 if no trim was set). The play/pause
+        // event listeners below will sync isPlaying for us.
+        audio.currentTime = trimStart
+        void audio.play()
+        return
+      }
+      setIsPlaying(false)
+    }
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
 
@@ -52,11 +80,27 @@ export function useAudioPlayer() {
     }
   }, [setCurrentTime, setDuration, setIsPlaying])
 
+  const play = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const { trimStart } = useAudioStore.getState()
+    if (audio.currentTime < trimStart) audio.currentTime = trimStart
+    void audio.play()
+    setIsPlaying(true)
+  }, [setIsPlaying])
+
+  const pause = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    setIsPlaying(false)
+  }, [setIsPlaying])
+
   const togglePlay = useCallback(() => {
     if (!audioRef.current) return
-    if (isPlaying) audioRef.current.pause()
-    else void audioRef.current.play()
-  }, [isPlaying])
+    if (isPlaying) pause()
+    else play()
+  }, [isPlaying, pause, play])
 
   const seek = useCallback(
     (time: number) => {
@@ -89,6 +133,8 @@ export function useAudioPlayer() {
     currentTime,
     duration,
     volume,
+    play,
+    pause,
     togglePlay,
     seek,
     setVolume: handleVolume,

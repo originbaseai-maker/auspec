@@ -1,8 +1,18 @@
-import { useEffect, useRef, useState, type JSX } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  FolderOpen,
+  GripVertical,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Star,
+  Trash2,
+} from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
-import { usePresetStore } from '@/store/usePresetStore'
+import { MAX_PRESET_FAVORITES, usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -24,10 +34,16 @@ function PresetDot({ preset }: { preset: Preset }): JSX.Element {
     start = cfg.polygon.colorStart
     end = cfg.polygon.colorEnd
   }
+  const frameEnabled = preset.frameConfig?.enabled === true
   return (
     <span
       className="h-4 w-4 shrink-0 rounded-full"
-      style={{ background: `linear-gradient(135deg, ${start}, ${end})` }}
+      style={{
+        background: `linear-gradient(135deg, ${start}, ${end})`,
+        boxShadow: frameEnabled
+          ? `0 0 0 1.5px ${preset.frameConfig?.color ?? '#3b82f6'}`
+          : 'none',
+      }}
       aria-hidden="true"
     />
   )
@@ -37,18 +53,26 @@ interface PresetItemProps {
   preset: Preset
   isActive: boolean
   isBuiltIn: boolean
+  isFavorite: boolean
+  canFavorite: boolean
+  showDragHandle?: boolean
   onApply: (p: Preset) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
+  onToggleFavorite: (id: string) => void
 }
 
 function PresetItem({
   preset,
   isActive,
   isBuiltIn,
+  isFavorite,
+  canFavorite,
+  showDragHandle,
   onApply,
   onRename,
   onDelete,
+  onToggleFavorite,
 }: PresetItemProps): JSX.Element {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(preset.name)
@@ -80,74 +104,119 @@ function PresetItem({
     setEditing(false)
   }
 
+  const deleteLabel = isBuiltIn
+    ? `Hide ${preset.name}`
+    : `Delete ${preset.name}`
+  const starDisabled = !isFavorite && !canFavorite
+  const starLabel = isFavorite
+    ? `Remove ${preset.name} from favorites`
+    : starDisabled
+      ? `Favorites full (${MAX_PRESET_FAVORITES} max)`
+      : `Add ${preset.name} to favorites`
+
   return (
-    <li>
-      <div
-        ref={itemRef}
-        className="group flex items-center gap-2 rounded-md border px-2 py-2 cursor-pointer transition-all"
-        style={{
-          background: isActive
-            ? 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))'
-            : '#1a1a1a',
-          borderColor: isActive ? '#8b5cf6' : '#2a2a2a',
-        }}
-        onClick={() => !editing && onApply(preset)}
-      >
-        <PresetDot preset={preset} />
-        <div className="min-w-0 flex-1">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename()
-                if (e.key === 'Escape') cancelEdit()
-              }}
-              onBlur={commitRename}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full rounded border border-[#3b82f6] bg-[#0a0a0a] px-1 text-[12px] text-white outline-none"
-              autoFocus
+    <div
+      ref={itemRef}
+      className="group flex items-center gap-2 rounded-md border px-2 py-2 cursor-pointer transition-all"
+      style={{
+        background: isActive
+          ? 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))'
+          : '#1a1a1a',
+        borderColor: isActive ? '#8b5cf6' : '#2a2a2a',
+      }}
+      onClick={() => !editing && onApply(preset)}
+    >
+      {showDragHandle && (
+        <GripVertical
+          className="h-3 w-3 shrink-0 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+      <PresetDot preset={preset} />
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename()
+              if (e.key === 'Escape') cancelEdit()
+            }}
+            onBlur={commitRename}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full rounded border border-[#3b82f6] bg-[#0a0a0a] px-1 text-[12px] text-white outline-none"
+            autoFocus
+          />
+        ) : (
+          <>
+            <p className="truncate text-[12px] text-white/90">{preset.name}</p>
+            {preset.description && (
+              <p className="truncate text-[9px] text-white/40">
+                {preset.description}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+      {!editing && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (starDisabled) return
+              onToggleFavorite(preset.id)
+            }}
+            aria-pressed={isFavorite}
+            aria-label={starLabel}
+            title={starLabel}
+            disabled={starDisabled}
+            className="flex h-5 w-5 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+            style={{
+              color: isFavorite ? '#f59e0b' : 'rgba(255,255,255,0.35)',
+            }}
+          >
+            <Star
+              className="h-3 w-3"
+              aria-hidden="true"
+              fill={isFavorite ? '#f59e0b' : 'none'}
+              strokeWidth={isFavorite ? 1.5 : 2}
             />
-          ) : (
-            <>
-              <p className="truncate text-[12px] text-white/90">{preset.name}</p>
-              {preset.description && (
-                <p className="truncate text-[9px] text-white/40">
-                  {preset.description}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-        {!isBuiltIn && !editing && (
+          </button>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={startEdit}
-              aria-label={`Rename ${preset.name}`}
-              className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
-            >
-              <Pencil className="h-3 w-3" aria-hidden="true" />
-            </button>
+            {!isBuiltIn && (
+              <button
+                type="button"
+                onClick={startEdit}
+                aria-label={`Rename ${preset.name}`}
+                className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                <Pencil className="h-3 w-3" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete(preset.id)
               }}
-              aria-label={`Delete ${preset.name}`}
+              aria-label={deleteLabel}
+              title={isBuiltIn ? 'Hide preset (restorable)' : 'Delete preset'}
               className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-red-500/20 hover:text-red-400"
             >
               <Trash2 className="h-3 w-3" aria-hidden="true" />
             </button>
           </div>
-        )}
-        {isActive && !editing && (
-          <Check className="h-3 w-3 shrink-0 text-[#3b82f6]" aria-hidden="true" />
-        )}
-      </div>
-    </li>
+        </div>
+      )}
+      {isActive && !editing && (
+        <Check
+          className="h-3 w-3 shrink-0 text-[#3b82f6]"
+          aria-hidden="true"
+        />
+      )}
+    </div>
   )
 }
 
@@ -202,14 +271,20 @@ function SavePresetModal({ onSave, onCancel }: SavePresetModalProps): JSX.Elemen
 
 export function PresetsSidebar(): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false)
+  const [allOpen, setAllOpen] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // User preset CRUD lives in usePresetStore; active highlight + apply
-  // continue to live in useVisualizerStore so the existing auto-clear-on-
-  // mutation logic keeps working.
   const userPresets = usePresetStore((s) => s.userPresets)
+  const builtInHidden = usePresetStore((s) => s.builtInHidden)
+  const favorites = usePresetStore((s) => s.favorites)
   const saveCurrentAsPreset = usePresetStore((s) => s.saveCurrentAsPreset)
   const renamePreset = usePresetStore((s) => s.renamePreset)
   const deletePreset = usePresetStore((s) => s.deletePreset)
+  const hideBuiltIn = usePresetStore((s) => s.hideBuiltIn)
+  const restoreAllBuiltIn = usePresetStore((s) => s.restoreAllBuiltIn)
+  const toggleFavorite = usePresetStore((s) => s.toggleFavorite)
+  const reorderFavorites = usePresetStore((s) => s.reorderFavorites)
 
   const activePresetId = useVisualizerStore((s) => s.activePresetId)
   const applyPreset = useVisualizerStore((s) => s.applyPreset)
@@ -228,12 +303,10 @@ export function PresetsSidebar(): JSX.Element {
       visualizerConfig,
       backgroundColor,
     )
-    // Round-trip through applyPreset so activePresetId picks up the new one.
     applyPreset(newPreset)
     setShowSaveModal(false)
   }
 
-  // Cloud projects (Phase 10) — shown in the lower section
   const navigate = useNavigate()
   const projects = useProjectStore((s) => s.projects)
   const loadProject = useProjectStore((s) => s.loadProject)
@@ -242,6 +315,48 @@ export function PresetsSidebar(): JSX.Element {
   const handleLoadProject = (id: string) => {
     loadProject(id)
     navigate('/studio')
+  }
+
+  const visibleBuiltIns = useMemo(
+    () => BUILT_IN_PRESETS.filter((p) => !builtInHidden.includes(p.id)),
+    [builtInHidden],
+  )
+
+  const favoritePresets = useMemo(() => {
+    const lookup = new Map<string, Preset>()
+    for (const p of BUILT_IN_PRESETS) lookup.set(p.id, p)
+    for (const p of userPresets) lookup.set(p.id, p)
+    return favorites
+      .map((id) => lookup.get(id))
+      .filter((p): p is Preset => p !== undefined)
+  }, [favorites, userPresets])
+
+  const canFavoriteMore = favorites.length < MAX_PRESET_FAVORITES
+  const totalAllPresets = visibleBuiltIns.length + userPresets.length
+
+  const onDragStart = (index: number) => (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+    setDragIndex(index)
+  }
+  const onDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) setDragOverIndex(index)
+  }
+  const onDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault()
+    const fromRaw = e.dataTransfer.getData('text/plain')
+    const from = parseInt(fromRaw, 10)
+    if (Number.isFinite(from) && from !== index) {
+      reorderFavorites(from, index)
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+  const onDragEnd = () => {
+    setDragIndex(null)
+    setDragOverIndex(null)
   }
 
   return (
@@ -276,99 +391,228 @@ export function PresetsSidebar(): JSX.Element {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
-          <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
-            Built-in
-          </p>
-          <ul className="space-y-1.5 mb-4">
-            {BUILT_IN_PRESETS.map((preset) => (
-              <PresetItem
-                key={preset.id}
-                preset={preset}
-                isActive={activePresetId === preset.id}
-                isBuiltIn={true}
-                onApply={handleApply}
-                onRename={renamePreset}
-                onDelete={deletePreset}
-              />
-            ))}
-          </ul>
-
-          {userPresets.length > 0 ? (
-            <>
+        <div className="flex-1 overflow-y-auto">
+          {/* FAVORITES */}
+          <section
+            className="px-3 pt-3 pb-3 border-b"
+            style={{
+              borderColor: '#1a1a1a',
+              background:
+                'linear-gradient(180deg, rgba(59,130,246,0.04), rgba(139,92,246,0.04))',
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[9px] uppercase tracking-widest text-white/40">
+                Favorites
+              </p>
+              <span className="text-[9px] tabular-nums text-white/30">
+                {favorites.length}/{MAX_PRESET_FAVORITES}
+              </span>
+            </div>
+            {favoritePresets.length > 0 ? (
+              <ul className="space-y-1.5">
+                {favoritePresets.map((preset, index) => {
+                  const isOver = dragOverIndex === index && dragIndex !== index
+                  return (
+                    <li
+                      key={preset.id}
+                      draggable
+                      onDragStart={onDragStart(index)}
+                      onDragOver={onDragOver(index)}
+                      onDrop={onDrop(index)}
+                      onDragEnd={onDragEnd}
+                      className="transition-transform"
+                      style={{
+                        transform: isOver ? 'translateY(2px)' : 'none',
+                        boxShadow: isOver
+                          ? 'inset 0 2px 0 0 #3b82f6'
+                          : 'none',
+                        opacity: dragIndex === index ? 0.5 : 1,
+                        cursor: 'grab',
+                      }}
+                    >
+                      <PresetItem
+                        preset={preset}
+                        isActive={activePresetId === preset.id}
+                        isBuiltIn={usePresetStore.getState().isBuiltIn(preset.id)}
+                        isFavorite={true}
+                        canFavorite={true}
+                        showDragHandle
+                        onApply={handleApply}
+                        onRename={renamePreset}
+                        onDelete={(id) => {
+                          // Built-in → hide; user → delete
+                          if (usePresetStore.getState().isBuiltIn(id)) {
+                            hideBuiltIn(id)
+                          } else {
+                            deletePreset(id)
+                          }
+                        }}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : (
               <div
-                className="mb-2 border-t pt-3"
+                className="rounded-md border border-dashed px-3 py-3 text-center"
                 style={{ borderColor: '#2a2a2a' }}
               >
-                <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
-                  My Presets
+                <p className="text-[10px] leading-snug text-white/30">
+                  Star presets to pin them here
                 </p>
               </div>
-              <ul className="space-y-1.5">
-                {userPresets.map((preset) => (
-                  <PresetItem
-                    key={preset.id}
-                    preset={preset}
-                    isActive={activePresetId === preset.id}
-                    isBuiltIn={false}
-                    onApply={handleApply}
-                    onRename={renamePreset}
-                    onDelete={deletePreset}
-                  />
+            )}
+          </section>
+
+          {/* ALL PRESETS — collapsible */}
+          <section className="px-3 pt-3 pb-3">
+            <button
+              type="button"
+              onClick={() => setAllOpen((v) => !v)}
+              aria-expanded={allOpen}
+              className="flex w-full items-center justify-between gap-2 rounded px-1 py-1 text-left hover:bg-white/[0.03]"
+            >
+              <span className="flex items-center gap-1.5">
+                <ChevronRight
+                  className="h-3 w-3 text-white/40 transition-transform"
+                  style={{ transform: allOpen ? 'rotate(90deg)' : 'none' }}
+                  aria-hidden="true"
+                />
+                <span className="text-[9px] uppercase tracking-widest text-white/40">
+                  All Presets
+                </span>
+              </span>
+              <span className="text-[9px] tabular-nums text-white/30">
+                {totalAllPresets}
+              </span>
+            </button>
+
+            {allOpen && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="mb-1.5 text-[9px] uppercase tracking-widest text-white/30">
+                    Built-in
+                  </p>
+                  {visibleBuiltIns.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {visibleBuiltIns.map((preset) => (
+                        <li key={preset.id}>
+                          <PresetItem
+                            preset={preset}
+                            isActive={activePresetId === preset.id}
+                            isBuiltIn={true}
+                            isFavorite={favorites.includes(preset.id)}
+                            canFavorite={canFavoriteMore}
+                            onApply={handleApply}
+                            onRename={renamePreset}
+                            onDelete={hideBuiltIn}
+                            onToggleFavorite={toggleFavorite}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-[10px] text-white/30">
+                      All built-ins hidden.
+                    </p>
+                  )}
+                  {builtInHidden.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={restoreAllBuiltIn}
+                      className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] text-white/50 hover:text-white/80 transition-colors"
+                      style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+                    >
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                      Restore {builtInHidden.length} default preset
+                      {builtInHidden.length !== 1 ? 's' : ''}
+                    </button>
+                  )}
+                </div>
+
+                <div className="border-t pt-3" style={{ borderColor: '#2a2a2a' }}>
+                  <p className="mb-1.5 text-[9px] uppercase tracking-widest text-white/30">
+                    Custom ({userPresets.length})
+                  </p>
+                  {userPresets.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {userPresets.map((preset) => (
+                        <li key={preset.id}>
+                          <PresetItem
+                            preset={preset}
+                            isActive={activePresetId === preset.id}
+                            isBuiltIn={false}
+                            isFavorite={favorites.includes(preset.id)}
+                            canFavorite={canFavoriteMore}
+                            onApply={handleApply}
+                            onRename={renamePreset}
+                            onDelete={deletePreset}
+                            onToggleFavorite={toggleFavorite}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div
+                      className="rounded-md border border-dashed px-3 py-3 text-center"
+                      style={{ borderColor: '#2a2a2a' }}
+                    >
+                      <p className="text-[10px] text-white/30">
+                        Click + to save your first custom preset
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* PROJECTS */}
+          <section
+            className="border-t px-3 py-3"
+            style={{ borderColor: '#1a1a1a' }}
+          >
+            <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
+              Projects
+            </p>
+            {user && projects.length > 0 ? (
+              <ul className="space-y-1">
+                {projects.slice(0, 5).map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleLoadProject(p.id)}
+                      className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:border-[#3b82f6]/40"
+                      style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+                    >
+                      <FolderOpen
+                        className="h-3 w-3 shrink-0 text-white/50"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate text-[11px] text-white/80">
+                        {p.name}
+                      </span>
+                    </button>
+                  </li>
                 ))}
               </ul>
-            </>
-          ) : (
-            <div
-              className="mt-2 rounded-md border border-dashed px-3 py-4 text-center"
-              style={{ borderColor: '#2a2a2a' }}
-            >
-              <p className="text-[10px] text-white/30">
-                Click + to save your first custom preset
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t p-3" style={{ borderColor: '#2a2a2a' }}>
-          <p className="mb-2 text-[9px] uppercase tracking-widest text-white/30">
-            Projects
-          </p>
-          {user && projects.length > 0 ? (
-            <ul className="space-y-1">
-              {projects.slice(0, 5).map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadProject(p.id)}
-                    className="flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:border-[#3b82f6]/40"
-                    style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
-                  >
-                    <FolderOpen
-                      className="h-3 w-3 shrink-0 text-white/50"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate text-[11px] text-white/80">
-                      {p.name}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div
-              className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
-              style={{ borderColor: '#2a2a2a' }}
-            >
-              <FolderOpen
-                className="h-4 w-4 text-white/40 mb-1"
-                aria-hidden="true"
-              />
-              <p className="text-[9px] text-white/40">
-                {user ? 'No projects yet' : 'Sign in to save'}
-              </p>
-            </div>
-          )}
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center rounded-md border border-dashed px-3 py-4 text-center opacity-50"
+                style={{ borderColor: '#2a2a2a' }}
+              >
+                <FolderOpen
+                  className="h-4 w-4 text-white/40 mb-1"
+                  aria-hidden="true"
+                />
+                <p className="text-[9px] text-white/40">
+                  {user ? 'No projects yet' : 'Sign in to save'}
+                </p>
+              </div>
+            )}
+          </section>
         </div>
       </aside>
     </>

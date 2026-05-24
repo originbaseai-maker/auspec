@@ -7,9 +7,13 @@ import { renderWave } from '@/lib/renderers/wave'
 import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
+import { drawFrame } from '@/lib/renderers/frame'
 import { canvasRegistry } from '@/lib/canvasRegistry'
+import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
+import { useAudioStore } from '@/store/useAudioStore'
+import { useFrameStore } from '@/store/useFrameStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -32,6 +36,9 @@ export default function VisualizerCanvas(): JSX.Element {
   const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
+  const previewMode = useAudioStore((s) => s.previewMode)
+  const audioFile = useAudioStore((s) => s.audioFile)
+  const frameConfig = useFrameStore()
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -105,6 +112,21 @@ export default function VisualizerCanvas(): JSX.Element {
   const bgRef = useRef(backgroundColor)
   const dataRef = useRef(frequencyData)
   const coverArtStateRef = useRef(coverArtState)
+  const previewModeRef = useRef(previewMode)
+  const audioFileRef = useRef(audioFile)
+  const frameConfigRef = useRef(frameConfig)
+
+  useEffect(() => {
+    previewModeRef.current = previewMode
+  }, [previewMode])
+
+  useEffect(() => {
+    audioFileRef.current = audioFile
+  }, [audioFile])
+
+  useEffect(() => {
+    frameConfigRef.current = frameConfig
+  }, [frameConfig])
 
   useEffect(() => {
     configRef.current = config
@@ -133,9 +155,20 @@ export default function VisualizerCanvas(): JSX.Element {
     if (!ctx || width === 0 || height === 0) return
 
     const render = () => {
-      const data = dataRef.current
+      const realData = dataRef.current
       const cfg = configRef.current
       const cover = coverArtStateRef.current
+
+      // Preview Mode: synthesize a beat-driven spectrum ONLY when no audio
+      // is loaded, so designers can preview without music. Once audio is
+      // loaded (even paused), we never fall back to mock — paused playback
+      // shows the last real frame instead of an animated fake.
+      const hasAudio = audioFileRef.current !== null
+      const data =
+        realData ??
+        (!hasAudio && previewModeRef.current
+          ? generateMockFrequencyData(performance.now() / 1000)
+          : null)
 
       ctx.fillStyle = bgRef.current
       ctx.fillRect(0, 0, width, height)
@@ -245,6 +278,12 @@ export default function VisualizerCanvas(): JSX.Element {
           height,
         )
       }
+
+      // Frame draws LAST so its border, shadow, halo, and reflection sit
+      // on top of everything. Painted onto the canvas (not as CSS) so
+      // captureStream() includes it in exported video.
+      const bassEnergy = data ? data.bass / 255 : 0
+      drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
 
       animationRef.current = requestAnimationFrame(render)
     }
