@@ -8,6 +8,7 @@ import {
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
+  SensitivityBlock,
   Slider,
   SliderRow,
   Toggle,
@@ -57,6 +58,23 @@ export function PolygonPanel() {
           onChange={(palette) => update({ palette })}
           fallbackStart={cfg.colorStart}
           fallbackEnd={cfg.colorEnd}
+        />
+      </PanelGroup>
+
+      <PanelGroup title="Sensitivity">
+        <SensitivityBlock
+          bass={cfg.bassSensitivity ?? 1}
+          mid={cfg.midSensitivity ?? 1}
+          treble={cfg.trebleSensitivity ?? 1}
+          onChange={(band, value) => {
+            const key =
+              band === 'bass'
+                ? 'bassSensitivity'
+                : band === 'mid'
+                  ? 'midSensitivity'
+                  : 'trebleSensitivity'
+            update({ [key]: value })
+          }}
         />
       </PanelGroup>
 

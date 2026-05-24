@@ -1,5 +1,8 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  applyBandSensitivity,
+  getFrequencyBinRange,
+} from '@/lib/frequencyUtils'
 import {
   firstColor,
   lastColor,
@@ -35,6 +38,10 @@ export interface PolygonSpectrumConfig {
   hueInterpolation: number
   startFrequency: number
   endFrequency: number
+  /** Per-band gain multipliers (0–2, default 1). Bass = 0–15% of bins, Mid = 15–50%, Treble = 50–100%. */
+  bassSensitivity?: number
+  midSensitivity?: number
+  trebleSensitivity?: number
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -238,6 +245,9 @@ export function renderPolygonSpectrum(
     hueInterpolation,
     startFrequency,
     endFrequency,
+    bassSensitivity = 1,
+    midSensitivity = 1,
+    trebleSensitivity = 1,
   } = config
   const { raw } = frequencyData
 
@@ -311,8 +321,17 @@ export function renderPolygonSpectrum(
   ctx.lineCap = 'round'
   ctx.lineWidth = 2
 
+  const totalBins = raw.length
   for (let i = 0; i < barCount; i++) {
-    const rawValue = slicedRaw[i * step] ?? 0
+    const absBin = startBin + i * step
+    const rawValue = applyBandSensitivity(
+      slicedRaw[i * step] ?? 0,
+      absBin,
+      totalBins,
+      bassSensitivity,
+      midSensitivity,
+      trebleSensitivity,
+    )
     const targetH = (rawValue / 255) * maxBarHeight
     previousHeights[i] =
       previousHeights[i] + (targetH - previousHeights[i]) * smoothing

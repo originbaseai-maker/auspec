@@ -1,5 +1,8 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  applyBandSensitivity,
+  getFrequencyBinRange,
+} from '@/lib/frequencyUtils'
 import {
   addPaletteStops,
   lastColor,
@@ -27,6 +30,10 @@ export interface LinearBarsConfig {
   startFrequency: number
   endFrequency: number
   sideMode: BarsSideMode
+  /** Per-band gain multipliers (0–2, default 1). Bass = 0–15% of bins, Mid = 15–50%, Treble = 50–100%. */
+  bassSensitivity?: number
+  midSensitivity?: number
+  trebleSensitivity?: number
 }
 
 const FALLBACK_SAMPLE_RATE = 44100
@@ -56,6 +63,9 @@ export function renderLinearBars(
     startFrequency,
     endFrequency,
     sideMode,
+    bassSensitivity = 1,
+    midSensitivity = 1,
+    trebleSensitivity = 1,
   } = config
   const { raw } = frequencyData
 
@@ -86,9 +96,21 @@ export function renderLinearBars(
   const centerY = height / 2
 
   // Smoothing pass — runs every frame regardless of display mode so the
-  // perceived response is consistent when switching modes.
+  // perceived response is consistent when switching modes. Per-band gain
+  // uses the ABSOLUTE bin position in the full FFT (startBin + i*step),
+  // not the sliced index, so "bass" stays bass even when the user has
+  // narrowed startFrequency/endFrequency.
+  const totalBins = raw.length
   for (let i = 0; i < barCount; i++) {
-    const rawValue = slicedRaw[i * step] ?? 0
+    const absBin = startBin + i * step
+    const rawValue = applyBandSensitivity(
+      slicedRaw[i * step] ?? 0,
+      absBin,
+      totalBins,
+      bassSensitivity,
+      midSensitivity,
+      trebleSensitivity,
+    )
     const targetHeight = Math.max(
       minBarHeight,
       (rawValue / 255) * height * (mirrorMode ? 0.5 : 1),

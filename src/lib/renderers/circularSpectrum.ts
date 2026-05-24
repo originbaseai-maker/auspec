@@ -1,5 +1,8 @@
 import type { FrequencyData } from '@/types/analyzer'
-import { getFrequencyBinRange } from '@/lib/frequencyUtils'
+import {
+  applyBandSensitivity,
+  getFrequencyBinRange,
+} from '@/lib/frequencyUtils'
 import {
   addPaletteStops,
   firstColor,
@@ -26,6 +29,10 @@ export interface CircularSpectrumConfig {
   startFrequency: number
   endFrequency: number
   sideMode: CircularSideMode
+  /** Per-band gain multipliers (0–2, default 1). Bass = 0–15% of bins, Mid = 15–50%, Treble = 50–100%. */
+  bassSensitivity?: number
+  midSensitivity?: number
+  trebleSensitivity?: number
 }
 
 const FALLBACK_SAMPLE_RATE = 44100
@@ -72,6 +79,9 @@ export function renderCircularSpectrum(
     startFrequency,
     endFrequency,
     sideMode,
+    bassSensitivity = 1,
+    midSensitivity = 1,
+    trebleSensitivity = 1,
   } = config
   const { raw, bass } = frequencyData
 
@@ -158,8 +168,17 @@ export function renderCircularSpectrum(
   const barThickness = Math.max(1, (Math.PI * 2 * effectiveInnerRadius) / barCount - 1)
   ctx.lineWidth = barThickness
 
+  const totalBins = raw.length
   for (let i = 0; i < barCount; i++) {
-    const rawValue = slicedRaw[i * step] ?? 0
+    const absBin = startBin + i * step
+    const rawValue = applyBandSensitivity(
+      slicedRaw[i * step] ?? 0,
+      absBin,
+      totalBins,
+      bassSensitivity,
+      midSensitivity,
+      trebleSensitivity,
+    )
     const targetLength = (rawValue / 255) * barMaxLength
 
     previousHeights[i] =

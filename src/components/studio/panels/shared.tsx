@@ -293,6 +293,61 @@ export function PanelGroup({
   )
 }
 
+/**
+ * Three per-band sensitivity sliders. Each value is a multiplier
+ * (0..2, where 1 = 100% / unchanged). The parent owns state; this
+ * component just emits `onChange(band, value)` per change.
+ */
+export function SensitivityBlock({
+  bass,
+  mid,
+  treble,
+  onChange,
+}: {
+  bass: number
+  mid: number
+  treble: number
+  onChange: (band: 'bass' | 'mid' | 'treble', value: number) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <SliderRow
+        label="🔉 Bass"
+        hint={`${Math.round(bass * 100)}%`}
+        value={bass * 100}
+        min={0}
+        max={200}
+        step={5}
+        onChange={(v) => onChange('bass', v / 100)}
+        ariaLabel="Bass sensitivity"
+      />
+      <SliderRow
+        label="🔊 Mid"
+        hint={`${Math.round(mid * 100)}%`}
+        value={mid * 100}
+        min={0}
+        max={200}
+        step={5}
+        onChange={(v) => onChange('mid', v / 100)}
+        ariaLabel="Mid sensitivity"
+      />
+      <SliderRow
+        label="📢 Treble"
+        hint={`${Math.round(treble * 100)}%`}
+        value={treble * 100}
+        min={0}
+        max={200}
+        step={5}
+        onChange={(v) => onChange('treble', v / 100)}
+        ariaLabel="Treble sensitivity"
+      />
+      <p className="text-[9px] text-white/30">
+        100% = unchanged · &lt;100% = quieter · &gt;100% = louder
+      </p>
+    </div>
+  )
+}
+
 const MAX_PALETTE_SIZE = 7
 const MIN_PALETTE_SIZE = 2
 

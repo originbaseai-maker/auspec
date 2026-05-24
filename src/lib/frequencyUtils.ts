@@ -103,6 +103,40 @@ export function getFrequencyBinRange(
   return { startBin, endBin }
 }
 
+/**
+ * Apply per-band gain to a single FFT bin value.
+ *
+ * The spectrum is split into three bands by normalized position in the
+ * full FFT array (not Hz, since Hz mapping depends on sample rate that
+ * isn't always known at this layer):
+ *   - bass:   0–15%  of bins
+ *   - mid:    15–50% of bins
+ *   - treble: 50–100% of bins
+ *
+ * Sensitivity is a multiplier where 1 = unchanged, <1 quieter, >1 louder.
+ * The result is clamped to 255 so we never overflow the byte range the
+ * renderers expect.
+ *
+ * Bands are hard-bordered (no smoothing across band edges) so the
+ * response stays predictable and matches how users describe music
+ * ("more bass" should boost only the bass third, not bleed into mids).
+ */
+export function applyBandSensitivity(
+  rawValue: number,
+  binIndex: number,
+  totalBins: number,
+  bassSensitivity: number = 1,
+  midSensitivity: number = 1,
+  trebleSensitivity: number = 1,
+): number {
+  const progress = totalBins > 0 ? binIndex / totalBins : 0
+  let gain: number
+  if (progress < 0.15) gain = bassSensitivity
+  else if (progress < 0.5) gain = midSensitivity
+  else gain = trebleSensitivity
+  return Math.min(255, rawValue * gain)
+}
+
 export function calcBeatEnergy(bass: number, history: number[]): number {
   if (history.length === 0) return 0
   let sum = 0
