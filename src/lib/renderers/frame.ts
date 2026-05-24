@@ -1,21 +1,20 @@
 import type { FrameConfig } from '@/store/useFrameStore'
 
-function alphaHex(intensity: number): string {
-  // Map 0–100 intensity to a two-char hex alpha (00–FF).
-  const a = Math.max(0, Math.min(255, Math.round(intensity * 2.55)))
-  return a.toString(16).padStart(2, '0')
-}
-
 /**
- * Draws the configured frame (border + shadow + halo + reflection)
- * onto the visualizer canvas. Called every frame from VisualizerCanvas so
- * the frame is part of canvas.captureStream() output — making it visible
- * in exported video. The CSS FrameWrapper is a passthrough when enabled.
+ * Draws the border + reflection onto the visualizer canvas, so those
+ * effects are part of `canvas.captureStream()` output and show up in
+ * exported video.
  *
- * Multiple shadow effects (drop shadow + halo) can't share a single
- * stroke because Canvas2D only supports one shadow per draw. We pass the
- * border path 2× (one stroke per shadow color) and finish with a clean
- * border stroke on top.
+ * Halo and drop shadow are intentionally NOT painted here — they are
+ * applied as CSS `box-shadow` on FrameWrapper instead, because shadows
+ * painted on the canvas are clipped by the canvas bounds and end up
+ * looking like a second nested frame. The CSS approach lets them bleed
+ * outside the canvas like real shadows. The cost: they're absent from
+ * exported video.
+ *
+ * The border stroke is centered on the canvas edge (inset = thickness/2),
+ * and the reflection is inset by the FULL thickness so the gradient
+ * sheen stays inside the border rather than overlapping it.
  */
 export function drawFrame(
   ctx: CanvasRenderingContext2D,
@@ -30,11 +29,6 @@ export function drawFrame(
     color,
     thickness,
     smoothness,
-    haloEnabled,
-    haloIntensity,
-    shadowEnabled,
-    shadowIntensity,
-    shadowColor,
     reflectionEnabled,
     reflectionIntensity,
     pulseEnabled,
@@ -46,72 +40,48 @@ export function drawFrame(
     : 1
   const finalThickness = thickness * pulseScale
   const r = smoothness
-
   const supportsRoundRect = typeof ctx.roundRect === 'function'
-  const buildPath = (x: number, y: number, w: number, h: number) => {
-    ctx.beginPath()
-    if (r > 0 && supportsRoundRect) {
-      ctx.roundRect(x, y, w, h, r)
-    } else {
-      ctx.rect(x, y, w, h)
-    }
-  }
 
   if (finalThickness > 0) {
     const inset = finalThickness / 2
     const w = width - finalThickness
     const h = height - finalThickness
 
-    // Pass 1: drop shadow
-    if (shadowEnabled && shadowIntensity > 0) {
-      ctx.save()
-      ctx.shadowColor = shadowColor + alphaHex(shadowIntensity)
-      ctx.shadowBlur = shadowIntensity * 0.6
-      ctx.shadowOffsetY = shadowIntensity * 0.1
-      ctx.strokeStyle = color
-      ctx.lineWidth = finalThickness
-      buildPath(inset, inset, w, h)
-      ctx.stroke()
-      ctx.restore()
-    }
-
-    // Pass 2: halo (color glow, bass-boosted)
-    if (haloEnabled && haloIntensity > 0) {
-      ctx.save()
-      ctx.shadowColor = color
-      ctx.shadowBlur = haloIntensity * 0.8 * (1 + bassEnergy * 0.3)
-      ctx.strokeStyle = color
-      ctx.lineWidth = finalThickness
-      buildPath(inset, inset, w, h)
-      ctx.stroke()
-      ctx.restore()
-    }
-
-    // Pass 3: clean border stroke on top
     ctx.save()
     ctx.strokeStyle = color
     ctx.lineWidth = finalThickness
-    buildPath(inset, inset, w, h)
+    ctx.beginPath()
+    if (r > 0 && supportsRoundRect) {
+      ctx.roundRect(inset, inset, w, h, r)
+    } else {
+      ctx.rect(inset, inset, w, h)
+    }
     ctx.stroke()
     ctx.restore()
   }
 
-  // Reflection — glossy gradient overlay, clipped to the frame's rounded rect
   if (reflectionEnabled && reflectionIntensity > 0) {
+    const inset = Math.max(0, finalThickness)
+    const reflW = width - inset * 2
+    const reflH = height - inset * 2
+    if (reflW <= 0 || reflH <= 0) return
+
     ctx.save()
     if (r > 0 && supportsRoundRect) {
-      buildPath(0, 0, width, height)
+      const innerR = Math.max(0, r - finalThickness / 2)
+      ctx.beginPath()
+      ctx.roundRect(inset, inset, reflW, reflH, innerR)
       ctx.clip()
     }
-    const grad = ctx.createLinearGradient(0, 0, 0, height)
-    const top = (reflectionIntensity / 100) * 0.25
-    const bottom = (reflectionIntensity / 100) * 0.08
+    const grad = ctx.createLinearGradient(0, inset, 0, inset + reflH)
+    const top = (reflectionIntensity / 100) * 0.15
+    const bottom = (reflectionIntensity / 100) * 0.05
     grad.addColorStop(0, `rgba(255,255,255,${top})`)
-    grad.addColorStop(0.4, 'rgba(255,255,255,0)')
-    grad.addColorStop(0.6, 'rgba(255,255,255,0)')
+    grad.addColorStop(0.3, 'rgba(255,255,255,0)')
+    grad.addColorStop(0.7, 'rgba(255,255,255,0)')
     grad.addColorStop(1, `rgba(255,255,255,${bottom})`)
     ctx.fillStyle = grad
-    ctx.fillRect(0, 0, width, height)
+    ctx.fillRect(inset, inset, reflW, reflH)
     ctx.restore()
   }
 }
