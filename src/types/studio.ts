@@ -42,7 +42,7 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
     icon: 'polygon',
     hasAI: false,
   },
-  { id: 'particles', label: 'Particles', icon: 'particles', hasAI: true },
+  { id: 'particles', label: 'Particles', icon: 'particles', hasAI: false },
   { id: 'background', label: 'Background', icon: 'background', hasAI: false },
   { id: 'logo', label: 'Logo', icon: 'logo', hasAI: false },
   { id: 'text', label: 'Text', icon: 'text', hasAI: false },

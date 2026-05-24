@@ -9,6 +9,7 @@ import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
 import { drawFrame } from '@/lib/renderers/frame'
 import { drawTextOverlay } from '@/lib/renderers/textOverlay'
+import { updateAndDrawParticles } from '@/lib/renderers/particles'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
@@ -16,6 +17,7 @@ import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
 import { useFrameStore } from '@/store/useFrameStore'
 import { useTextStore } from '@/store/useTextStore'
+import { useParticleStore } from '@/store/useParticleStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -42,6 +44,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const audioFile = useAudioStore((s) => s.audioFile)
   const frameConfig = useFrameStore()
   const textConfig = useTextStore()
+  const particleConfig = useParticleStore()
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -119,10 +122,15 @@ export default function VisualizerCanvas(): JSX.Element {
   const audioFileRef = useRef(audioFile)
   const frameConfigRef = useRef(frameConfig)
   const textConfigRef = useRef(textConfig)
+  const particleConfigRef = useRef(particleConfig)
 
   useEffect(() => {
     textConfigRef.current = textConfig
   }, [textConfig])
+
+  useEffect(() => {
+    particleConfigRef.current = particleConfig
+  }, [particleConfig])
 
   useEffect(() => {
     previewModeRef.current = previewMode
@@ -287,8 +295,33 @@ export default function VisualizerCanvas(): JSX.Element {
         )
       }
 
-      // Frame draws on top of the visualizer + media. Painted onto the
-      // canvas (not as CSS) so captureStream() includes it in export.
+      // Particles overlay — drawn between the main visualizer and the
+      // frame so the frame border still sits on top of the particles.
+      // Reads the active visualizer's palette so particles can "Sync"
+      // colors when the user enables that option.
+      const cfgVisualType = cfg.visualType
+      const activePalette: string[] | undefined =
+        cfgVisualType === 'bars'
+          ? cfg.linearBars.palette
+          : cfgVisualType === 'circular'
+            ? cfg.circularSpectrum.palette
+            : cfgVisualType === 'wave'
+              ? cfg.wave.palette
+              : cfgVisualType === 'polygon'
+                ? cfg.polygon.palette
+                : undefined
+      updateAndDrawParticles(
+        ctx,
+        particleConfigRef.current,
+        width,
+        height,
+        activePalette,
+        data,
+        performance.now(),
+      )
+
+      // Frame draws on top of the visualizer + particles. Painted onto
+      // the canvas (not as CSS) so captureStream() includes it in export.
       const bassEnergy = data ? data.bass / 255 : 0
       drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
 
