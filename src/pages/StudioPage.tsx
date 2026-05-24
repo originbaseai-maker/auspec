@@ -7,6 +7,7 @@ import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
+import { TextInteractive } from '../components/studio/TextInteractive';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader } from '@/components/audio';
@@ -443,6 +444,7 @@ export function StudioPage() {
                 }}
               >
                 <VisualizerCanvas />
+                <TextInteractive />
                 {showFormatFlash && <FormatFlashOverlay format={format} />}
                 {!hasAudio && previewMode && (
                   <>

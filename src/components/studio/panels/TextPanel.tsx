@@ -5,7 +5,6 @@ import {
   type FontFamily,
   type TextLayer,
   type TextLayerId,
-  type TextPosition,
 } from '@/store/useTextStore'
 import { ColorRow, PanelGroup, SliderRow, Toggle } from './shared'
 
@@ -17,16 +16,16 @@ const FONTS: FontFamily[] = [
   'Space Mono',
 ]
 
-const POSITIONS: { id: TextPosition; label: string }[] = [
-  { id: 'top-left', label: '↖' },
-  { id: 'top-center', label: '↑' },
-  { id: 'top-right', label: '↗' },
-  { id: 'middle-left', label: '←' },
-  { id: 'center', label: '•' },
-  { id: 'middle-right', label: '→' },
-  { id: 'bottom-left', label: '↙' },
-  { id: 'bottom-center', label: '↓' },
-  { id: 'bottom-right', label: '↘' },
+const POSITIONS: { x: number; y: number; label: string }[] = [
+  { x: 0.1, y: 0.1, label: '↖' },
+  { x: 0.5, y: 0.1, label: '↑' },
+  { x: 0.9, y: 0.1, label: '↗' },
+  { x: 0.1, y: 0.5, label: '←' },
+  { x: 0.5, y: 0.5, label: '•' },
+  { x: 0.9, y: 0.5, label: '→' },
+  { x: 0.1, y: 0.9, label: '↙' },
+  { x: 0.5, y: 0.9, label: '↓' },
+  { x: 0.9, y: 0.9, label: '↘' },
 ]
 
 interface LayerSectionProps {
@@ -190,17 +189,19 @@ function LayerSection({
 
           <div>
             <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
-              Position
+              Quick Position
             </p>
             <div className="grid grid-cols-3 gap-1">
               {POSITIONS.map((pos) => {
-                const active = layer.position === pos.id
+                const active =
+                  Math.abs(layer.x - pos.x) < 0.05 &&
+                  Math.abs(layer.y - pos.y) < 0.05
                 return (
                   <button
-                    key={pos.id}
+                    key={`${pos.x}-${pos.y}`}
                     type="button"
-                    onClick={() => update({ position: pos.id })}
-                    aria-label={pos.id}
+                    onClick={() => update({ x: pos.x, y: pos.y })}
+                    aria-label={`Position ${pos.label}`}
                     className="flex aspect-square items-center justify-center rounded border text-base transition-colors"
                     style={{
                       borderColor: active ? '#3b82f6' : '#2a2a2a',
@@ -215,6 +216,9 @@ function LayerSection({
                 )
               })}
             </div>
+            <p className="mt-2 text-[9px] text-white/30">
+              Or drag the text directly on the canvas
+            </p>
           </div>
 
           <SliderRow

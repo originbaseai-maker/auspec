@@ -293,12 +293,20 @@ export default function VisualizerCanvas(): JSX.Element {
       drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
 
       // Text overlay draws LAST so titles/artist sit on top of everything,
-      // including the frame border.
-      drawTextOverlay(ctx, width, height, {
-        title: textConfigRef.current.title,
-        artist: textConfigRef.current.artist,
-        custom: textConfigRef.current.custom,
-      })
+      // including the frame border. We pass `editingLayerId` so the layer
+      // currently being inline-edited is skipped — its HTML overlay
+      // displays the text instead, and we don't want them stacking.
+      drawTextOverlay(
+        ctx,
+        width,
+        height,
+        {
+          title: textConfigRef.current.title,
+          artist: textConfigRef.current.artist,
+          custom: textConfigRef.current.custom,
+        },
+        textConfigRef.current.editingLayerId,
+      )
 
       animationRef.current = requestAnimationFrame(render)
     }
