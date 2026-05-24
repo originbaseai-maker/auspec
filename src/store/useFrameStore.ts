@@ -9,8 +9,8 @@ export interface FrameConfig {
   thickness: number // 0–40 px
   smoothness: number // 0–50 px border-radius
 
-  ambilightEnabled: boolean
-  ambilightIntensity: number // 0–100
+  haloEnabled: boolean
+  haloIntensity: number // 0–100
 
   shadowEnabled: boolean
   shadowIntensity: number // 0–100
@@ -28,8 +28,8 @@ export interface FrameStore extends FrameConfig {
   setColor: (v: string) => void
   setThickness: (v: number) => void
   setSmoothness: (v: number) => void
-  setAmbilightEnabled: (v: boolean) => void
-  setAmbilightIntensity: (v: number) => void
+  setHaloEnabled: (v: boolean) => void
+  setHaloIntensity: (v: number) => void
   setShadowEnabled: (v: boolean) => void
   setShadowIntensity: (v: number) => void
   setShadowColor: (v: string) => void
@@ -45,8 +45,8 @@ export const useFrameStore = create<FrameStore>((set) => ({
   thickness: 0,
   smoothness: 12,
 
-  ambilightEnabled: false,
-  ambilightIntensity: 50,
+  haloEnabled: false,
+  haloIntensity: 50,
 
   shadowEnabled: false,
   shadowIntensity: 50,
@@ -62,9 +62,9 @@ export const useFrameStore = create<FrameStore>((set) => ({
   setColor: (color) => set({ color }),
   setThickness: (thickness) => set({ thickness: clamp(thickness, 0, 40) }),
   setSmoothness: (smoothness) => set({ smoothness: clamp(smoothness, 0, 50) }),
-  setAmbilightEnabled: (ambilightEnabled) => set({ ambilightEnabled }),
-  setAmbilightIntensity: (ambilightIntensity) =>
-    set({ ambilightIntensity: clamp(ambilightIntensity, 0, 100) }),
+  setHaloEnabled: (haloEnabled) => set({ haloEnabled }),
+  setHaloIntensity: (haloIntensity) =>
+    set({ haloIntensity: clamp(haloIntensity, 0, 100) }),
   setShadowEnabled: (shadowEnabled) => set({ shadowEnabled }),
   setShadowIntensity: (shadowIntensity) =>
     set({ shadowIntensity: clamp(shadowIntensity, 0, 100) }),

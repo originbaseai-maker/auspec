@@ -7,12 +7,12 @@ function alphaHex(intensity: number): string {
 }
 
 /**
- * Draws the configured frame (border + shadow + ambilight + reflection)
+ * Draws the configured frame (border + shadow + halo + reflection)
  * onto the visualizer canvas. Called every frame from VisualizerCanvas so
  * the frame is part of canvas.captureStream() output — making it visible
  * in exported video. The CSS FrameWrapper is a passthrough when enabled.
  *
- * Multiple shadow effects (drop shadow + ambilight) can't share a single
+ * Multiple shadow effects (drop shadow + halo) can't share a single
  * stroke because Canvas2D only supports one shadow per draw. We pass the
  * border path 2× (one stroke per shadow color) and finish with a clean
  * border stroke on top.
@@ -30,8 +30,8 @@ export function drawFrame(
     color,
     thickness,
     smoothness,
-    ambilightEnabled,
-    ambilightIntensity,
+    haloEnabled,
+    haloIntensity,
     shadowEnabled,
     shadowIntensity,
     shadowColor,
@@ -75,11 +75,11 @@ export function drawFrame(
       ctx.restore()
     }
 
-    // Pass 2: ambilight (color glow, bass-boosted)
-    if (ambilightEnabled && ambilightIntensity > 0) {
+    // Pass 2: halo (color glow, bass-boosted)
+    if (haloEnabled && haloIntensity > 0) {
       ctx.save()
       ctx.shadowColor = color
-      ctx.shadowBlur = ambilightIntensity * 0.8 * (1 + bassEnergy * 0.3)
+      ctx.shadowBlur = haloIntensity * 0.8 * (1 + bassEnergy * 0.3)
       ctx.strokeStyle = color
       ctx.lineWidth = finalThickness
       buildPath(inset, inset, w, h)

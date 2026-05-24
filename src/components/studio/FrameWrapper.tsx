@@ -10,26 +10,40 @@ interface Props {
 /**
  * Canvas container shell.
  *
- * When `frame.enabled === true`, all frame visuals (border, shadow,
- * ambilight, reflection, pulse) are drawn directly on the visualizer
- * canvas via `drawFrame` (see src/lib/renderers/frame.ts). This wrapper
- * becomes a plain passthrough so the export `canvas.captureStream()`
- * picks up every frame pixel.
+ * When `frame.enabled === true`, the wrapper is a pure passthrough — no
+ * ring, shadow, or border — because `drawFrame` (src/lib/renderers/frame.ts)
+ * paints every frame visual directly onto the canvas so it's captured by
+ * `canvas.captureStream()` for export. Any CSS decoration here would
+ * double-up with the painted frame.
  *
- * When `frame.enabled === false`, the wrapper applies the studio's
- * default look (a soft drop shadow + faint white ring) so the canvas
- * still reads against the dark background.
+ * When `frame.enabled === false`, the wrapper applies the studio's default
+ * look (soft drop shadow + faint white ring) so the canvas reads against
+ * the dark background.
  */
 export function FrameWrapper({ children, style, className }: Props) {
   const enabled = useFrameStore((s) => s.enabled)
 
-  const baseClassName = enabled
-    ? 'relative flex overflow-hidden'
-    : 'relative flex overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.04]'
+  if (enabled) {
+    return (
+      <div
+        className={['relative flex overflow-hidden', className]
+          .filter(Boolean)
+          .join(' ')}
+        style={style}
+      >
+        {children}
+      </div>
+    )
+  }
 
   return (
     <div
-      className={[baseClassName, className].filter(Boolean).join(' ')}
+      className={[
+        'relative flex overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.04]',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={style}
     >
       {children}

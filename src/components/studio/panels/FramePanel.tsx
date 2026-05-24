@@ -12,8 +12,8 @@ export function FramePanel() {
   const color = useFrameStore((s) => s.color)
   const thickness = useFrameStore((s) => s.thickness)
   const smoothness = useFrameStore((s) => s.smoothness)
-  const ambilightEnabled = useFrameStore((s) => s.ambilightEnabled)
-  const ambilightIntensity = useFrameStore((s) => s.ambilightIntensity)
+  const haloEnabled = useFrameStore((s) => s.haloEnabled)
+  const haloIntensity = useFrameStore((s) => s.haloIntensity)
   const shadowEnabled = useFrameStore((s) => s.shadowEnabled)
   const shadowIntensity = useFrameStore((s) => s.shadowIntensity)
   const shadowColor = useFrameStore((s) => s.shadowColor)
@@ -26,8 +26,8 @@ export function FramePanel() {
   const setColor = useFrameStore((s) => s.setColor)
   const setThickness = useFrameStore((s) => s.setThickness)
   const setSmoothness = useFrameStore((s) => s.setSmoothness)
-  const setAmbilightEnabled = useFrameStore((s) => s.setAmbilightEnabled)
-  const setAmbilightIntensity = useFrameStore((s) => s.setAmbilightIntensity)
+  const setHaloEnabled = useFrameStore((s) => s.setHaloEnabled)
+  const setHaloIntensity = useFrameStore((s) => s.setHaloIntensity)
   const setShadowEnabled = useFrameStore((s) => s.setShadowEnabled)
   const setShadowIntensity = useFrameStore((s) => s.setShadowIntensity)
   const setShadowColor = useFrameStore((s) => s.setShadowColor)
@@ -83,25 +83,25 @@ export function FramePanel() {
           <p className="mt-1 text-[9px] text-white/30">Rounded corners</p>
         </PanelGroup>
 
-        <PanelGroup title="✨ Ambilight">
+        <PanelGroup title="✨ Halo">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[11px] text-white/70">Color glow pulse</span>
             <Toggle
-              checked={ambilightEnabled}
-              onChange={setAmbilightEnabled}
-              ariaLabel="Ambilight"
+              checked={haloEnabled}
+              onChange={setHaloEnabled}
+              ariaLabel="Halo"
             />
           </div>
-          <div style={{ opacity: ambilightEnabled ? 1 : 0.4 }}>
+          <div style={{ opacity: haloEnabled ? 1 : 0.4 }}>
             <SliderRow
               label="Intensity"
-              hint={`${Math.round(ambilightIntensity)}%`}
-              value={ambilightIntensity}
+              hint={`${Math.round(haloIntensity)}%`}
+              value={haloIntensity}
               min={0}
               max={100}
               step={1}
-              onChange={setAmbilightIntensity}
-              ariaLabel="Ambilight intensity"
+              onChange={setHaloIntensity}
+              ariaLabel="Halo intensity"
             />
           </div>
         </PanelGroup>

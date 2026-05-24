@@ -37,6 +37,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const previewMode = useAudioStore((s) => s.previewMode)
+  const audioFile = useAudioStore((s) => s.audioFile)
   const frameConfig = useFrameStore()
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
@@ -112,11 +113,16 @@ export default function VisualizerCanvas(): JSX.Element {
   const dataRef = useRef(frequencyData)
   const coverArtStateRef = useRef(coverArtState)
   const previewModeRef = useRef(previewMode)
+  const audioFileRef = useRef(audioFile)
   const frameConfigRef = useRef(frameConfig)
 
   useEffect(() => {
     previewModeRef.current = previewMode
   }, [previewMode])
+
+  useEffect(() => {
+    audioFileRef.current = audioFile
+  }, [audioFile])
 
   useEffect(() => {
     frameConfigRef.current = frameConfig
@@ -153,13 +159,14 @@ export default function VisualizerCanvas(): JSX.Element {
       const cfg = configRef.current
       const cover = coverArtStateRef.current
 
-      // Preview Mode: when no real frequency data is flowing (no audio loaded,
-      // or audio paused), synthesize a beat-driven spectrum so the user can
-      // design the visualizer without music. Real data wins as soon as it
-      // arrives.
+      // Preview Mode: synthesize a beat-driven spectrum ONLY when no audio
+      // is loaded, so designers can preview without music. Once audio is
+      // loaded (even paused), we never fall back to mock — paused playback
+      // shows the last real frame instead of an animated fake.
+      const hasAudio = audioFileRef.current !== null
       const data =
         realData ??
-        (previewModeRef.current
+        (!hasAudio && previewModeRef.current
           ? generateMockFrequencyData(performance.now() / 1000)
           : null)
 
@@ -272,8 +279,8 @@ export default function VisualizerCanvas(): JSX.Element {
         )
       }
 
-      // Frame draws LAST so its border, shadow, ambilight, and reflection
-      // sit on top of everything. Painted onto the canvas (not as CSS) so
+      // Frame draws LAST so its border, shadow, halo, and reflection sit
+      // on top of everything. Painted onto the canvas (not as CSS) so
       // captureStream() includes it in exported video.
       const bassEnergy = data ? data.bass / 255 : 0
       drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)

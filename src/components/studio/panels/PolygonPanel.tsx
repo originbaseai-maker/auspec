@@ -4,6 +4,7 @@ import type {
   PolygonSpectrumConfig,
 } from '@/lib/renderers/polygonSpectrum'
 import {
+  ColorRow,
   FreqRangeBlock,
   PanelGroup,
   SegmentedGroup,
@@ -50,6 +51,31 @@ export function PolygonPanel() {
 
   return (
     <div className="space-y-5">
+      <PanelGroup title="Colors">
+        <div className="space-y-2">
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Primary
+            </p>
+            <ColorRow
+              value={cfg.colorStart}
+              onChange={(c) => update({ colorStart: c })}
+              ariaLabel="primary color"
+            />
+          </div>
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Secondary
+            </p>
+            <ColorRow
+              value={cfg.colorEnd}
+              onChange={(c) => update({ colorEnd: c })}
+              ariaLabel="secondary color"
+            />
+          </div>
+        </div>
+      </PanelGroup>
+
       <PanelGroup title="Shape">
         <div className="grid grid-cols-3 gap-2">
           {POLYGON_SHAPES.map(({ id, glyph }) => {

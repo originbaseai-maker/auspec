@@ -16,7 +16,6 @@ import { MAX_PRESET_FAVORITES, usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAuthStore } from '@/store/useAuthStore'
-import { AIZone } from './AIZone'
 
 function PresetDot({ preset }: { preset: Preset }): JSX.Element {
   const cfg = preset.config
@@ -609,8 +608,6 @@ export function PresetsSidebar(): JSX.Element {
             )}
           </section>
         </div>
-
-        <AIZone />
       </aside>
     </>
   )

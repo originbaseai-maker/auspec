@@ -114,12 +114,18 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           <circle cx="20" cy="20" r="3" fill="rgba(255,255,255,0.6)" />
         </svg>
       )
-    case 'colors':
+    case 'ai_style':
       return (
         <svg {...props}>
-          <circle cx="14" cy="14" r="6" fill="#f59e0b" opacity="0.9" />
-          <circle cx="26" cy="20" r="6" fill="#ec4899" opacity="0.9" />
-          <circle cx="14" cy="26" r="6" fill="#8b5cf6" opacity="0.9" />
+          <path
+            d="M 20 6 L 22 14 L 30 16 L 22 18 L 20 26 L 18 18 L 10 16 L 18 14 Z"
+            fill="rgba(245,158,11,0.85)"
+            stroke="rgba(245,158,11,1)"
+            strokeWidth="0.5"
+          />
+          <circle cx="32" cy="8" r="1.5" fill="rgba(236,72,153,0.85)" />
+          <circle cx="8" cy="30" r="1" fill="rgba(139,92,246,0.85)" />
+          <circle cx="33" cy="28" r="0.8" fill="rgba(245,158,11,0.7)" />
         </svg>
       )
     case 'frame':

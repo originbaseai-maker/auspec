@@ -1,6 +1,7 @@
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import type { WaveConfig } from '@/lib/renderers/wave'
 import {
+  ColorRow,
   FreqRangeBlock,
   PanelGroup,
   SegmentedGroup,
@@ -41,6 +42,31 @@ export function WavePanel() {
 
   return (
     <div className="space-y-5">
+      <PanelGroup title="Colors">
+        <div className="space-y-2">
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Primary
+            </p>
+            <ColorRow
+              value={cfg.colorStart}
+              onChange={(c) => update({ colorStart: c })}
+              ariaLabel="primary color"
+            />
+          </div>
+          <div>
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Secondary
+            </p>
+            <ColorRow
+              value={cfg.colorEnd}
+              onChange={(c) => update({ colorEnd: c })}
+              ariaLabel="secondary color"
+            />
+          </div>
+        </div>
+      </PanelGroup>
+
       <PanelGroup
         title="Line Thickness"
         hint={`${cfg.lineThickness}px`}
