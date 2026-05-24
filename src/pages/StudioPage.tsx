@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Upload, Sparkles } from 'lucide-react';
+import { Download, Menu, Upload, Sparkles } from 'lucide-react';
 import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
@@ -13,10 +13,16 @@ import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
 import { AudioUploader } from '@/components/audio';
 import { GlobalDropZone } from '@/components/studio/GlobalDropZone';
+import { MobileBottomSheet } from '@/components/studio/MobileBottomSheet';
+import {
+  MobileBottomTabs,
+  type MobileTabId,
+} from '@/components/studio/MobileBottomTabs';
 import { useAudioStore } from '@/store/useAudioStore';
 import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
+import { useViewport } from '@/hooks/useViewport';
 import {
   SOCIAL_FORMATS,
   getFormat,
@@ -27,7 +33,28 @@ import { AuthModal, UserMenu } from '@/components/auth';
 import { ExportModal } from '@/components/studio/ExportModal';
 import { useExportStore } from '@/store/useExportStore';
 
-function AuSpecLogo() {
+function AuSpecLogo({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <a
+        href="/"
+        className="flex items-center gap-1.5 text-white"
+        aria-label="AuSpec home"
+      >
+        <span className="text-sm font-bold">AuSpec</span>
+        <span
+          className="rounded-md border px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider"
+          style={{
+            borderColor: '#8b5cf6',
+            color: '#8b5cf6',
+            background: 'rgba(139,92,246,0.08)',
+          }}
+        >
+          PRO
+        </span>
+      </a>
+    );
+  }
   return (
     <a
       href="/"
@@ -62,7 +89,7 @@ function AuSpecLogo() {
   );
 }
 
-function FormatSelector() {
+function FormatSelector({ compact = false }: { compact?: boolean }) {
   const activeFormat = useFormatStore((s) => s.activeFormat);
   const setFormat = useFormatStore((s) => s.setFormat);
   const format = getFormat(activeFormat);
@@ -87,12 +114,18 @@ function FormatSelector() {
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-haspopup="listbox"
         aria-expanded={dropdownOpen}
-        className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors hover:border-white/20"
+        className={
+          compact
+            ? 'flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors hover:border-white/20'
+            : 'flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors hover:border-white/20'
+        }
         style={{ borderColor: '#2a2a2a', background: '#1a1a1a', color: 'white' }}
       >
         <span aria-hidden="true">{format.icon}</span>
         <span className="font-medium">{format.aspectRatio}</span>
-        <span className="hidden sm:inline text-white/50 text-xs">{format.platform}</span>
+        {!compact && (
+          <span className="hidden sm:inline text-white/50 text-xs">{format.platform}</span>
+        )}
         <svg
           className="h-3 w-3 text-white/40"
           viewBox="0 0 12 12"
@@ -306,6 +339,101 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
   );
 }
 
+function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
+  const user = useAuthStore((s) => s.user);
+  const [showAuth, setShowAuth] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const openExport = useExportStore((s) => s.open);
+  const isExportOpen = useExportStore((s) => s.isOpen);
+
+  return (
+    <header
+      className="relative flex shrink-0 items-center justify-between border-b bg-[#111111] px-3 py-2"
+      style={{
+        borderColor: '#2a2a2a',
+        paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))',
+      }}
+    >
+      <AuSpecLogo compact />
+
+      <div className="flex items-center gap-1.5">
+        <FormatSelector compact />
+        {hasAudio && (
+          <button
+            type="button"
+            onClick={openExport}
+            aria-label="Export"
+            className="flex h-8 w-8 items-center justify-center rounded-md border text-white/80"
+            style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          className="flex h-8 w-8 items-center justify-center rounded-md border text-white/80"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          <Menu className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      {menuOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="absolute right-2 top-12 z-50 w-48 rounded-lg border p-1 shadow-2xl"
+            style={{ borderColor: '#2a2a2a', background: '#131313' }}
+          >
+            <a
+              href="/dashboard"
+              role="menuitem"
+              className="block rounded px-3 py-2 text-[12px] text-white/80 hover:bg-white/5 hover:text-white"
+            >
+              Dashboard
+            </a>
+            <a
+              href="/"
+              role="menuitem"
+              className="block rounded px-3 py-2 text-[12px] text-white/80 hover:bg-white/5 hover:text-white"
+            >
+              Home
+            </a>
+            {user ? (
+              <div className="border-t mt-1 pt-1" style={{ borderColor: '#2a2a2a' }}>
+                <UserMenu />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowAuth(true);
+                }}
+                role="menuitem"
+                className="block w-full rounded px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/5 hover:text-white"
+              >
+                Sign In
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+      {isExportOpen && <ExportModal />}
+    </header>
+  );
+}
+
 function FormatFlashOverlay({ format }: { format: FormatConfig }) {
   return (
     <div
@@ -404,6 +532,50 @@ function PreviewBadge() {
   );
 }
 
+interface CanvasAreaProps {
+  showCanvas: boolean;
+  hasAudio: boolean;
+  previewMode: boolean;
+  showFormatFlash: boolean;
+  format: FormatConfig;
+}
+
+/**
+ * The canvas + overlays — identical across viewports. The container
+ * around it (padding, sidebars) differs; this just renders the canvas
+ * pyramid: FrameWrapper → VisualizerCanvas → TextInteractive → FpsCounter →
+ * preview chrome.
+ */
+function CanvasArea({
+  showCanvas,
+  hasAudio,
+  previewMode,
+  showFormatFlash,
+  format,
+}: CanvasAreaProps) {
+  if (!showCanvas) return <AudioUploader />;
+  return (
+    <FrameWrapper
+      style={{
+        aspectRatio: `${format.width} / ${format.height}`,
+        width: `min(100cqw, calc(100cqh * ${format.width} / ${format.height}))`,
+        height: `min(100cqh, calc(100cqw * ${format.height} / ${format.width}))`,
+      }}
+    >
+      <VisualizerCanvas />
+      <TextInteractive />
+      <FpsCounter />
+      {showFormatFlash && <FormatFlashOverlay format={format} />}
+      {!hasAudio && previewMode && (
+        <>
+          <PreviewBadge />
+          <PreviewUploadButton />
+        </>
+      )}
+    </FrameWrapper>
+  );
+}
+
 export function StudioPage() {
   const audioFile = useAudioStore((s) => s.audioFile);
   const previewMode = useAudioStore((s) => s.previewMode);
@@ -413,9 +585,12 @@ export function StudioPage() {
 
   const activeFormat = useFormatStore((s) => s.activeFormat);
   const format = getFormat(activeFormat);
+  const viewport = useViewport();
 
   const [showFormatFlash, setShowFormatFlash] = useState(false);
   const prevFormat = useRef(activeFormat);
+
+  const [mobileTab, setMobileTab] = useState<MobileTabId | null>(null);
 
   useEffect(() => {
     if (prevFormat.current === activeFormat) return;
@@ -425,43 +600,103 @@ export function StudioPage() {
     return () => window.clearTimeout(t);
   }, [activeFormat]);
 
+  const isMobile = viewport === 'mobile';
+  const isTablet = viewport === 'tablet';
+
+  const formatFlashStyles = (
+    <style>{`
+      @keyframes auspec-format-flash {
+        0%   { opacity: 0; transform: scale(0.95); }
+        20%  { opacity: 1; transform: scale(1); }
+        70%  { opacity: 1; transform: scale(1); }
+        100% { opacity: 0; transform: scale(1.05); }
+      }
+    `}</style>
+  );
+
+  if (isMobile) {
+    return (
+      <GlobalDropZone>
+        <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
+          <MobileTopBar hasAudio={hasAudio} />
+
+          <main
+            className="relative flex flex-1 min-h-0 items-center justify-center overflow-hidden bg-[#0a0a0a] p-2"
+            style={{ containerType: 'size' }}
+          >
+            <CanvasArea
+              showCanvas={showCanvas}
+              hasAudio={hasAudio}
+              previewMode={previewMode}
+              showFormatFlash={showFormatFlash}
+              format={format}
+            />
+          </main>
+
+          {hasAudio && <AudioElement />}
+          {hasAudio ? <Timeline /> : <AudioPlayerBar />}
+
+          <MobileBottomTabs
+            activeTab={mobileTab}
+            onTabChange={setMobileTab}
+          />
+
+          <MobileBottomSheet
+            open={mobileTab === 'presets'}
+            onClose={() => setMobileTab(null)}
+            title="Presets"
+            height="70%"
+          >
+            <PresetsSidebar variant="mobile" />
+          </MobileBottomSheet>
+
+          <MobileBottomSheet
+            open={mobileTab === 'tools'}
+            onClose={() => setMobileTab(null)}
+            title="Tools"
+            height="90%"
+          >
+            <div className="pb-4">
+              <CategoryGrid />
+              <CategoryDetailPanel />
+            </div>
+          </MobileBottomSheet>
+        </div>
+        {formatFlashStyles}
+      </GlobalDropZone>
+    );
+  }
+
+  // Tablet and desktop share the same DOM shape; only sidebar widths differ.
+  const presetsWidth = isTablet ? 180 : 220;
+  const toolsWidth = isTablet ? 260 : 320;
+
   return (
     <GlobalDropZone>
       <div className="flex h-screen w-screen flex-col bg-black text-white overflow-hidden">
         <TopBar hasAudio={hasAudio} />
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <PresetsSidebar />
+          <PresetsSidebar widthPx={presetsWidth} />
           <main
             className="relative flex flex-1 min-w-0 min-h-0 items-center justify-center overflow-hidden bg-[#0a0a0a] p-4"
             style={{ containerType: 'size' }}
           >
-            {showCanvas ? (
-              <FrameWrapper
-                style={{
-                  aspectRatio: `${format.width} / ${format.height}`,
-                  width: `min(100cqw, calc(100cqh * ${format.width} / ${format.height}))`,
-                  height: `min(100cqh, calc(100cqw * ${format.height} / ${format.width}))`,
-                }}
-              >
-                <VisualizerCanvas />
-                <TextInteractive />
-                <FpsCounter />
-                {showFormatFlash && <FormatFlashOverlay format={format} />}
-                {!hasAudio && previewMode && (
-                  <>
-                    <PreviewBadge />
-                    <PreviewUploadButton />
-                  </>
-                )}
-              </FrameWrapper>
-            ) : (
-              <AudioUploader />
-            )}
+            <CanvasArea
+              showCanvas={showCanvas}
+              hasAudio={hasAudio}
+              previewMode={previewMode}
+              showFormatFlash={showFormatFlash}
+              format={format}
+            />
           </main>
           <aside
-            className="w-[320px] shrink-0 border-l overflow-y-auto"
-            style={{ borderColor: '#1a1a1a', background: '#0a0a0a' }}
+            className="shrink-0 border-l overflow-y-auto"
+            style={{
+              width: toolsWidth,
+              borderColor: '#1a1a1a',
+              background: '#0a0a0a',
+            }}
           >
             <CategoryGrid />
             <CategoryDetailPanel />
@@ -471,15 +706,7 @@ export function StudioPage() {
         {hasAudio && <AudioElement />}
         {hasAudio ? <Timeline /> : <AudioPlayerBar />}
       </div>
-
-      <style>{`
-        @keyframes auspec-format-flash {
-          0%   { opacity: 0; transform: scale(0.95); }
-          20%  { opacity: 1; transform: scale(1); }
-          70%  { opacity: 1; transform: scale(1); }
-          100% { opacity: 0; transform: scale(1.05); }
-        }
-      `}</style>
+      {formatFlashStyles}
     </GlobalDropZone>
   );
 }

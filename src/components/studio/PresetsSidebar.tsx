@@ -269,7 +269,25 @@ function SavePresetModal({ onSave, onCancel }: SavePresetModalProps): JSX.Elemen
   )
 }
 
-export function PresetsSidebar(): JSX.Element {
+/**
+ * `desktop` (default) — fixed-width left sidebar (220 px default,
+ * override via `widthPx`). `mobile` — fills its parent (used inside a
+ * MobileBottomSheet) with no width constraint.
+ *
+ * StudioPage now handles viewport-based show/hide, so this no longer
+ * uses `hidden md:flex`; rendering is fully controlled by the parent.
+ */
+export type PresetsSidebarVariant = 'desktop' | 'mobile'
+
+interface PresetsSidebarProps {
+  variant?: PresetsSidebarVariant
+  widthPx?: number
+}
+
+export function PresetsSidebar({
+  variant = 'desktop',
+  widthPx = 220,
+}: PresetsSidebarProps = {}): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [allOpen, setAllOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -368,8 +386,16 @@ export function PresetsSidebar(): JSX.Element {
         />
       )}
       <aside
-        className="hidden md:flex w-[220px] shrink-0 flex-col border-r bg-[#111111] overflow-hidden"
-        style={{ borderColor: '#2a2a2a' }}
+        className={
+          variant === 'mobile'
+            ? 'flex h-full w-full flex-col bg-[#0a0a0a] overflow-hidden'
+            : 'flex shrink-0 flex-col border-r bg-[#111111] overflow-hidden'
+        }
+        style={
+          variant === 'mobile'
+            ? undefined
+            : { borderColor: '#2a2a2a', width: widthPx }
+        }
         aria-label="Presets and projects"
       >
         <div
