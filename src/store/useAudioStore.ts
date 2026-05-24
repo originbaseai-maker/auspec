@@ -14,6 +14,15 @@ export interface AudioStore {
   loop: boolean
   previewMode: boolean
 
+  /** Detected/manual BPM. 0 = none yet. */
+  bpm: number
+  /** 0-1 confidence in the auto-detected BPM. 1 for manual. */
+  bpmConfidence: number
+  /** True if `bpm` came from auto-detection (vs manual override). */
+  bpmAutoDetected: boolean
+  /** True while a BPM detection job is running. */
+  bpmDetecting: boolean
+
   setAudioFile: (file: AudioFile | null) => void
   setIsPlaying: (playing: boolean) => void
   setCurrentTime: (time: number) => void
@@ -25,6 +34,10 @@ export interface AudioStore {
   resetTrim: () => void
   setLoop: (loop: boolean) => void
   setPreviewMode: (b: boolean) => void
+  setBpm: (bpm: number, confidence?: number) => void
+  setBpmManual: (bpm: number) => void
+  setBpmDetecting: (b: boolean) => void
+  resetBpm: () => void
   cleanup: () => void
 }
 
@@ -40,6 +53,11 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   loop: false,
   previewMode: true,
 
+  bpm: 0,
+  bpmConfidence: 0,
+  bpmAutoDetected: false,
+  bpmDetecting: false,
+
   setAudioFile: (audioFile) => {
     const prev = get().audioFile
     if (prev && prev.objectUrl && prev.objectUrl !== audioFile?.objectUrl) {
@@ -53,6 +71,12 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       trimStart: 0,
       trimEnd: null,
       loop: false,
+      // Reset BPM — useBPMDetection will repopulate when the new file
+      // finishes decoding.
+      bpm: 0,
+      bpmConfidence: 0,
+      bpmAutoDetected: false,
+      bpmDetecting: false,
     })
 
     // Best-effort autofill of the Text overlay from "Artist - Title.ext".
@@ -84,6 +108,30 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   setLoop: (loop) => set({ loop }),
   setPreviewMode: (previewMode) => set({ previewMode }),
 
+  setBpm: (bpm, confidence = 1) =>
+    set({
+      bpm: Math.max(0, Math.min(300, Math.round(bpm))),
+      bpmConfidence: Math.max(0, Math.min(1, confidence)),
+      bpmAutoDetected: true,
+    }),
+
+  setBpmManual: (bpm) =>
+    set({
+      bpm: Math.max(0, Math.min(300, Math.round(bpm))),
+      bpmConfidence: 1,
+      bpmAutoDetected: false,
+    }),
+
+  setBpmDetecting: (bpmDetecting) => set({ bpmDetecting }),
+
+  resetBpm: () =>
+    set({
+      bpm: 0,
+      bpmConfidence: 0,
+      bpmAutoDetected: false,
+      bpmDetecting: false,
+    }),
+
   cleanup: () => {
     const { audioFile } = get()
     if (audioFile?.objectUrl) URL.revokeObjectURL(audioFile.objectUrl)
@@ -96,6 +144,10 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       trimStart: 0,
       trimEnd: null,
       loop: false,
+      bpm: 0,
+      bpmConfidence: 0,
+      bpmAutoDetected: false,
+      bpmDetecting: false,
     })
   },
 }))
