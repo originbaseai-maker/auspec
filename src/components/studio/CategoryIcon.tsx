@@ -114,6 +114,31 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           <circle cx="20" cy="20" r="3" fill="rgba(255,255,255,0.6)" />
         </svg>
       )
+    case 'text':
+      return (
+        <svg {...props}>
+          <text
+            x="20"
+            y="28"
+            textAnchor="middle"
+            fontSize="24"
+            fontWeight="900"
+            fontFamily="Inter, sans-serif"
+            fill="rgba(255,255,255,0.85)"
+          >
+            T
+          </text>
+          <line
+            x1="6"
+            y1="33"
+            x2="34"
+            y2="33"
+            stroke="rgba(255,255,255,0.5)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
     case 'ai_style':
       return (
         <svg {...props}>

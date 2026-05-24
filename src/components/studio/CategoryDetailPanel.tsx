@@ -8,6 +8,7 @@ import { PolygonPanel } from './panels/PolygonPanel'
 import { ParticlesPanel } from './panels/ParticlesPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
+import { TextPanel } from './panels/TextPanel'
 import { AIPanel } from './panels/AIPanel'
 import { FramePanel } from './panels/FramePanel'
 
@@ -36,6 +37,8 @@ export function CategoryDetailPanel() {
         return <BackgroundPanel />
       case 'logo':
         return <LogoPanel />
+      case 'text':
+        return <TextPanel />
       case 'ai_style':
         return <AIPanel />
       case 'frame':

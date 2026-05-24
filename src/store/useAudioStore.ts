@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AudioFile } from '../types/audio'
+import { useTextStore } from './useTextStore'
 
 export interface AudioStore {
   audioFile: AudioFile | null
@@ -53,6 +54,24 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       trimEnd: null,
       loop: false,
     })
+
+    // Best-effort autofill of the Text overlay from "Artist - Title.ext".
+    // Only fires on file SET (audioFile truthy); clearing audio leaves any
+    // user-customized text alone so they don't lose work on file swap.
+    if (audioFile) {
+      const baseName = audioFile.name.replace(/\.[^/.]+$/, '')
+      const parts = baseName.split(' - ').map((s) => s.trim())
+      const textStore = useTextStore.getState()
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        textStore.setLayer('artist', { text: parts[0], enabled: true })
+        textStore.setLayer('title', {
+          text: parts.slice(1).join(' - '),
+          enabled: true,
+        })
+      } else {
+        textStore.setLayer('title', { text: baseName, enabled: true })
+      }
+    }
   },
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setCurrentTime: (currentTime) => set({ currentTime }),

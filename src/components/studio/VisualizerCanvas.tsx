@@ -8,12 +8,14 @@ import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
 import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
 import { drawFrame } from '@/lib/renderers/frame'
+import { drawTextOverlay } from '@/lib/renderers/textOverlay'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
 import { useFrameStore } from '@/store/useFrameStore'
+import { useTextStore } from '@/store/useTextStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -39,6 +41,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const previewMode = useAudioStore((s) => s.previewMode)
   const audioFile = useAudioStore((s) => s.audioFile)
   const frameConfig = useFrameStore()
+  const textConfig = useTextStore()
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -115,6 +118,11 @@ export default function VisualizerCanvas(): JSX.Element {
   const previewModeRef = useRef(previewMode)
   const audioFileRef = useRef(audioFile)
   const frameConfigRef = useRef(frameConfig)
+  const textConfigRef = useRef(textConfig)
+
+  useEffect(() => {
+    textConfigRef.current = textConfig
+  }, [textConfig])
 
   useEffect(() => {
     previewModeRef.current = previewMode
@@ -279,11 +287,18 @@ export default function VisualizerCanvas(): JSX.Element {
         )
       }
 
-      // Frame draws LAST so its border, shadow, halo, and reflection sit
-      // on top of everything. Painted onto the canvas (not as CSS) so
-      // captureStream() includes it in exported video.
+      // Frame draws on top of the visualizer + media. Painted onto the
+      // canvas (not as CSS) so captureStream() includes it in export.
       const bassEnergy = data ? data.bass / 255 : 0
       drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
+
+      // Text overlay draws LAST so titles/artist sit on top of everything,
+      // including the frame border.
+      drawTextOverlay(ctx, width, height, {
+        title: textConfigRef.current.title,
+        artist: textConfigRef.current.artist,
+        custom: textConfigRef.current.custom,
+      })
 
       animationRef.current = requestAnimationFrame(render)
     }
