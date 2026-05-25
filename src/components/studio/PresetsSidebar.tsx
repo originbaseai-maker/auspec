@@ -16,6 +16,7 @@ import { MAX_PRESET_FAVORITES, usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { LayerSidebar } from './LayerSidebar'
 
 function PresetDot({ preset }: { preset: Preset }): JSX.Element {
   const cfg = preset.config
@@ -396,8 +397,9 @@ export function PresetsSidebar({
             ? undefined
             : { borderColor: '#2a2a2a', width: widthPx }
         }
-        aria-label="Presets and projects"
+        aria-label="Layers, presets, and projects"
       >
+        <LayerSidebar />
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: '#2a2a2a' }}

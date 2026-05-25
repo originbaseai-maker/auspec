@@ -11,6 +11,8 @@ import {
 } from '@/lib/visualizerConfig'
 import type { Preset } from '@/lib/presets'
 import { useFrameStore } from './useFrameStore'
+import { useLayerStore } from './useLayerStore'
+import { LAYER_LABELS, type Layer, type LayerType } from '@/types/layer'
 
 export type { VisualType }
 export type CanvasRatio = '16:9' | '9:16' | '1:1' | '4:5' | '21:9'
@@ -129,6 +131,72 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
     } else {
       frameStore.resetToDefaults()
     }
+
+    // Sync the layer store so the new render path (layer iteration) sees
+    // the preset. Preserves the legacy "preset switches to type X"
+    // behavior by enabling ONLY the preset's visualType; others disabled.
+    const layerStore = useLayerStore.getState()
+    const presetType = preset.visualType
+    const isValidLayerType = (t: string): t is LayerType =>
+      t === 'bars' || t === 'circular' || t === 'wave' || t === 'polygon'
+    const baseLayers = layerStore.layers
+
+    // Explicit literal-typed objects so the discriminated union narrows
+    // correctly per layer (one shared helper widens it).
+    const newLayers: Record<LayerType, Layer> = {
+      bars: {
+        type: 'bars',
+        id: 'bars',
+        name: LAYER_LABELS.bars,
+        enabled: presetType === 'bars',
+        locked: baseLayers.bars.locked,
+        zOrder: 0,
+        config: {
+          ...(baseLayers.bars.config as LinearBarsConfig),
+          ...(preset.config.linearBars ?? {}),
+        },
+      },
+      circular: {
+        type: 'circular',
+        id: 'circular',
+        name: LAYER_LABELS.circular,
+        enabled: presetType === 'circular',
+        locked: baseLayers.circular.locked,
+        zOrder: 1,
+        config: {
+          ...(baseLayers.circular.config as CircularSpectrumConfig),
+          ...(preset.config.circularSpectrum ?? {}),
+        },
+      },
+      wave: {
+        type: 'wave',
+        id: 'wave',
+        name: LAYER_LABELS.wave,
+        enabled: presetType === 'wave',
+        locked: baseLayers.wave.locked,
+        zOrder: 2,
+        config: {
+          ...(baseLayers.wave.config as WaveConfig),
+          ...(preset.config.wave ?? {}),
+        },
+      },
+      polygon: {
+        type: 'polygon',
+        id: 'polygon',
+        name: LAYER_LABELS.polygon,
+        enabled: presetType === 'polygon',
+        locked: baseLayers.polygon.locked,
+        zOrder: 3,
+        config: {
+          ...(baseLayers.polygon.config as PolygonSpectrumConfig),
+          ...(preset.config.polygon ?? {}),
+        },
+      },
+    }
+    layerStore.replaceLayers(newLayers)
+    layerStore.setActiveLayer(
+      isValidLayerType(presetType) ? presetType : 'bars',
+    )
 
     set((state) => {
       const merged: VisualizerConfig = {

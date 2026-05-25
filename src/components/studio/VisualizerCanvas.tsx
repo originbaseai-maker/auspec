@@ -18,6 +18,7 @@ import { useAudioStore } from '@/store/useAudioStore'
 import { useFrameStore } from '@/store/useFrameStore'
 import { useTextStore } from '@/store/useTextStore'
 import { useParticleStore } from '@/store/useParticleStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -45,6 +46,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const frameConfig = useFrameStore()
   const textConfig = useTextStore()
   const particleConfig = useParticleStore()
+  const layers = useLayerStore((s) => s.layers)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -123,6 +125,11 @@ export default function VisualizerCanvas(): JSX.Element {
   const frameConfigRef = useRef(frameConfig)
   const textConfigRef = useRef(textConfig)
   const particleConfigRef = useRef(particleConfig)
+  const layersRef = useRef(layers)
+
+  useEffect(() => {
+    layersRef.current = layers
+  }, [layers])
 
   useEffect(() => {
     textConfigRef.current = textConfig
@@ -190,71 +197,84 @@ export default function VisualizerCanvas(): JSX.Element {
       ctx.fillRect(0, 0, width, height)
 
       if (data) {
-        switch (cfg.visualType) {
-          case 'bars':
-            renderLinearBars(
-              ctx,
-              data,
-              cfg.linearBars,
-              width,
-              height,
-              barsHeightsRef.current,
-            )
-            break
-          case 'circular':
-            renderCircularSpectrum(
-              ctx,
-              data,
-              cfg.circularSpectrum,
-              width,
-              height,
-              circularHeightsRef.current,
-              cover.logo ? cover.logoSize : undefined,
-            )
-            break
-          case 'wave':
-            renderWave(ctx, data, cfg.wave, width, height)
-            break
-          case 'polygon': {
-            // Draw the logo FIRST so the spectrum bars stay on top.
-            // In auto mode the logo fills the polygon exactly (scale 1.0);
-            // in manual mode the user's logoSize acts as a 0.5–2.0× scale.
-            if (cover.logo) {
-              const minDim = Math.min(width, height)
-              const baseRadius = Math.min(
-                cfg.polygon.radius,
-                Math.max(0, minDim / 2 - 20),
-              )
-              const logoScale = cover.autoLogoSync
-                ? 1.0
-                : Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
-              renderLogoOnly(
+        // Iterate enabled layers in z-order (back → front). Each
+        // visualizer type has at most one layer in V1, so the per-type
+        // smoothing buffers (barsHeightsRef etc.) are still safe to
+        // share across frames.
+        const layerMap = layersRef.current
+        const enabledLayers = [
+          layerMap.bars,
+          layerMap.circular,
+          layerMap.wave,
+          layerMap.polygon,
+        ]
+          .filter((l) => l.enabled)
+          .sort((a, b) => a.zOrder - b.zOrder)
+
+        for (const layer of enabledLayers) {
+          switch (layer.type) {
+            case 'bars':
+              renderLinearBars(
                 ctx,
-                cover.logo,
-                {
-                  logoSize: cover.logoSize,
-                  logoCropMode: cover.logoCropMode,
-                  coverArtPosition: cover.coverArtPosition,
-                  polygonShape: cfg.polygon.shape,
-                  polygonRotation: cfg.polygon.rotation,
-                  polygonRadius: baseRadius * logoScale,
-                },
+                data,
+                layer.config,
                 width,
                 height,
+                barsHeightsRef.current,
               )
+              break
+            case 'circular':
+              renderCircularSpectrum(
+                ctx,
+                data,
+                layer.config,
+                width,
+                height,
+                circularHeightsRef.current,
+                cover.logo ? cover.logoSize : undefined,
+              )
+              break
+            case 'wave':
+              renderWave(ctx, data, layer.config, width, height)
+              break
+            case 'polygon': {
+              // Draw the logo INSIDE the polygon shape before the bars
+              // so spectrum bars stay visible on top of the logo.
+              if (cover.logo) {
+                const minDim = Math.min(width, height)
+                const baseRadius = Math.min(
+                  layer.config.radius,
+                  Math.max(0, minDim / 2 - 20),
+                )
+                const logoScale = cover.autoLogoSync
+                  ? 1.0
+                  : Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
+                renderLogoOnly(
+                  ctx,
+                  cover.logo,
+                  {
+                    logoSize: cover.logoSize,
+                    logoCropMode: cover.logoCropMode,
+                    coverArtPosition: cover.coverArtPosition,
+                    polygonShape: layer.config.shape,
+                    polygonRotation: layer.config.rotation,
+                    polygonRadius: baseRadius * logoScale,
+                  },
+                  width,
+                  height,
+                )
+              }
+              renderPolygonSpectrum(
+                ctx,
+                data,
+                layer.config,
+                width,
+                height,
+                polygonHeightsRef.current,
+              )
+              break
             }
-            renderPolygonSpectrum(
-              ctx,
-              data,
-              cfg.polygon,
-              width,
-              height,
-              polygonHeightsRef.current,
-            )
-            break
           }
-          case 'particles':
-            break
         }
 
         if (cfg.framePulse.enabled) {
@@ -279,9 +299,10 @@ export default function VisualizerCanvas(): JSX.Element {
           width,
           height,
         )
-      } else if (cover.logo && cfg.visualType !== 'polygon') {
-        // Non-polygon modes draw the logo on top with its crop mode.
-        // Polygon mode draws the logo underneath the bars inside its case.
+      } else if (cover.logo && !layersRef.current.polygon.enabled) {
+        // When the Polygon layer is enabled it has already drawn the
+        // logo inside its shape. Otherwise, render the logo here on top
+        // with its standard crop mode.
         renderLogoOnly(
           ctx,
           cover.logo,
@@ -296,20 +317,22 @@ export default function VisualizerCanvas(): JSX.Element {
       }
 
       // Particles overlay — drawn between the main visualizer and the
-      // frame so the frame border still sits on top of the particles.
-      // Reads the active visualizer's palette so particles can "Sync"
-      // colors when the user enables that option.
-      const cfgVisualType = cfg.visualType
-      const activePalette: string[] | undefined =
-        cfgVisualType === 'bars'
-          ? cfg.linearBars.palette
-          : cfgVisualType === 'circular'
-            ? cfg.circularSpectrum.palette
-            : cfgVisualType === 'wave'
-              ? cfg.wave.palette
-              : cfgVisualType === 'polygon'
-                ? cfg.polygon.palette
-                : undefined
+      // frame so the frame border still sits on top. With multiple
+      // layers enabled, pick the TOPMOST enabled layer's palette as the
+      // ambient sync source (closest to what the user sees on top).
+      let activePalette: string[] | undefined
+      {
+        const lm = layersRef.current
+        const topToBottom = [lm.bars, lm.circular, lm.wave, lm.polygon]
+          .filter((l) => l.enabled)
+          .sort((a, b) => b.zOrder - a.zOrder)
+        for (const l of topToBottom) {
+          if (l.config.palette && l.config.palette.length > 0) {
+            activePalette = l.config.palette
+            break
+          }
+        }
+      }
       updateAndDrawParticles(
         ctx,
         particleConfigRef.current,

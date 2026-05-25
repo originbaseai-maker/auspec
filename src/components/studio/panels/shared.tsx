@@ -294,6 +294,26 @@ export function PanelGroup({
 }
 
 /**
+ * Banner shown at the top of a visualizer panel when its layer is
+ * locked. The parent panel should also wrap its body in
+ * `opacity: 0.5; pointerEvents: 'none'` so the controls visibly read
+ * as disabled.
+ */
+export function LockedLayerBanner() {
+  return (
+    <div
+      className="rounded-md border px-3 py-2 text-[11px] text-amber-400"
+      style={{
+        borderColor: 'rgba(245,158,11,0.3)',
+        background: 'rgba(245,158,11,0.05)',
+      }}
+    >
+      🔒 Layer is locked. Unlock in the Layers sidebar to edit.
+    </div>
+  )
+}
+
+/**
  * Three per-band sensitivity sliders. Each value is a multiplier
  * (0..2, where 1 = 100% / unchanged). The parent owns state; this
  * component just emits `onChange(band, value)` per change.

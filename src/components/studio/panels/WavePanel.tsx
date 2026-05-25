@@ -1,7 +1,8 @@
-import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import type { WaveConfig } from '@/lib/renderers/wave'
 import {
   FreqRangeBlock,
+  LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -26,8 +27,13 @@ type Patch = Partial<WaveConfig> & {
 }
 
 export function WavePanel() {
-  const cfg = useVisualizerStore((s) => s.visualizerConfig.wave)
-  const update = useVisualizerStore((s) => s.updateWave) as (p: Patch) => void
+  const layer = useLayerStore((s) => s.layers.wave)
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+  // Narrow the discriminated-union config — the store guarantees this
+  // selector returns a WaveLayer, but the union type doesn't carry that.
+  const cfg = layer.config as WaveConfig
+  const isLocked = layer.locked
+  const update: (p: Patch) => void = (p) => updateConfig('wave', p)
 
   const ext = cfg as WaveConfig & {
     displayMode?: DisplayMode
@@ -41,7 +47,15 @@ export function WavePanel() {
   const endFrequency = ext.endFrequency ?? 20000
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Colors">
         <PaletteEditor
           palette={cfg.palette}
@@ -150,6 +164,7 @@ export function WavePanel() {
           setEnd={(v) => update({ endFrequency: v })}
         />
       </PanelGroup>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,8 @@
-import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import {
   FreqRangeBlock,
+  LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -27,10 +28,12 @@ type Patch = Partial<CircularSpectrumConfig> & {
 }
 
 export function CircularPanel() {
-  const cfg = useVisualizerStore((s) => s.visualizerConfig.circularSpectrum)
-  const update = useVisualizerStore((s) => s.updateCircularSpectrum) as (
-    p: Patch,
-  ) => void
+  const layer = useLayerStore((s) => s.layers.circular)
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+  // Narrow the discriminated-union config.
+  const cfg = layer.config as CircularSpectrumConfig
+  const isLocked = layer.locked
+  const update: (p: Patch) => void = (p) => updateConfig('circular', p)
 
   const ext = cfg as CircularSpectrumConfig & {
     hueInterpolation?: number
@@ -44,7 +47,15 @@ export function CircularPanel() {
   const sideMode: SideMode = ext.sideMode ?? 'both'
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Colors">
         <PaletteEditor
           palette={cfg.palette}
@@ -189,6 +200,7 @@ export function CircularPanel() {
           setEnd={(v) => update({ endFrequency: v })}
         />
       </PanelGroup>
+      </div>
     </div>
   )
 }

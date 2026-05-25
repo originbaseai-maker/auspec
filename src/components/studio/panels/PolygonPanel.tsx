@@ -1,10 +1,11 @@
-import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import type {
   PolygonShape,
   PolygonSpectrumConfig,
 } from '@/lib/renderers/polygonSpectrum'
 import {
   FreqRangeBlock,
+  LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -36,10 +37,12 @@ type Patch = Partial<PolygonSpectrumConfig> & {
 }
 
 export function PolygonPanel() {
-  const cfg = useVisualizerStore((s) => s.visualizerConfig.polygon)
-  const update = useVisualizerStore((s) => s.updatePolygon) as (
-    p: Patch,
-  ) => void
+  const layer = useLayerStore((s) => s.layers.polygon)
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+  // Narrow the discriminated-union config.
+  const cfg = layer.config as PolygonSpectrumConfig
+  const isLocked = layer.locked
+  const update: (p: Patch) => void = (p) => updateConfig('polygon', p)
 
   const ext = cfg as PolygonSpectrumConfig & {
     hueInterpolation?: number
@@ -51,7 +54,15 @@ export function PolygonPanel() {
   const endFrequency = ext.endFrequency ?? 20000
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Colors">
         <PaletteEditor
           palette={cfg.palette}
@@ -223,6 +234,7 @@ export function PolygonPanel() {
           setEnd={(v) => update({ endFrequency: v })}
         />
       </PanelGroup>
+      </div>
     </div>
   )
 }

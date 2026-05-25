@@ -23,6 +23,7 @@ import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
+import { initializeLayersFromVisualizerStore } from '@/store/useLayerStore';
 import { useViewport } from '@/hooks/useViewport';
 import { STUDIO_CATEGORIES } from '@/types/studio';
 import {
@@ -594,6 +595,17 @@ export function StudioPage() {
 
   const [mobileTab, setMobileTab] = useState<MobileTabId | null>(null);
   const activeCategory = useStudioUIStore((s) => s.activeCategory);
+  const layersInitialized = useRef(false);
+
+  // One-time migration: copy the existing visualizerStore state into the
+  // new layer store on first mount. Subsequent mounts are no-ops thanks
+  // to the ref guard.
+  useEffect(() => {
+    if (layersInitialized.current) return;
+    layersInitialized.current = true;
+    initializeLayersFromVisualizerStore();
+  }, []);
+
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory);
   const activeCategoryLabel = activeCategory
     ? STUDIO_CATEGORIES.find((c) => c.id === activeCategory)?.label ?? 'Tools'

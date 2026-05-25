@@ -1,7 +1,8 @@
-import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import type { LinearBarsConfig } from '@/lib/renderers/linearBars'
 import {
   FreqRangeBlock,
+  LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -35,10 +36,13 @@ type Patch = Partial<LinearBarsConfig> & {
 }
 
 export function BarsPanel() {
-  const cfg = useVisualizerStore((s) => s.visualizerConfig.linearBars)
-  const update = useVisualizerStore((s) => s.updateLinearBars) as (
-    p: Patch,
-  ) => void
+  const layer = useLayerStore((s) => s.layers.bars)
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+  // Narrow the discriminated-union config — layers.bars is a BarsLayer.
+  const cfg = layer.config as LinearBarsConfig
+  const isLocked = layer.locked
+
+  const update: (p: Patch) => void = (p) => updateConfig('bars', p)
 
   const ext = cfg as LinearBarsConfig & {
     displayMode?: DisplayMode
@@ -55,7 +59,15 @@ export function BarsPanel() {
   const sideMode: SideMode = ext.sideMode ?? 'both'
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Colors">
         <PaletteEditor
           palette={cfg.palette}
@@ -176,6 +188,7 @@ export function BarsPanel() {
           setEnd={(v) => update({ endFrequency: v })}
         />
       </PanelGroup>
+      </div>
     </div>
   )
 }

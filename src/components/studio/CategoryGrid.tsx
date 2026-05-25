@@ -1,23 +1,35 @@
 import { useStudioUIStore } from '@/store/useStudioUIStore'
-import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import { STUDIO_CATEGORIES, type CategoryConfig } from '@/types/studio'
+import type { LayerType } from '@/types/layer'
 import { CategoryIcon } from './CategoryIcon'
 
-type VisualizerType = 'bars' | 'circular' | 'wave' | 'polygon'
+function categoryToLayerType(id: string): LayerType | null {
+  if (id === 'visualizer_bars') return 'bars'
+  if (id === 'visualizer_circular') return 'circular'
+  if (id === 'visualizer_wave') return 'wave'
+  if (id === 'visualizer_polygon') return 'polygon'
+  return null
+}
 
 export function CategoryGrid() {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
-  const setVisualType = useVisualizerStore((s) => s.setVisualType)
+  const layers = useLayerStore((s) => s.layers)
+  const setEnabled = useLayerStore((s) => s.setEnabled)
+  const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
 
   const handleClick = (cat: CategoryConfig) => {
     if (cat.id === activeCategory) {
       setActiveCategory(null)
       return
     }
-    if (cat.id.startsWith('visualizer_')) {
-      const visualType = cat.id.replace('visualizer_', '') as VisualizerType
-      setVisualType(visualType)
+    // For a visualizer-type tile, ENABLE its layer and make it the
+    // active editing target (instead of switching exclusive visualType).
+    const layerType = categoryToLayerType(cat.id)
+    if (layerType) {
+      setEnabled(layerType, true)
+      setActiveLayer(layerType)
     }
     setActiveCategory(cat.id)
   }
@@ -27,6 +39,8 @@ export function CategoryGrid() {
       <div className="grid grid-cols-3 gap-2">
         {STUDIO_CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id
+          const layerType = categoryToLayerType(cat.id)
+          const layerEnabled = layerType ? layers[layerType].enabled : null
           return (
             <button
               key={cat.id}
@@ -67,6 +81,24 @@ export function CategoryGrid() {
                 >
                   AI
                 </div>
+              )}
+              {/* Layer state badge: small "+" when adding will enable the
+                  layer; green dot when the layer is already enabled. */}
+              {layerEnabled === false && !cat.hasAI && (
+                <div
+                  className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-bold text-white"
+                  aria-label="Click to add layer"
+                  title="Click to add this layer"
+                >
+                  +
+                </div>
+              )}
+              {layerEnabled === true && !cat.hasAI && (
+                <div
+                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400"
+                  aria-label="Layer active"
+                  title="Layer is currently active"
+                />
               )}
             </button>
           )
