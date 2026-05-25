@@ -1,21 +1,33 @@
 import type { VisualizerConfig, VisualType } from '@/lib/visualizerConfig'
 import type { FrameConfig } from '@/store/useFrameStore'
+import type { Layer } from '@/types/layer'
 
 export interface Preset {
   id: string
   name: string
+  /**
+   * Legacy single-visualizer field. Still required on built-in presets
+   * shipped with the app; applyPreset wraps it into a single-layer stack
+   * when `layers` is absent.
+   */
   visualType: VisualType
   config: Partial<VisualizerConfig>
   backgroundColor?: string
   description?: string
   sensitivity?: number
   /**
-   * Optional full snapshot of frame state. Undefined on legacy presets
-   * (built-ins and user-saved presets from before frame integration);
-   * applyPreset treats that as "reset the frame to defaults" so the
-   * previous preset's frame doesn't bleed over.
+   * Optional full snapshot of frame state. Undefined on legacy presets;
+   * applyPreset treats that as "reset the frame to defaults".
    */
   frameConfig?: FrameConfig
+  /**
+   * Full multi-layer stack. When present, applyPreset uses it as the
+   * source of truth and ignores `visualType` / `config`. User-saved
+   * presets from Part 2A onward include this field.
+   */
+  layers?: Layer[]
+  /** Which layer of the stack should be active after apply. */
+  activeLayerId?: string | null
 }
 
 export const BUILT_IN_PRESETS: Preset[] = [

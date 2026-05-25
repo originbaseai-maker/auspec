@@ -397,9 +397,8 @@ export function PresetsSidebar({
             ? undefined
             : { borderColor: '#2a2a2a', width: widthPx }
         }
-        aria-label="Layers, presets, and projects"
+        aria-label="Presets, projects, and layers"
       >
-        <LayerSidebar />
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: '#2a2a2a' }}
@@ -642,6 +641,9 @@ export function PresetsSidebar({
             )}
           </section>
         </div>
+        {/* Layers section pinned at the bottom of the sidebar so the
+            scrollable presets list above can grow to fill remaining space. */}
+        <LayerSidebar />
       </aside>
     </>
   )

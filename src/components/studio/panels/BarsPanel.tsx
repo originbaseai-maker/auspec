@@ -35,14 +35,28 @@ type Patch = Partial<LinearBarsConfig> & {
   sideMode?: SideMode
 }
 
-export function BarsPanel() {
-  const layer = useLayerStore((s) => s.layers.bars)
+interface Props {
+  layerId: string
+}
+
+export function BarsPanel({ layerId }: Props) {
+  const layer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === layerId && l.type === 'bars'),
+  )
   const updateConfig = useLayerStore((s) => s.updateConfig)
-  // Narrow the discriminated-union config — layers.bars is a BarsLayer.
+
+  if (!layer) {
+    return (
+      <div className="p-4 text-center text-[11px] text-white/50">
+        Layer not found. Select a layer in the Layers sidebar.
+      </div>
+    )
+  }
+
   const cfg = layer.config as LinearBarsConfig
   const isLocked = layer.locked
 
-  const update: (p: Patch) => void = (p) => updateConfig('bars', p)
+  const update: (p: Patch) => void = (p) => updateConfig(layerId, p)
 
   const ext = cfg as LinearBarsConfig & {
     displayMode?: DisplayMode

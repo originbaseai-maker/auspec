@@ -197,19 +197,13 @@ export default function VisualizerCanvas(): JSX.Element {
       ctx.fillRect(0, 0, width, height)
 
       if (data) {
-        // Iterate enabled layers in z-order (back → front). Each
-        // visualizer type has at most one layer in V1, so the per-type
-        // smoothing buffers (barsHeightsRef etc.) are still safe to
-        // share across frames.
-        const layerMap = layersRef.current
-        const enabledLayers = [
-          layerMap.bars,
-          layerMap.circular,
-          layerMap.wave,
-          layerMap.polygon,
-        ]
+        // Iterate enabled layers in z-order (back → front). V2 allows
+        // multiple layers of the same type, but the smoothing buffers
+        // are still shared — that's an accepted artifact for now (two
+        // Bars layers will share the same per-bar smoothing state).
+        const enabledLayers = [...layersRef.current]
           .filter((l) => l.enabled)
-          .sort((a, b) => a.zOrder - b.zOrder)
+          .sort((a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt)
 
         for (const layer of enabledLayers) {
           switch (layer.type) {
@@ -299,10 +293,13 @@ export default function VisualizerCanvas(): JSX.Element {
           width,
           height,
         )
-      } else if (cover.logo && !layersRef.current.polygon.enabled) {
-        // When the Polygon layer is enabled it has already drawn the
-        // logo inside its shape. Otherwise, render the logo here on top
-        // with its standard crop mode.
+      } else if (
+        cover.logo &&
+        !layersRef.current.some((l) => l.type === 'polygon' && l.enabled)
+      ) {
+        // If ANY polygon layer is enabled it already drew the logo
+        // inside its shape. Otherwise render the logo here on top with
+        // its standard crop mode.
         renderLogoOnly(
           ctx,
           cover.logo,
@@ -319,13 +316,12 @@ export default function VisualizerCanvas(): JSX.Element {
       // Particles overlay — drawn between the main visualizer and the
       // frame so the frame border still sits on top. With multiple
       // layers enabled, pick the TOPMOST enabled layer's palette as the
-      // ambient sync source (closest to what the user sees on top).
+      // ambient sync source.
       let activePalette: string[] | undefined
       {
-        const lm = layersRef.current
-        const topToBottom = [lm.bars, lm.circular, lm.wave, lm.polygon]
+        const topToBottom = [...layersRef.current]
           .filter((l) => l.enabled)
-          .sort((a, b) => b.zOrder - a.zOrder)
+          .sort((a, b) => b.zOrder - a.zOrder || b.createdAt - a.createdAt)
         for (const l of topToBottom) {
           if (l.config.palette && l.config.palette.length > 0) {
             activePalette = l.config.palette

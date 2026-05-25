@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import { STUDIO_CATEGORIES } from '@/types/studio'
 import { BarsPanel } from './panels/BarsPanel'
 import { CircularPanel } from './panels/CircularPanel'
@@ -21,9 +22,19 @@ interface Props {
   hideHeader?: boolean
 }
 
+const VISUALIZER_CATEGORIES = new Set([
+  'visualizer_bars',
+  'visualizer_circular',
+  'visualizer_wave',
+  'visualizer_polygon',
+])
+
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
+  const activeLayer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === s.activeLayerId),
+  )
 
   if (!activeCategory) return null
 
@@ -31,15 +42,29 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   if (!cat) return null
 
   const renderPanel = () => {
+    // Visualizer categories route by the ACTIVE LAYER'S type — the
+    // category just opens a panel, the layer determines which one.
+    if (VISUALIZER_CATEGORIES.has(activeCategory)) {
+      if (!activeLayer) {
+        return (
+          <div className="p-6 text-center text-[11px] text-white/50">
+            No layer selected. Click a layer in the sidebar to edit it.
+          </div>
+        )
+      }
+      switch (activeLayer.type) {
+        case 'bars':
+          return <BarsPanel layerId={activeLayer.id} />
+        case 'circular':
+          return <CircularPanel layerId={activeLayer.id} />
+        case 'wave':
+          return <WavePanel layerId={activeLayer.id} />
+        case 'polygon':
+          return <PolygonPanel layerId={activeLayer.id} />
+      }
+    }
+
     switch (activeCategory) {
-      case 'visualizer_bars':
-        return <BarsPanel />
-      case 'visualizer_circular':
-        return <CircularPanel />
-      case 'visualizer_wave':
-        return <WavePanel />
-      case 'visualizer_polygon':
-        return <PolygonPanel />
       case 'particles':
         return <ParticlesPanel />
       case 'background':
@@ -61,6 +86,12 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
     return <div className="p-4">{renderPanel()}</div>
   }
 
+  // Show the active layer's name in the header when editing a layer,
+  // otherwise fall back to the category label.
+  const isLayerCategory = VISUALIZER_CATEGORIES.has(activeCategory)
+  const headerLabel =
+    isLayerCategory && activeLayer ? activeLayer.name : cat.label
+
   return (
     <div
       className="mx-4 mb-4 rounded-xl border"
@@ -71,7 +102,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
         style={{ borderColor: '#1f1f1f' }}
       >
         <h3 className="text-xs font-semibold text-white/90">
-          {cat.label} — Fine Tune
+          {headerLabel} — Fine Tune
         </h3>
         <button
           type="button"

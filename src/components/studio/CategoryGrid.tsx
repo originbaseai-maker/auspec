@@ -16,20 +16,18 @@ export function CategoryGrid() {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const layers = useLayerStore((s) => s.layers)
-  const setEnabled = useLayerStore((s) => s.setEnabled)
-  const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
+  const addLayer = useLayerStore((s) => s.addLayer)
 
   const handleClick = (cat: CategoryConfig) => {
     if (cat.id === activeCategory) {
       setActiveCategory(null)
       return
     }
-    // For a visualizer-type tile, ENABLE its layer and make it the
-    // active editing target (instead of switching exclusive visualType).
+    // Clicking a visualizer tile always ADDS a new layer of that type.
+    // Auto-naming handles duplicates (Circular → Circular 2 → Circular 3).
     const layerType = categoryToLayerType(cat.id)
     if (layerType) {
-      setEnabled(layerType, true)
-      setActiveLayer(layerType)
+      addLayer(layerType)
     }
     setActiveCategory(cat.id)
   }
@@ -40,7 +38,9 @@ export function CategoryGrid() {
         {STUDIO_CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id
           const layerType = categoryToLayerType(cat.id)
-          const layerEnabled = layerType ? layers[layerType].enabled : null
+          const layerCount = layerType
+            ? layers.filter((l) => l.type === layerType).length
+            : null
           return (
             <button
               key={cat.id}
@@ -82,9 +82,8 @@ export function CategoryGrid() {
                   AI
                 </div>
               )}
-              {/* Layer state badge: small "+" when adding will enable the
-                  layer; green dot when the layer is already enabled. */}
-              {layerEnabled === false && !cat.hasAI && (
+              {/* Layer count badge: blue + when none, green count pill when ≥1 */}
+              {layerCount === 0 && !cat.hasAI && (
                 <div
                   className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-bold text-white"
                   aria-label="Click to add layer"
@@ -93,12 +92,14 @@ export function CategoryGrid() {
                   +
                 </div>
               )}
-              {layerEnabled === true && !cat.hasAI && (
+              {layerCount !== null && layerCount > 0 && !cat.hasAI && (
                 <div
-                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400"
-                  aria-label="Layer active"
-                  title="Layer is currently active"
-                />
+                  className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[8px] font-bold text-black"
+                  aria-label={`${layerCount} active layer${layerCount === 1 ? '' : 's'}`}
+                  title={`${layerCount} active layer${layerCount === 1 ? '' : 's'} — click to add another`}
+                >
+                  {layerCount}
+                </div>
               )}
             </button>
           )

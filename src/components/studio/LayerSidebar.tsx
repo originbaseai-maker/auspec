@@ -1,21 +1,31 @@
-import type { JSX } from 'react'
+import { useRef, useState, type JSX } from 'react'
 import {
   AudioWaveform,
   BarChart3,
   ChevronDown,
   ChevronUp,
   Circle,
+  Copy,
   Eye,
   EyeOff,
   Hexagon,
   Lock,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
   Unlock,
   type LucideIcon,
 } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 import type { StudioCategory } from '@/types/studio'
-import type { Layer, LayerType } from '@/types/layer'
+import {
+  LAYER_LABELS,
+  LAYER_TYPES,
+  type Layer,
+  type LayerType,
+} from '@/types/layer'
 
 const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   bars: BarChart3,
@@ -31,14 +41,46 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   polygon: 'visualizer_polygon',
 }
 
+interface ContextMenuState {
+  layerId: string
+  x: number
+  y: number
+}
+
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] hover:bg-white/5"
+      style={{ color: danger ? '#ef4444' : 'rgba(255,255,255,0.85)' }}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+    </button>
+  )
+}
+
 /**
- * Compact "Layers" panel — lists the four visualizer layers in z-order
- * with eye / lock toggles and up/down chevrons for reordering. Mounts at
- * the top of PresetsSidebar on desktop and inside the Presets mobile
- * bottom sheet.
+ * Multi-instance Layers panel.
  *
- * Drag-and-drop is intentionally deferred to Part 2 — chevrons cover the
- * same functional need with simpler code and consistent touch behavior.
+ * - "+ Add Layer" dropdown (Bars / Circular / Wave / Polygon)
+ * - Row click → select for editing
+ * - Eye toggle / Lock toggle / up-down chevrons
+ * - Native HTML5 drag-and-drop reorder (desktop; touch falls back to chevrons)
+ * - Right-click → context menu (Rename, Duplicate, Reset, Move to top/
+ *   bottom, Delete)
+ * - Double-click name → inline rename
  */
 export function LayerSidebar(): JSX.Element {
   const layers = useLayerStore((s) => s.layers)
@@ -47,49 +89,159 @@ export function LayerSidebar(): JSX.Element {
   const toggleLocked = useLayerStore((s) => s.toggleLocked)
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
   const moveLayerToIndex = useLayerStore((s) => s.moveLayerToIndex)
+  const addLayer = useLayerStore((s) => s.addLayer)
+  const removeLayer = useLayerStore((s) => s.removeLayer)
+  const duplicateLayer = useLayerStore((s) => s.duplicateLayer)
+  const renameLayer = useLayerStore((s) => s.renameLayer)
+  const resetLayer = useLayerStore((s) => s.resetLayer)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
 
-  const ordered = Object.values(layers).sort((a, b) => a.zOrder - b.zOrder)
-  // Display in reverse: highest z (front-most) at the top of the list,
-  // matching Photoshop / Canva convention.
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  const ordered = [...layers].sort(
+    (a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt,
+  )
   const displayed = [...ordered].reverse()
   const enabledLayers = displayed.filter((l) => l.enabled)
   const disabledLayers = displayed.filter((l) => !l.enabled)
 
-  const handleLayerClick = (layer: Layer) => {
+  const handleRowClick = (layer: Layer) => {
+    if (renamingId === layer.id) return
     setActiveLayer(layer.id)
-    setActiveCategory(CATEGORY_MAP[layer.id])
+    setActiveCategory(CATEGORY_MAP[layer.type])
+  }
+
+  const handleAdd = (type: LayerType) => {
+    addLayer(type)
+    setActiveCategory(CATEGORY_MAP[type])
+    setShowAddMenu(false)
+  }
+
+  const startRename = (layer: Layer) => {
+    setRenamingId(layer.id)
+    setRenameDraft(layer.name)
+    setContextMenu(null)
+    // Focus + select happens on next tick when the input has mounted.
+    setTimeout(() => renameInputRef.current?.select(), 0)
+  }
+
+  const commitRename = () => {
+    if (renamingId) {
+      renameLayer(renamingId, renameDraft)
+      setRenamingId(null)
+    }
   }
 
   const moveUp = (layer: Layer) => {
-    // "Up" in displayed list = higher z-order. Convert via ascending list.
     const ascIdx = ordered.findIndex((l) => l.id === layer.id)
     if (ascIdx === ordered.length - 1) return
     moveLayerToIndex(layer.id, ascIdx + 1)
   }
-
   const moveDown = (layer: Layer) => {
     const ascIdx = ordered.findIndex((l) => l.id === layer.id)
     if (ascIdx === 0) return
     moveLayerToIndex(layer.id, ascIdx - 1)
   }
+  const moveToTop = (layer: Layer) => {
+    moveLayerToIndex(layer.id, ordered.length - 1)
+    setContextMenu(null)
+  }
+  const moveToBottom = (layer: Layer) => {
+    moveLayerToIndex(layer.id, 0)
+    setContextMenu(null)
+  }
+
+  const handleDragStart = (e: React.DragEvent, layer: Layer) => {
+    if (!layer.enabled || renamingId === layer.id) {
+      e.preventDefault()
+      return
+    }
+    setDraggedId(layer.id)
+    e.dataTransfer.effectAllowed = 'move'
+    // Firefox requires setData to actually start the drag.
+    e.dataTransfer.setData('text/plain', layer.id)
+  }
+
+  const handleDragOver = (e: React.DragEvent, targetLayer: Layer) => {
+    if (!draggedId || draggedId === targetLayer.id) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverId(targetLayer.id)
+  }
+
+  const handleDragLeave = () => setDragOverId(null)
+
+  const handleDrop = (e: React.DragEvent, targetLayer: Layer) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetLayer.id) {
+      setDraggedId(null)
+      setDragOverId(null)
+      return
+    }
+    // Convert "displayed-list" index (front-on-top) back to ascending z.
+    const targetDisplayIdx = displayed.findIndex((l) => l.id === targetLayer.id)
+    const targetAscIdx = ordered.length - 1 - targetDisplayIdx
+    moveLayerToIndex(draggedId, targetAscIdx)
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
+  const handleContextMenu = (e: React.MouseEvent, layer: Layer) => {
+    e.preventDefault()
+    setContextMenu({ layerId: layer.id, x: e.clientX, y: e.clientY })
+  }
 
   const renderRow = (layer: Layer) => {
-    const Icon = LAYER_ICONS[layer.id]
+    const Icon = LAYER_ICONS[layer.type]
     const isActive = activeLayerId === layer.id
+    const isRenaming = renamingId === layer.id
     const ascIdx = ordered.findIndex((l) => l.id === layer.id)
     const canMoveUp = layer.enabled && ascIdx < ordered.length - 1
     const canMoveDown = layer.enabled && ascIdx > 0
+    const isDraggedTarget = dragOverId === layer.id
 
     return (
       <div
         key={layer.id}
-        onClick={() => handleLayerClick(layer)}
-        className="group flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1.5 transition-colors"
+        draggable={layer.enabled && !isRenaming}
+        onDragStart={(e) => handleDragStart(e, layer)}
+        onDragOver={(e) => handleDragOver(e, layer)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, layer)}
+        onDragEnd={handleDragEnd}
+        onClick={() => handleRowClick(layer)}
+        onContextMenu={(e) => handleContextMenu(e, layer)}
+        onDoubleClick={(e) => {
+          if (e.target instanceof HTMLElement && e.target.tagName !== 'BUTTON') {
+            startRename(layer)
+          }
+        }}
+        className="group flex items-center gap-1.5 rounded-md border px-2 py-1.5 transition-all"
         style={{
-          borderColor: isActive ? '#3b82f6' : '#2a2a2a',
-          background: isActive ? 'rgba(59,130,246,0.08)' : '#0f0f0f',
-          opacity: layer.enabled ? 1 : 0.55,
+          borderColor: isActive
+            ? '#3b82f6'
+            : isDraggedTarget
+              ? '#10b981'
+              : '#2a2a2a',
+          background: isActive
+            ? 'rgba(59,130,246,0.08)'
+            : isDraggedTarget
+              ? 'rgba(16,185,129,0.05)'
+              : '#0f0f0f',
+          opacity:
+            draggedId === layer.id ? 0.4 : layer.enabled ? 1 : 0.55,
+          cursor: layer.enabled && !isRenaming ? 'grab' : 'default',
         }}
       >
         <button
@@ -98,7 +250,9 @@ export function LayerSidebar(): JSX.Element {
             e.stopPropagation()
             toggleEnabled(layer.id)
           }}
-          aria-label={layer.enabled ? `Hide ${layer.name}` : `Show ${layer.name}`}
+          aria-label={
+            layer.enabled ? `Hide ${layer.name}` : `Show ${layer.name}`
+          }
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-white/60 hover:text-white"
         >
           {layer.enabled ? (
@@ -108,13 +262,35 @@ export function LayerSidebar(): JSX.Element {
           )}
         </button>
 
-        <Icon className="h-3.5 w-3.5 shrink-0 text-white/60" aria-hidden="true" />
+        <Icon
+          className="h-3.5 w-3.5 shrink-0 text-white/60"
+          aria-hidden="true"
+        />
 
-        <span className="flex-1 truncate text-[12px] text-white/90">
-          {layer.name}
-        </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            value={renameDraft}
+            onChange={(e) => setRenameDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') commitRename()
+              else if (e.key === 'Escape') setRenamingId(null)
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 rounded border bg-[#0f0f0f] px-1 py-0.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+            style={{ borderColor: '#3b82f6' }}
+            autoFocus
+          />
+        ) : (
+          <span className="flex-1 truncate text-[12px] text-white/90">
+            {layer.name}
+          </span>
+        )}
 
-        {layer.enabled && (
+        {layer.enabled && !isRenaming && (
           <div className="flex flex-col gap-0.5">
             <button
               type="button"
@@ -145,26 +321,30 @@ export function LayerSidebar(): JSX.Element {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleLocked(layer.id)
-          }}
-          aria-label={layer.locked ? `Unlock ${layer.name}` : `Lock ${layer.name}`}
-          title={
-            layer.locked
-              ? 'Locked — click to unlock'
-              : 'Click to lock and prevent edits'
-          }
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-white/40 hover:text-white"
-        >
-          {layer.locked ? (
-            <Lock className="h-3.5 w-3.5 text-amber-400" />
-          ) : (
-            <Unlock className="h-3.5 w-3.5" />
-          )}
-        </button>
+        {!isRenaming && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleLocked(layer.id)
+            }}
+            aria-label={
+              layer.locked ? `Unlock ${layer.name}` : `Lock ${layer.name}`
+            }
+            title={
+              layer.locked
+                ? 'Locked — click to unlock'
+                : 'Click to lock and prevent edits'
+            }
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-white/40 hover:text-white"
+          >
+            {layer.locked ? (
+              <Lock className="h-3.5 w-3.5 text-amber-400" />
+            ) : (
+              <Unlock className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
       </div>
     )
   }
@@ -178,9 +358,53 @@ export function LayerSidebar(): JSX.Element {
         <h2 className="text-xs font-semibold uppercase tracking-wider text-white/80">
           Layers
         </h2>
-        <span className="text-[10px] text-white/40">
-          {enabledLayers.length} active
-        </span>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            aria-label="Add layer"
+            aria-haspopup="menu"
+            aria-expanded={showAddMenu}
+            className="flex h-6 w-6 items-center justify-center rounded-md border text-white/60 hover:text-white"
+            style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+
+          {showAddMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowAddMenu(false)}
+                aria-hidden="true"
+              />
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border p-1 shadow-2xl"
+                style={{ borderColor: '#2a2a2a', background: '#131313' }}
+              >
+                <p className="px-2 py-1 text-[9px] uppercase tracking-wider text-white/40">
+                  Add layer
+                </p>
+                {LAYER_TYPES.map((type) => {
+                  const Icon = LAYER_ICONS[type]
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => handleAdd(type)}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[12px] text-white/80 hover:bg-white/5 hover:text-white"
+                    >
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      {LAYER_LABELS[type]}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1 p-2">
@@ -189,8 +413,7 @@ export function LayerSidebar(): JSX.Element {
             className="rounded-md border-2 border-dashed px-3 py-3 text-center text-[10px] text-white/40"
             style={{ borderColor: '#2a2a2a' }}
           >
-            No active layers. Click a visualizer category on the right to add
-            one.
+            No active layers. Click + to add one.
           </div>
         ) : (
           enabledLayers.map(renderRow)
@@ -204,6 +427,81 @@ export function LayerSidebar(): JSX.Element {
           </p>
           <div className="space-y-1">{disabledLayers.map(renderRow)}</div>
         </div>
+      )}
+
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenu(null)
+            }}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="fixed z-50 w-44 rounded-lg border p-1 shadow-2xl"
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
+              borderColor: '#2a2a2a',
+              background: '#131313',
+            }}
+          >
+            {(() => {
+              const layer = layers.find((l) => l.id === contextMenu.layerId)
+              if (!layer) return null
+              return (
+                <>
+                  <MenuItem
+                    icon={Pencil}
+                    label="Rename"
+                    onClick={() => startRename(layer)}
+                  />
+                  <MenuItem
+                    icon={Copy}
+                    label="Duplicate"
+                    onClick={() => {
+                      duplicateLayer(layer.id)
+                      setContextMenu(null)
+                    }}
+                  />
+                  <MenuItem
+                    icon={RotateCcw}
+                    label="Reset settings"
+                    onClick={() => {
+                      resetLayer(layer.id)
+                      setContextMenu(null)
+                    }}
+                  />
+                  <div className="my-1 h-px bg-white/10" />
+                  <MenuItem
+                    icon={ChevronUp}
+                    label="Move to top"
+                    onClick={() => moveToTop(layer)}
+                  />
+                  <MenuItem
+                    icon={ChevronDown}
+                    label="Move to bottom"
+                    onClick={() => moveToBottom(layer)}
+                  />
+                  <div className="my-1 h-px bg-white/10" />
+                  <MenuItem
+                    icon={Trash2}
+                    label="Delete"
+                    danger
+                    onClick={() => {
+                      removeLayer(layer.id)
+                      setContextMenu(null)
+                    }}
+                  />
+                </>
+              )
+            })()}
+          </div>
+        </>
       )}
     </section>
   )

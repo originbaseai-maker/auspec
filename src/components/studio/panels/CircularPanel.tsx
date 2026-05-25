@@ -27,13 +27,27 @@ type Patch = Partial<CircularSpectrumConfig> & {
   sideMode?: SideMode
 }
 
-export function CircularPanel() {
-  const layer = useLayerStore((s) => s.layers.circular)
+interface Props {
+  layerId: string
+}
+
+export function CircularPanel({ layerId }: Props) {
+  const layer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === layerId && l.type === 'circular'),
+  )
   const updateConfig = useLayerStore((s) => s.updateConfig)
-  // Narrow the discriminated-union config.
+
+  if (!layer) {
+    return (
+      <div className="p-4 text-center text-[11px] text-white/50">
+        Layer not found. Select a layer in the Layers sidebar.
+      </div>
+    )
+  }
+
   const cfg = layer.config as CircularSpectrumConfig
   const isLocked = layer.locked
-  const update: (p: Patch) => void = (p) => updateConfig('circular', p)
+  const update: (p: Patch) => void = (p) => updateConfig(layerId, p)
 
   const ext = cfg as CircularSpectrumConfig & {
     hueInterpolation?: number

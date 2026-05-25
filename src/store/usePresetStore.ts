@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import type { VisualizerConfig, VisualType } from '@/lib/visualizerConfig'
 import { useFrameStore, type FrameConfig } from './useFrameStore'
+import { useLayerStore } from './useLayerStore'
+import type { Layer } from '@/types/layer'
 
 const STORAGE_KEY = 'auspec-user-presets'
 const HIDDEN_STORAGE_KEY = 'auspec-builtin-hidden'
@@ -119,6 +121,13 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
       pulseEnabled: frameState.pulseEnabled,
       pulseIntensity: frameState.pulseIntensity,
     }
+    // Snapshot the full layer stack. visualType/config kept for backward
+    // compat: if a user opens this preset in an older client, the legacy
+    // path still works (apply will fall back to a single layer).
+    const layerState = useLayerStore.getState()
+    const layersSnapshot: Layer[] = layerState.layers.map(
+      (l) => ({ ...l, config: { ...l.config } }) as Layer,
+    )
     const newPreset: Preset = {
       id: `user-${Date.now()}`,
       name,
@@ -127,6 +136,8 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
       backgroundColor,
       config,
       frameConfig,
+      layers: layersSnapshot,
+      activeLayerId: layerState.activeLayerId,
     }
     const updated = [...get().userPresets, newPreset]
     saveToStorage(updated)

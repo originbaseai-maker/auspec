@@ -2,9 +2,14 @@ import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
+import {
+  initializeLayersFromVisualizerStore,
+  useLayerStore,
+} from '@/store/useLayerStore'
 import { useFormatStore } from '@/store/useFormatStore'
 import type { SocialFormat } from '@/lib/socialFormats'
 import type { VisualizerConfig } from '@/lib/visualizerConfig'
+import type { Layer } from '@/types/layer'
 
 export interface Project {
   id: string
@@ -66,11 +71,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     const vizStore = useVisualizerStore.getState()
     const formatStore = useFormatStore.getState()
+    const layerStore = useLayerStore.getState()
+
+    // Stash the layer stack inside visualizer_config (JSONB column).
+    // Avoids a DB migration — the existing JSONB column accepts arbitrary
+    // shape. Keys prefixed with `__` so they're clearly internal extras
+    // alongside the typed VisualizerConfig fields. Loader strips them.
+    const visualizerConfigWithLayers = {
+      ...vizStore.visualizerConfig,
+      __layers: layerStore.layers,
+      __activeLayerId: layerStore.activeLayerId,
+    }
 
     const payload = {
       user_id: user.id,
       name,
-      visualizer_config: vizStore.visualizerConfig,
+      visualizer_config: visualizerConfigWithLayers,
       format: formatStore.activeFormat,
       background_color: vizStore.backgroundColor,
       sensitivity: vizStore.sensitivity,
@@ -119,11 +135,36 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!project) return
 
     const vizStore = useVisualizerStore.getState()
-    vizStore.setVisualizerConfig(project.visualizerConfig)
-    vizStore.setVisualType(project.visualizerConfig.visualType)
+    // Extract stashed layer fields (see saveProject).
+    const cfg = project.visualizerConfig as VisualizerConfig & {
+      __layers?: Layer[]
+      __activeLayerId?: string | null
+    }
+    const stashedLayers = cfg.__layers
+    const stashedActiveId = cfg.__activeLayerId ?? null
+    // Strip the stash before pushing to the visualizer store so the
+    // typed config stays clean.
+    const cleanConfig: VisualizerConfig = { ...cfg }
+    delete (cleanConfig as unknown as Record<string, unknown>).__layers
+    delete (cleanConfig as unknown as Record<string, unknown>).__activeLayerId
+
+    vizStore.setVisualizerConfig(cleanConfig)
+    vizStore.setVisualType(cleanConfig.visualType)
     vizStore.setBackgroundColor(project.backgroundColor)
     vizStore.setSensitivity(project.sensitivity)
     useFormatStore.getState().setFormat(project.format)
+
+    if (stashedLayers && stashedLayers.length > 0) {
+      // New-format project — restore the layer stack directly.
+      useLayerStore.getState().replaceLayers(
+        stashedLayers.map((l) => ({ ...l, config: { ...l.config } }) as Layer),
+        stashedActiveId,
+      )
+    } else {
+      // Legacy project saved before Part 2A — rebuild from visualizerConfig.
+      initializeLayersFromVisualizerStore()
+    }
+
     set({ activeProjectId: id })
   },
 

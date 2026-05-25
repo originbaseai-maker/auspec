@@ -6,22 +6,26 @@ import {
 } from '@/lib/visualizerConfig'
 import { DEFAULT_POLYGON_CONFIG } from '@/lib/renderers/polygonSpectrum'
 import {
-  LAYER_LABELS,
+  generateLayerName,
   LAYER_TYPES,
   type Layer,
   type LayerData,
   type LayerType,
 } from '@/types/layer'
 
+function makeId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `layer-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 function defaultData(type: LayerType): LayerData {
   switch (type) {
     case 'bars':
       return { type: 'bars', config: { ...DEFAULT_LINEAR_BARS } }
     case 'circular':
-      return {
-        type: 'circular',
-        config: { ...DEFAULT_CIRCULAR_SPECTRUM },
-      }
+      return { type: 'circular', config: { ...DEFAULT_CIRCULAR_SPECTRUM } }
     case 'wave':
       return { type: 'wave', config: { ...DEFAULT_WAVE } }
     case 'polygon':
@@ -29,105 +33,244 @@ function defaultData(type: LayerType): LayerData {
   }
 }
 
-function defaultLayer(
+/**
+ * Build a Layer with explicit literal `type` so the discriminated union
+ * narrows correctly (a shared helper would widen it).
+ */
+function createLayer(
   type: LayerType,
-  enabled: boolean,
+  existingNames: string[],
   zOrder: number,
+  enabled = true,
 ): Layer {
-  return {
-    ...defaultData(type),
-    id: type,
-    name: LAYER_LABELS[type],
+  const name = generateLayerName(type, existingNames)
+  const base = {
+    id: makeId(),
+    name,
     enabled,
     locked: false,
     zOrder,
+    createdAt: Date.now(),
+  }
+  switch (type) {
+    case 'bars':
+      return { ...base, type: 'bars', config: { ...DEFAULT_LINEAR_BARS } }
+    case 'circular':
+      return {
+        ...base,
+        type: 'circular',
+        config: { ...DEFAULT_CIRCULAR_SPECTRUM },
+      }
+    case 'wave':
+      return { ...base, type: 'wave', config: { ...DEFAULT_WAVE } }
+    case 'polygon':
+      return { ...base, type: 'polygon', config: { ...DEFAULT_POLYGON_CONFIG } }
   }
 }
 
-const makeDefaultLayers = (): Record<LayerType, Layer> => ({
-  bars: defaultLayer('bars', true, 0),
-  circular: defaultLayer('circular', false, 1),
-  wave: defaultLayer('wave', false, 2),
-  polygon: defaultLayer('polygon', false, 3),
-})
+function makeDefaultLayers(): Layer[] {
+  return [createLayer('bars', [], 0, true)]
+}
 
 export interface LayerStore {
-  layers: Record<LayerType, Layer>
-  /** Which layer's detail panel is shown on the right. */
-  activeLayerId: LayerType | null
+  layers: Layer[]
+  activeLayerId: string | null
 
-  setActiveLayer: (id: LayerType | null) => void
-  setEnabled: (id: LayerType, enabled: boolean) => void
-  setLocked: (id: LayerType, locked: boolean) => void
-  toggleEnabled: (id: LayerType) => void
-  toggleLocked: (id: LayerType) => void
-  /** Merges `partial` into the named layer's config. No-op when locked. */
-  updateConfig: (id: LayerType, partial: object) => void
+  setActiveLayer: (id: string | null) => void
+  toggleEnabled: (id: string) => void
+  toggleLocked: (id: string) => void
+  setEnabled: (id: string, enabled: boolean) => void
+  setLocked: (id: string, locked: boolean) => void
+  updateConfig: (id: string, partial: object) => void
 
-  /** Returns layers sorted by zOrder ascending (back → front). */
+  /** Returns the new layer id, makes it active. */
+  addLayer: (type: LayerType) => string
+  removeLayer: (id: string) => void
+  /** Returns the new layer id, makes it active. */
+  duplicateLayer: (id: string) => string
+  renameLayer: (id: string, name: string) => void
+  /** Reset config to type defaults; keep id/name/enabled/locked/zOrder. */
+  resetLayer: (id: string) => void
+
   getOrderedLayers: () => Layer[]
-  /** Same as getOrderedLayers but enabled only. */
   getEnabledLayers: () => Layer[]
+  getLayerById: (id: string) => Layer | undefined
+  getActiveLayer: () => Layer | null
 
-  /** Move a layer to a new ascending-z position; other layers shift. */
-  moveLayerToIndex: (id: LayerType, targetIndex: number) => void
+  moveLayerToIndex: (id: string, targetIndex: number) => void
 
-  /** Replace the entire layers map (preset apply, migration). */
-  replaceLayers: (layers: Record<LayerType, Layer>) => void
+  /** Replace the entire layer stack (preset apply / project load). */
+  replaceLayers: (layers: Layer[], activeId?: string | null) => void
 
   resetAll: () => void
 }
 
 export const useLayerStore = create<LayerStore>((set, get) => ({
   layers: makeDefaultLayers(),
-  activeLayerId: 'bars',
+  activeLayerId: null,
 
   setActiveLayer: (activeLayerId) => set({ activeLayerId }),
 
-  setEnabled: (id, enabled) =>
-    set((s) => ({
-      layers: { ...s.layers, [id]: { ...s.layers[id], enabled } },
-    })),
-
-  setLocked: (id, locked) =>
-    set((s) => ({
-      layers: { ...s.layers, [id]: { ...s.layers[id], locked } },
-    })),
-
   toggleEnabled: (id) =>
     set((s) => ({
-      layers: {
-        ...s.layers,
-        [id]: { ...s.layers[id], enabled: !s.layers[id].enabled },
-      },
+      layers: s.layers.map((l) =>
+        l.id === id ? ({ ...l, enabled: !l.enabled } as Layer) : l,
+      ),
     })),
 
   toggleLocked: (id) =>
     set((s) => ({
-      layers: {
-        ...s.layers,
-        [id]: { ...s.layers[id], locked: !s.layers[id].locked },
-      },
+      layers: s.layers.map((l) =>
+        l.id === id ? ({ ...l, locked: !l.locked } as Layer) : l,
+      ),
+    })),
+
+  setEnabled: (id, enabled) =>
+    set((s) => ({
+      layers: s.layers.map((l) =>
+        l.id === id ? ({ ...l, enabled } as Layer) : l,
+      ),
+    })),
+
+  setLocked: (id, locked) =>
+    set((s) => ({
+      layers: s.layers.map((l) =>
+        l.id === id ? ({ ...l, locked } as Layer) : l,
+      ),
     })),
 
   updateConfig: (id, partial) =>
+    set((s) => ({
+      layers: s.layers.map((l) => {
+        if (l.id !== id) return l
+        if (l.locked) return l
+        return { ...l, config: { ...l.config, ...partial } } as Layer
+      }),
+    })),
+
+  addLayer: (type) => {
+    let newId = ''
     set((s) => {
-      const layer = s.layers[id]
-      if (layer.locked) return s
+      const maxZ = s.layers.reduce((m, l) => Math.max(m, l.zOrder), -1)
+      const existingNames = s.layers.map((l) => l.name)
+      const layer = createLayer(type, existingNames, maxZ + 1, true)
+      newId = layer.id
       return {
-        layers: {
-          ...s.layers,
-          [id]: {
-            ...layer,
-            config: { ...layer.config, ...partial },
-          } as Layer,
-        },
+        layers: [...s.layers, layer],
+        activeLayerId: newId,
       }
+    })
+    return newId
+  },
+
+  removeLayer: (id) =>
+    set((s) => {
+      const remaining = s.layers.filter((l) => l.id !== id)
+      // Re-pack zOrder so it stays dense (0..N-1) — keeps the up/down
+      // chevron disabled-edge logic predictable.
+      const packed: Layer[] = [...remaining]
+        .sort((a, b) => a.zOrder - b.zOrder)
+        .map((l, idx) => ({ ...l, zOrder: idx }) as Layer)
+      const newActive =
+        s.activeLayerId === id
+          ? (packed[packed.length - 1]?.id ?? null)
+          : s.activeLayerId
+      return { layers: packed, activeLayerId: newActive }
     }),
 
+  duplicateLayer: (id) => {
+    let newId = ''
+    set((s) => {
+      const source = s.layers.find((l) => l.id === id)
+      if (!source) return s
+      const maxZ = s.layers.reduce((m, l) => Math.max(m, l.zOrder), -1)
+      const existingNames = s.layers.map((l) => l.name)
+      const name = generateLayerName(source.type, existingNames)
+      const newLayerId = makeId()
+      newId = newLayerId
+      // Construct with literal type for narrowing.
+      let dup: Layer
+      const base = {
+        id: newLayerId,
+        name,
+        enabled: source.enabled,
+        locked: source.locked,
+        zOrder: maxZ + 1,
+        createdAt: Date.now(),
+      }
+      switch (source.type) {
+        case 'bars':
+          dup = { ...base, type: 'bars', config: { ...source.config } }
+          break
+        case 'circular':
+          dup = { ...base, type: 'circular', config: { ...source.config } }
+          break
+        case 'wave':
+          dup = { ...base, type: 'wave', config: { ...source.config } }
+          break
+        case 'polygon':
+          dup = { ...base, type: 'polygon', config: { ...source.config } }
+          break
+      }
+      return {
+        layers: [...s.layers, dup],
+        activeLayerId: newId,
+      }
+    })
+    return newId
+  },
+
+  renameLayer: (id, name) =>
+    set((s) => ({
+      layers: s.layers.map((l) =>
+        l.id === id ? ({ ...l, name: name.trim() || l.name } as Layer) : l,
+      ),
+    })),
+
+  resetLayer: (id) =>
+    set((s) => ({
+      layers: s.layers.map((l) => {
+        if (l.id !== id) return l
+        const fresh = defaultData(l.type)
+        // Spread fresh.config (which is correctly typed for l.type) and
+        // keep id/name/enabled/locked/zOrder/createdAt intact.
+        switch (l.type) {
+          case 'bars':
+            return {
+              ...l,
+              type: 'bars',
+              config: { ...(fresh as { type: 'bars'; config: object })
+                .config },
+            } as Layer
+          case 'circular':
+            return {
+              ...l,
+              type: 'circular',
+              config: { ...(fresh as { type: 'circular'; config: object })
+                .config },
+            } as Layer
+          case 'wave':
+            return {
+              ...l,
+              type: 'wave',
+              config: { ...(fresh as { type: 'wave'; config: object })
+                .config },
+            } as Layer
+          case 'polygon':
+            return {
+              ...l,
+              type: 'polygon',
+              config: { ...(fresh as { type: 'polygon'; config: object })
+                .config },
+            } as Layer
+        }
+      }),
+    })),
+
   getOrderedLayers: () => {
-    const all = Object.values(get().layers)
-    return [...all].sort((a, b) => a.zOrder - b.zOrder)
+    return [...get().layers].sort(
+      (a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt,
+    )
   },
 
   getEnabledLayers: () => {
@@ -136,103 +279,135 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       .filter((l) => l.enabled)
   },
 
+  getLayerById: (id) => get().layers.find((l) => l.id === id),
+
+  getActiveLayer: () => {
+    const id = get().activeLayerId
+    if (!id) return null
+    return get().layers.find((l) => l.id === id) ?? null
+  },
+
   moveLayerToIndex: (id, targetIndex) =>
     set((s) => {
-      const ordered = [...Object.values(s.layers)].sort(
-        (a, b) => a.zOrder - b.zOrder,
-      )
+      const ordered = [...s.layers].sort((a, b) => a.zOrder - b.zOrder)
       const currentIndex = ordered.findIndex((l) => l.id === id)
       if (currentIndex === -1) return s
-
       const clampedTarget = Math.max(
         0,
         Math.min(ordered.length - 1, targetIndex),
       )
       if (currentIndex === clampedTarget) return s
-
       const [moved] = ordered.splice(currentIndex, 1)
       ordered.splice(clampedTarget, 0, moved)
-
-      const newLayers = { ...s.layers }
-      ordered.forEach((layer, idx) => {
-        newLayers[layer.id] = { ...layer, zOrder: idx }
-      })
+      const newLayers: Layer[] = ordered.map(
+        (l, idx) => ({ ...l, zOrder: idx }) as Layer,
+      )
       return { layers: newLayers }
     }),
 
-  replaceLayers: (layers) => set({ layers }),
-
-  resetAll: () =>
+  replaceLayers: (layers, activeId) =>
     set({
-      layers: makeDefaultLayers(),
-      activeLayerId: 'bars',
+      layers,
+      activeLayerId:
+        activeId !== undefined
+          ? activeId
+          : layers.length > 0
+            ? layers[layers.length - 1].id
+            : null,
     }),
+
+  resetAll: () => {
+    const defaults = makeDefaultLayers()
+    set({
+      layers: defaults,
+      activeLayerId: defaults[0]?.id ?? null,
+    })
+  },
 }))
 
 /**
- * One-time migration: copy current useVisualizerStore config into the
- * layer store on app boot. The previously-active `visualType` becomes
- * the only enabled layer so existing users see no visual change.
- *
- * Imports useVisualizerStore lazily to avoid circular module init issues.
+ * One-time migration: copy legacy useVisualizerStore state into the
+ * layer store. Creates four layers (one per type) with only the
+ * formerly-active visualType enabled, preserving the user's current look.
  */
 export function initializeLayersFromVisualizerStore(): void {
-  // Lazy import — both stores depend on each other for migration only.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   import('./useVisualizerStore').then(({ useVisualizerStore }) => {
     const vis = useVisualizerStore.getState()
     const visualType = vis.visualType
     const cfg = vis.visualizerConfig
 
-    // Build each layer with an explicit literal `type` so the
-    // discriminated-union narrows correctly — spreading defaultLayer()
-    // and overriding `config` widens the type and breaks inference.
-    const layers: Record<LayerType, Layer> = {
-      bars: {
-        type: 'bars',
-        id: 'bars',
-        name: LAYER_LABELS.bars,
-        enabled: visualType === 'bars',
+    const layers: Layer[] = []
+    const now = Date.now()
+    let z = 0
+
+    const push = (
+      type: LayerType,
+      configClone: object,
+      enabled: boolean,
+    ): void => {
+      const name = generateLayerName(
+        type,
+        layers.map((l) => l.name),
+      )
+      const base = {
+        id: makeId(),
+        name,
+        enabled,
         locked: false,
-        zOrder: 0,
-        config: { ...cfg.linearBars },
-      },
-      circular: {
-        type: 'circular',
-        id: 'circular',
-        name: LAYER_LABELS.circular,
-        enabled: visualType === 'circular',
-        locked: false,
-        zOrder: 1,
-        config: { ...cfg.circularSpectrum },
-      },
-      wave: {
-        type: 'wave',
-        id: 'wave',
-        name: LAYER_LABELS.wave,
-        enabled: visualType === 'wave',
-        locked: false,
-        zOrder: 2,
-        config: { ...cfg.wave },
-      },
-      polygon: {
-        type: 'polygon',
-        id: 'polygon',
-        name: LAYER_LABELS.polygon,
-        enabled: visualType === 'polygon',
-        locked: false,
-        zOrder: 3,
-        config: { ...cfg.polygon },
-      },
+        zOrder: z++,
+        createdAt: now + z,
+      }
+      // Literal type so the union narrows.
+      let layer: Layer
+      switch (type) {
+        case 'bars':
+          layer = {
+            ...base,
+            type: 'bars',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'circular':
+          layer = {
+            ...base,
+            type: 'circular',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'wave':
+          layer = {
+            ...base,
+            type: 'wave',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'polygon':
+          layer = {
+            ...base,
+            type: 'polygon',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+      }
+      layers.push(layer)
     }
 
-    const validVisualType = LAYER_TYPES.includes(visualType as LayerType)
+    push('bars', cfg.linearBars, visualType === 'bars')
+    push('circular', cfg.circularSpectrum, visualType === 'circular')
+    push('wave', cfg.wave, visualType === 'wave')
+    push('polygon', cfg.polygon, visualType === 'polygon')
+
+    const validType: LayerType = LAYER_TYPES.includes(
+      visualType as LayerType,
+    )
       ? (visualType as LayerType)
       : 'bars'
+    const active =
+      layers.find((l) => l.type === validType && l.enabled) ?? layers[0]
 
     useLayerStore.setState({
       layers,
-      activeLayerId: validVisualType,
+      activeLayerId: active?.id ?? null,
     })
   })
 }

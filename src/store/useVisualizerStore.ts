@@ -133,70 +133,80 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
     }
 
     // Sync the layer store so the new render path (layer iteration) sees
-    // the preset. Preserves the legacy "preset switches to type X"
-    // behavior by enabling ONLY the preset's visualType; others disabled.
+    // the preset. Two formats supported:
+    //   1. New-format (preset.layers): replace the entire stack as-is.
+    //   2. Legacy (visualType + config): wrap into a SINGLE layer of the
+    //      preset's type, enabled, others not present. Matches the
+    //      "preset switches to type X" feel.
     const layerStore = useLayerStore.getState()
     const presetType = preset.visualType
-    const isValidLayerType = (t: string): t is LayerType =>
-      t === 'bars' || t === 'circular' || t === 'wave' || t === 'polygon'
-    const baseLayers = layerStore.layers
 
-    // Explicit literal-typed objects so the discriminated union narrows
-    // correctly per layer (one shared helper widens it).
-    const newLayers: Record<LayerType, Layer> = {
-      bars: {
-        type: 'bars',
-        id: 'bars',
-        name: LAYER_LABELS.bars,
-        enabled: presetType === 'bars',
-        locked: baseLayers.bars.locked,
+    if (preset.layers && preset.layers.length > 0) {
+      // Deep-ish clone so subsequent edits don't mutate the preset.
+      const cloned: Layer[] = preset.layers.map(
+        (l) => ({ ...l, config: { ...l.config } }) as Layer,
+      )
+      layerStore.replaceLayers(
+        cloned,
+        preset.activeLayerId ?? cloned[cloned.length - 1]?.id ?? null,
+      )
+    } else {
+      const newId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `preset-${preset.id}-${Date.now()}`
+      const now = Date.now()
+      const baseFields = {
+        id: newId,
+        name: LAYER_LABELS[presetType as LayerType] ?? 'Layer',
+        enabled: true,
+        locked: false,
         zOrder: 0,
-        config: {
-          ...(baseLayers.bars.config as LinearBarsConfig),
-          ...(preset.config.linearBars ?? {}),
-        },
-      },
-      circular: {
-        type: 'circular',
-        id: 'circular',
-        name: LAYER_LABELS.circular,
-        enabled: presetType === 'circular',
-        locked: baseLayers.circular.locked,
-        zOrder: 1,
-        config: {
-          ...(baseLayers.circular.config as CircularSpectrumConfig),
-          ...(preset.config.circularSpectrum ?? {}),
-        },
-      },
-      wave: {
-        type: 'wave',
-        id: 'wave',
-        name: LAYER_LABELS.wave,
-        enabled: presetType === 'wave',
-        locked: baseLayers.wave.locked,
-        zOrder: 2,
-        config: {
-          ...(baseLayers.wave.config as WaveConfig),
-          ...(preset.config.wave ?? {}),
-        },
-      },
-      polygon: {
-        type: 'polygon',
-        id: 'polygon',
-        name: LAYER_LABELS.polygon,
-        enabled: presetType === 'polygon',
-        locked: baseLayers.polygon.locked,
-        zOrder: 3,
-        config: {
-          ...(baseLayers.polygon.config as PolygonSpectrumConfig),
-          ...(preset.config.polygon ?? {}),
-        },
-      },
+        createdAt: now,
+      }
+      let layer: Layer
+      if (presetType === 'bars') {
+        layer = {
+          ...baseFields,
+          type: 'bars',
+          config: {
+            ...(preset.config.linearBars as LinearBarsConfig),
+          } as LinearBarsConfig,
+        }
+      } else if (presetType === 'circular') {
+        layer = {
+          ...baseFields,
+          type: 'circular',
+          config: {
+            ...(preset.config.circularSpectrum as CircularSpectrumConfig),
+          } as CircularSpectrumConfig,
+        }
+      } else if (presetType === 'wave') {
+        layer = {
+          ...baseFields,
+          type: 'wave',
+          config: {
+            ...(preset.config.wave as WaveConfig),
+          } as WaveConfig,
+        }
+      } else if (presetType === 'polygon') {
+        layer = {
+          ...baseFields,
+          type: 'polygon',
+          config: {
+            ...(preset.config.polygon as PolygonSpectrumConfig),
+          } as PolygonSpectrumConfig,
+        }
+      } else {
+        // Defensive — unknown legacy type, fall back to bars defaults.
+        layer = {
+          ...baseFields,
+          type: 'bars',
+          config: {} as LinearBarsConfig,
+        }
+      }
+      layerStore.replaceLayers([layer], layer.id)
     }
-    layerStore.replaceLayers(newLayers)
-    layerStore.setActiveLayer(
-      isValidLayerType(presetType) ? presetType : 'bars',
-    )
 
     set((state) => {
       const merged: VisualizerConfig = {
