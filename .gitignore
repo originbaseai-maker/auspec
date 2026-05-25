@@ -30,3 +30,6 @@ dist-ssr
 
 # Obsidian
 .obsidian/
+
+# Claude Code workflow artifacts
+.claude/
