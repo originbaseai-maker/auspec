@@ -9,6 +9,7 @@ import { DEFAULT_PARTICLE_CONFIG } from '@/store/useParticleStore'
 import { DEFAULT_FRAME_CONFIG } from '@/store/useFrameStore'
 import {
   DEFAULT_BACKGROUND_CONFIG,
+  DEFAULT_BLOOM_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
   DEFAULT_TEXT_CONFIG,
   generateLayerName,
@@ -35,6 +36,8 @@ function defaultData(type: LayerType): LayerData {
       return { type: 'wave', config: { ...DEFAULT_WAVE } }
     case 'polygon':
       return { type: 'polygon', config: { ...DEFAULT_POLYGON_CONFIG } }
+    case 'bloom':
+      return { type: 'bloom', config: { ...DEFAULT_BLOOM_CONFIG } }
     case 'particles':
       return { type: 'particles', config: { ...DEFAULT_PARTICLE_CONFIG } }
     case 'logo':
@@ -86,6 +89,17 @@ function createLayer(
       return { ...base, type: 'wave', config: { ...DEFAULT_WAVE } }
     case 'polygon':
       return { ...base, type: 'polygon', config: { ...DEFAULT_POLYGON_CONFIG } }
+    case 'bloom':
+      return {
+        ...base,
+        type: 'bloom',
+        config: {
+          ...DEFAULT_BLOOM_CONFIG,
+          palette: DEFAULT_BLOOM_CONFIG.palette
+            ? [...DEFAULT_BLOOM_CONFIG.palette]
+            : undefined,
+        },
+      }
     case 'particles':
       return {
         ...base,
@@ -282,6 +296,18 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         case 'polygon':
           dup = { ...base, type: 'polygon', config: { ...source.config } }
           break
+        case 'bloom':
+          dup = {
+            ...base,
+            type: 'bloom',
+            config: {
+              ...source.config,
+              palette: source.config.palette
+                ? [...source.config.palette]
+                : undefined,
+            },
+          }
+          break
         case 'particles':
           dup = { ...base, type: 'particles', config: { ...source.config } }
           break
@@ -354,6 +380,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'polygon',
               config: { ...(fresh as { type: 'polygon'; config: object })
+                .config },
+            } as Layer
+          case 'bloom':
+            return {
+              ...l,
+              type: 'bloom',
+              config: { ...(fresh as { type: 'bloom'; config: object })
                 .config },
             } as Layer
           case 'particles':
@@ -513,6 +546,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'polygon',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'bloom':
+          layer = {
+            ...base,
+            type: 'bloom',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break

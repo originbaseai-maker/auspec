@@ -70,6 +70,30 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           />
         </svg>
       )
+    case 'bloom':
+      return (
+        <svg {...props}>
+          {/* Three nested organic blob lines hinting at echo rings */}
+          <path
+            d="M 20 6 Q 28 10 30 18 Q 32 26 25 30 Q 18 33 12 28 Q 6 22 10 14 Q 14 8 20 6 Z"
+            fill="none"
+            stroke="rgba(255,255,255,0.9)"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M 20 10 Q 26 13 27 18 Q 28 24 23 27 Q 18 29 14 25 Q 10 21 13 16 Q 16 11 20 10 Z"
+            fill="none"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M 20 14 Q 23 16 24 19 Q 24 22 21 24 Q 18 25 16 22 Q 14 19 16 16 Q 18 14 20 14 Z"
+            fill="none"
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth="1.2"
+          />
+        </svg>
+      )
     case 'particles':
       return (
         <svg {...props}>

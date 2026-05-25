@@ -15,6 +15,7 @@ import { drawFrameLayer } from '@/lib/renderers/frame'
 import { drawTextLayer } from '@/lib/renderers/textOverlay'
 import { drawParticlesForLayer } from '@/lib/renderers/particles'
 import { drawBackgroundLayer } from '@/lib/renderers/background'
+import { drawBloom } from '@/lib/renderers/bloom'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
@@ -201,7 +202,8 @@ export default function VisualizerCanvas(): JSX.Element {
             l.type === 'bars' ||
             l.type === 'circular' ||
             l.type === 'wave' ||
-            l.type === 'polygon'
+            l.type === 'polygon' ||
+            l.type === 'bloom'
           ) {
             if (l.config.palette && l.config.palette.length > 0) {
               visualizerPalette = l.config.palette
@@ -284,6 +286,10 @@ export default function VisualizerCanvas(): JSX.Element {
             )
             break
           }
+          case 'bloom':
+            if (!data) break
+            drawBloom(ctx, layer.config, data, width, height)
+            break
           case 'particles':
             drawParticlesForLayer(
               ctx,

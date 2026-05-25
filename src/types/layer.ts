@@ -11,6 +11,7 @@ export type LayerType =
   | 'circular'
   | 'wave'
   | 'polygon'
+  | 'bloom'
   | 'particles'
   | 'logo'
   | 'frame'
@@ -117,11 +118,80 @@ export interface TextLayer {
   config: TextLayerConfig
 }
 
+/**
+ * Bloom — organic radial wave visualizer. Frequency spectrum maps to
+ * angle (0..360°), amplitude drives the radius from center, adjacent
+ * points are connected with quadratic Bezier curves for the "organic"
+ * feel. Multiple concentric echo rings layered with palette colors.
+ */
+export interface BloomConfig {
+  // Shape
+  /** Base radius in px at amplitude 0 (20–300). */
+  baseRadius: number
+  /** Audio amplitude → radial scale (0–3). */
+  amplitudeScale: number
+  /** Sample points around the circle (32–256). Higher = smoother. */
+  pointCount: number
+  /** 0 = polygon edges, 1 = fully smooth bezier curves. */
+  smoothness: number
+
+  // Echo (concentric rings)
+  /** Number of layered rings (1–10). */
+  echoCount: number
+  /** Pixels between adjacent rings. */
+  echoSpacing: number
+  /** 0–1; ring N's opacity = falloff^N. */
+  echoFalloff: number
+  /** Rings grow outward or stack inward. */
+  echoMode: 'outward' | 'inward'
+
+  // Rotation
+  /** Static offset (deg, 0–360). */
+  rotation: number
+  /** Auto-rotate speed (deg/sec, -180..180). 0 = static. */
+  rotationSpeed: number
+
+  // Stroke
+  lineWidth: number
+  closedShape: boolean
+
+  // Color
+  colorStart: string
+  colorEnd: string
+  palette?: string[]
+
+  // Glow
+  glowEnabled: boolean
+  /** 0–100 shadowBlur on the strokes. */
+  glowIntensity: number
+
+  // Reactivity
+  /** 0–1; how much bass scales the whole shape. */
+  bassPulse: number
+  bassSensitivity?: number
+  midSensitivity?: number
+  trebleSensitivity?: number
+
+  // Position (0–1 fraction of canvas)
+  offsetX: number
+  offsetY: number
+
+  /** Start/end as % of full spectrum (0–100). */
+  startFrequency: number
+  endFrequency: number
+}
+
+export interface BloomLayer {
+  type: 'bloom'
+  config: BloomConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
   | WaveLayer
   | PolygonLayer
+  | BloomLayer
   | ParticlesLayer
   | LogoLayer
   | FrameLayer
@@ -148,6 +218,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   circular: 'Circular',
   wave: 'Wave',
   polygon: 'Polygon',
+  bloom: 'Bloom',
   particles: 'Particles',
   logo: 'Logo',
   frame: 'Frame',
@@ -161,6 +232,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'circular',
   'wave',
   'polygon',
+  'bloom',
   'particles',
   'logo',
   'text',
@@ -183,6 +255,34 @@ export const DEFAULT_BACKGROUND_CONFIG: BackgroundLayerConfig = {
   imageFit: 'cover',
   blur: 0,
   opacity: 1,
+}
+
+export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
+  baseRadius: 80,
+  amplitudeScale: 1.5,
+  pointCount: 128,
+  smoothness: 0.6,
+  echoCount: 4,
+  echoSpacing: 25,
+  echoFalloff: 0.7,
+  echoMode: 'outward',
+  rotation: 0,
+  rotationSpeed: 0,
+  lineWidth: 2,
+  closedShape: true,
+  colorStart: '#10b981',
+  colorEnd: '#ec4899',
+  palette: ['#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b'],
+  glowEnabled: true,
+  glowIntensity: 60,
+  bassPulse: 0.25,
+  bassSensitivity: 1,
+  midSensitivity: 1,
+  trebleSensitivity: 1,
+  offsetX: 0.5,
+  offsetY: 0.5,
+  startFrequency: 0,
+  endFrequency: 80,
 }
 
 export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {

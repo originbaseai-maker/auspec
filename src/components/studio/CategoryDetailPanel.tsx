@@ -6,6 +6,7 @@ import { BarsPanel } from './panels/BarsPanel'
 import { CircularPanel } from './panels/CircularPanel'
 import { WavePanel } from './panels/WavePanel'
 import { PolygonPanel } from './panels/PolygonPanel'
+import { BloomPanel } from './panels/BloomPanel'
 import { ParticlesPanel } from './panels/ParticlesPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
@@ -32,6 +33,7 @@ const LAYER_CATEGORIES = new Set([
   'visualizer_circular',
   'visualizer_wave',
   'visualizer_polygon',
+  'visualizer_bloom',
   'particles',
   'logo',
   'frame',
@@ -71,6 +73,8 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <WavePanel layerId={activeLayer.id} />
         case 'polygon':
           return <PolygonPanel layerId={activeLayer.id} />
+        case 'bloom':
+          return <BloomPanel layerId={activeLayer.id} />
         case 'particles':
           return <ParticlesPanel layerId={activeLayer.id} />
         case 'logo':

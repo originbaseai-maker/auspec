@@ -97,12 +97,17 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     return () => ro.disconnect()
   }, [])
 
-  // Auto-sync selection with the active layer when it's a circular or
-  // polygon layer. Clicking a layer row in the sidebar selects it here.
+  // Auto-sync selection with the active layer when it's a draggable
+  // visualizer (circular / polygon / bloom).
   useEffect(() => {
     if (!activeLayerId) return
     const layer = layers.find((l) => l.id === activeLayerId)
-    if (layer && (layer.type === 'circular' || layer.type === 'polygon')) {
+    if (
+      layer &&
+      (layer.type === 'circular' ||
+        layer.type === 'polygon' ||
+        layer.type === 'bloom')
+    ) {
       setSelected({ kind: 'layer', layerId: layer.id })
     }
   }, [activeLayerId, layers])
@@ -150,6 +155,19 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
         sizePx: Math.max(20, cfg.radius ?? 100),
         locked: layer.locked,
       })
+    } else if (layer.type === 'bloom') {
+      const cfg = layer.config as {
+        offsetX?: number
+        offsetY?: number
+        baseRadius?: number
+      }
+      selectables.push({
+        target: { kind: 'layer', layerId: layer.id },
+        x: cfg.offsetX ?? 0.5,
+        y: cfg.offsetY ?? 0.5,
+        sizePx: Math.max(20, cfg.baseRadius ?? 80),
+        locked: layer.locked,
+      })
     }
   }
   if (logo && minDim > 0) {
@@ -175,7 +193,13 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
       const l = layers.find((x) => x.id === tgt.layerId)
       if (l) {
         const cat: StudioCategory =
-          l.type === 'circular' ? 'visualizer_circular' : 'visualizer_polygon'
+          l.type === 'circular'
+            ? 'visualizer_circular'
+            : l.type === 'polygon'
+              ? 'visualizer_polygon'
+              : l.type === 'bloom'
+                ? 'visualizer_bloom'
+                : 'visualizer_circular'
         setActiveCategory(cat)
       }
     } else {
@@ -241,7 +265,15 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
         const distance = Math.sqrt(dxPx * dxPx + dyPx * dyPx)
         if (tgt.kind === 'layer') {
           const newRadius = Math.max(20, Math.min(500, distance))
-          updateConfig(tgt.layerId, { radius: newRadius })
+          // Bloom writes `baseRadius`; circular/polygon write `radius`.
+          const targetLayer = useLayerStore
+            .getState()
+            .layers.find((l) => l.id === tgt.layerId)
+          if (targetLayer?.type === 'bloom') {
+            updateConfig(tgt.layerId, { baseRadius: newRadius })
+          } else {
+            updateConfig(tgt.layerId, { radius: newRadius })
+          }
         } else {
           // Logo: distance is the requested half-extent in wrapper px;
           // store value is fraction of minDim.

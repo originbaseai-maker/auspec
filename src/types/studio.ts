@@ -3,6 +3,7 @@ export type StudioCategory =
   | 'visualizer_circular'
   | 'visualizer_wave'
   | 'visualizer_polygon'
+  | 'visualizer_bloom'
   | 'particles'
   | 'background'
   | 'logo'
@@ -18,6 +19,7 @@ export interface CategoryConfig {
     | 'circular'
     | 'wave'
     | 'polygon'
+    | 'bloom'
     | 'particles'
     | 'background'
     | 'logo'
@@ -42,6 +44,7 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
     icon: 'polygon',
     hasAI: false,
   },
+  { id: 'visualizer_bloom', label: 'Bloom', icon: 'bloom', hasAI: false },
   { id: 'particles', label: 'Particles', icon: 'particles', hasAI: false },
   { id: 'background', label: 'Background', icon: 'background', hasAI: false },
   { id: 'logo', label: 'Logo', icon: 'logo', hasAI: false },
