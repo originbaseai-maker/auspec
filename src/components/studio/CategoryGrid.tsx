@@ -12,7 +12,9 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'particles') return 'particles'
   if (id === 'logo') return 'logo'
   if (id === 'frame') return 'frame'
-  // background, text — Part 2C-2. ai_style — never (preset generator).
+  if (id === 'background') return 'background'
+  if (id === 'text') return 'text'
+  // ai_style — never (preset generator).
   return null
 }
 

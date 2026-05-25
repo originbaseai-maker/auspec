@@ -10,6 +10,7 @@ import {
   EyeOff,
   Hexagon,
   Image as ImageIcon,
+  Layers as LayersIcon,
   Lock,
   Pencil,
   Plus,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   Square,
   Trash2,
+  Type as TypeIcon,
   Unlock,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,6 +40,8 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   particles: Sparkles,
   logo: ImageIcon,
   frame: Square,
+  background: LayersIcon,
+  text: TypeIcon,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -48,6 +52,8 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   particles: 'particles',
   logo: 'logo',
   frame: 'frame',
+  background: 'background',
+  text: 'text',
 }
 
 interface ContextMenuState {

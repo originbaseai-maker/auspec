@@ -1,3 +1,12 @@
+/**
+ * @deprecated — Text now lives in useLayerStore as TextLayers (multi-
+ * instance). This store is kept ONLY for the one-time migration helper
+ * (`initializeLayersFromVisualizerStore`) which reads legacy title /
+ * artist / custom into TextLayers on first boot.
+ *
+ * Do not write new code that depends on this store. New consumers
+ * should use `useLayerStore` + `layers.filter(l => l.type === 'text')`.
+ */
 import { create } from 'zustand'
 
 const clamp = (v: number, min: number, max: number) =>

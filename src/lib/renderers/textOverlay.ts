@@ -1,4 +1,43 @@
 import type { TextLayer, TextLayerId } from '@/store/useTextStore'
+import type { TextLayerConfig } from '@/types/layer'
+
+/**
+ * Per-layer text rendering used by the new TextLayer flow in the canvas
+ * layer loop. Single text element; the legacy `drawTextOverlay` below
+ * (3 fixed sub-layers) is kept for backward compat but no longer wired
+ * into the render loop.
+ */
+export function drawTextLayer(
+  ctx: CanvasRenderingContext2D,
+  config: TextLayerConfig,
+  width: number,
+  height: number,
+  isEditing: boolean,
+): void {
+  if (isEditing) return
+  if (!config.text.trim()) return
+
+  ctx.save()
+  ctx.font = `${config.fontWeight} ${config.fontSize}px "${config.font}", sans-serif`
+  ctx.fillStyle = config.color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  if ('letterSpacing' in ctx) {
+    ;(ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+      `${config.letterSpacing}px`
+  }
+
+  if (config.shadowEnabled && config.shadowIntensity > 0) {
+    ctx.shadowColor = config.shadowColor
+    ctx.shadowBlur = config.shadowIntensity * 0.3
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = config.shadowIntensity * 0.04
+  }
+
+  ctx.fillText(config.text, config.x * width, config.y * height)
+  ctx.restore()
+}
 
 interface TextOverlayConfig {
   title: TextLayer

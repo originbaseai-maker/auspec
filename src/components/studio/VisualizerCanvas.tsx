@@ -12,14 +12,14 @@ import {
   renderLogoOnly,
 } from '@/lib/renderers/coverArt'
 import { drawFrameLayer } from '@/lib/renderers/frame'
-import { drawTextOverlay } from '@/lib/renderers/textOverlay'
+import { drawTextLayer } from '@/lib/renderers/textOverlay'
 import { drawParticlesForLayer } from '@/lib/renderers/particles'
+import { drawBackgroundLayer } from '@/lib/renderers/background'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
-import { useTextStore } from '@/store/useTextStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
@@ -45,7 +45,6 @@ export default function VisualizerCanvas(): JSX.Element {
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const previewMode = useAudioStore((s) => s.previewMode)
   const audioFile = useAudioStore((s) => s.audioFile)
-  const textConfig = useTextStore()
   const layers = useLayerStore((s) => s.layers)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
@@ -122,16 +121,11 @@ export default function VisualizerCanvas(): JSX.Element {
   const coverArtStateRef = useRef(coverArtState)
   const previewModeRef = useRef(previewMode)
   const audioFileRef = useRef(audioFile)
-  const textConfigRef = useRef(textConfig)
   const layersRef = useRef(layers)
 
   useEffect(() => {
     layersRef.current = layers
   }, [layers])
-
-  useEffect(() => {
-    textConfigRef.current = textConfig
-  }, [textConfig])
 
   useEffect(() => {
     previewModeRef.current = previewMode
@@ -183,133 +177,155 @@ export default function VisualizerCanvas(): JSX.Element {
           ? generateMockFrequencyData(performance.now() / 1000)
           : null)
 
-      ctx.fillStyle = bgRef.current
+      // Hard-clear to black each frame so missing background layers
+      // don't leave the previous frame's pixels behind. Background
+      // layers (if enabled) paint on top of this clear.
+      ctx.fillStyle = '#000000'
       ctx.fillRect(0, 0, width, height)
 
-      if (data) {
-        // Iterate enabled layers in z-order (back → front). V2 allows
-        // multiple layers of the same type, but the smoothing buffers
-        // are still shared — that's an accepted artifact for now (two
-        // Bars layers will share the same per-bar smoothing state).
-        const enabledLayers = [...layersRef.current]
-          .filter((l) => l.enabled)
-          .sort((a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt)
+      // Iterate enabled layers in z-order (back → front). Background
+      // + text layers DON'T require audio data, so the layer loop runs
+      // unconditionally; audio-dependent renderers (bars/circular/wave/
+      // polygon/particles/frame-pulse) gate themselves on `data`.
+      const enabledLayers = [...layersRef.current]
+        .filter((l) => l.enabled)
+        .sort((a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt)
 
-        // Precompute palette for any "Sync with visualizer" particle
-        // layers: topmost enabled visualizer-type layer's palette wins.
-        let visualizerPalette: string[] | undefined
-        {
-          const topDown = [...enabledLayers].reverse()
-          for (const l of topDown) {
-            if (l.type === 'bars' || l.type === 'circular' ||
-                l.type === 'wave' || l.type === 'polygon') {
-              if (l.config.palette && l.config.palette.length > 0) {
-                visualizerPalette = l.config.palette
-                break
-              }
+      // Precompute palette for "Sync with visualizer" particle layers:
+      // topmost enabled visualizer-type layer's palette wins.
+      let visualizerPalette: string[] | undefined
+      {
+        const topDown = [...enabledLayers].reverse()
+        for (const l of topDown) {
+          if (
+            l.type === 'bars' ||
+            l.type === 'circular' ||
+            l.type === 'wave' ||
+            l.type === 'polygon'
+          ) {
+            if (l.config.palette && l.config.palette.length > 0) {
+              visualizerPalette = l.config.palette
+              break
             }
           }
         }
-        const bassEnergy = data.bass / 255
-        const nowMs = performance.now()
+      }
+      const bassEnergy = data ? data.bass / 255 : 0
+      const nowMs = performance.now()
+      const editingTextId = useLayerStore.getState().editingTextLayerId
 
-        for (const layer of enabledLayers) {
-          switch (layer.type) {
-            case 'bars':
-              renderLinearBars(
-                ctx,
-                data,
-                layer.config,
-                width,
-                height,
-                barsHeightsRef.current,
+      for (const layer of enabledLayers) {
+        switch (layer.type) {
+          case 'background':
+            drawBackgroundLayer(ctx, layer.config, width, height)
+            break
+          case 'bars':
+            if (!data) break
+            renderLinearBars(
+              ctx,
+              data,
+              layer.config,
+              width,
+              height,
+              barsHeightsRef.current,
+            )
+            break
+          case 'circular':
+            if (!data) break
+            renderCircularSpectrum(
+              ctx,
+              data,
+              layer.config,
+              width,
+              height,
+              circularHeightsRef.current,
+              cover.logo ? cover.logoSize : undefined,
+            )
+            break
+          case 'wave':
+            if (!data) break
+            renderWave(ctx, data, layer.config, width, height)
+            break
+          case 'polygon': {
+            if (!data) break
+            // Draw the logo INSIDE the polygon shape before the bars
+            // so spectrum bars stay visible on top of the logo.
+            if (cover.logo) {
+              const minDim = Math.min(width, height)
+              const baseRadius = Math.min(
+                layer.config.radius,
+                Math.max(0, minDim / 2 - 20),
               )
-              break
-            case 'circular':
-              renderCircularSpectrum(
-                ctx,
-                data,
-                layer.config,
-                width,
-                height,
-                circularHeightsRef.current,
-                cover.logo ? cover.logoSize : undefined,
-              )
-              break
-            case 'wave':
-              renderWave(ctx, data, layer.config, width, height)
-              break
-            case 'polygon': {
-              // Draw the logo INSIDE the polygon shape before the bars
-              // so spectrum bars stay visible on top of the logo.
-              if (cover.logo) {
-                const minDim = Math.min(width, height)
-                const baseRadius = Math.min(
-                  layer.config.radius,
-                  Math.max(0, minDim / 2 - 20),
-                )
-                const logoScale = cover.autoLogoSync
-                  ? 1.0
-                  : Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
-                renderLogoOnly(
-                  ctx,
-                  cover.logo,
-                  {
-                    logoSize: cover.logoSize,
-                    logoCropMode: cover.logoCropMode,
-                    coverArtPosition: cover.coverArtPosition,
-                    polygonShape: layer.config.shape,
-                    polygonRotation: layer.config.rotation,
-                    polygonRadius: baseRadius * logoScale,
-                  },
-                  width,
-                  height,
-                )
-              }
-              renderPolygonSpectrum(
-                ctx,
-                data,
-                layer.config,
-                width,
-                height,
-                polygonHeightsRef.current,
-              )
-              break
-            }
-            case 'particles':
-              drawParticlesForLayer(
-                ctx,
-                layer.id,
-                layer.config,
-                width,
-                height,
-                visualizerPalette,
-                data,
-                nowMs,
-              )
-              break
-            case 'logo':
-              drawLogoLayer(
+              const logoScale = cover.autoLogoSync
+                ? 1.0
+                : Math.max(0.5, Math.min(2.0, cover.logoSize * 4))
+              renderLogoOnly(
                 ctx,
                 cover.logo,
                 {
-                  logoSize: layer.config.logoSize,
-                  logoCropMode: layer.config.logoCropMode,
-                  position: layer.config.position,
+                  logoSize: cover.logoSize,
+                  logoCropMode: cover.logoCropMode,
+                  coverArtPosition: cover.coverArtPosition,
+                  polygonShape: layer.config.shape,
+                  polygonRotation: layer.config.rotation,
+                  polygonRadius: baseRadius * logoScale,
                 },
                 width,
                 height,
               )
-              break
-            case 'frame':
-              drawFrameLayer(ctx, layer.config, width, height, bassEnergy)
-              break
+            }
+            renderPolygonSpectrum(
+              ctx,
+              data,
+              layer.config,
+              width,
+              height,
+              polygonHeightsRef.current,
+            )
+            break
           }
+          case 'particles':
+            drawParticlesForLayer(
+              ctx,
+              layer.id,
+              layer.config,
+              width,
+              height,
+              visualizerPalette,
+              data,
+              nowMs,
+            )
+            break
+          case 'logo':
+            drawLogoLayer(
+              ctx,
+              cover.logo,
+              {
+                logoSize: layer.config.logoSize,
+                logoCropMode: layer.config.logoCropMode,
+                position: layer.config.position,
+              },
+              width,
+              height,
+            )
+            break
+          case 'frame':
+            drawFrameLayer(ctx, layer.config, width, height, bassEnergy)
+            break
+          case 'text':
+            drawTextLayer(
+              ctx,
+              layer.config,
+              width,
+              height,
+              editingTextId === layer.id,
+            )
+            break
         }
+      }
 
-        if (cfg.framePulse.enabled) {
-          renderFramePulse(ctx, data, cfg.framePulse, width, height)
-        }
+      if (data && cfg.framePulse.enabled) {
+        renderFramePulse(ctx, data, cfg.framePulse, width, height)
       }
 
       // Cover-art overlay (separate from Logo layers — driven by the
@@ -333,21 +349,8 @@ export default function VisualizerCanvas(): JSX.Element {
         )
       }
 
-      // Text overlay draws LAST so titles/artist sit on top of everything,
-      // including the frame border. We pass `editingLayerId` so the layer
-      // currently being inline-edited is skipped — its HTML overlay
-      // displays the text instead, and we don't want them stacking.
-      drawTextOverlay(
-        ctx,
-        width,
-        height,
-        {
-          title: textConfigRef.current.title,
-          artist: textConfigRef.current.artist,
-          custom: textConfigRef.current.custom,
-        },
-        textConfigRef.current.editingLayerId,
-      )
+      // (Text overlay is now handled per-layer inside the layer loop
+      // via the 'text' case — global drawTextOverlay call removed.)
 
       animationRef.current = requestAnimationFrame(render)
     }

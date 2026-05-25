@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AudioFile } from '../types/audio'
-import { useTextStore } from './useTextStore'
+import { useLayerStore } from './useLayerStore'
 
 export interface AudioStore {
   audioFile: AudioFile | null
@@ -79,21 +79,37 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       bpmDetecting: false,
     })
 
-    // Best-effort autofill of the Text overlay from "Artist - Title.ext".
-    // Only fires on file SET (audioFile truthy); clearing audio leaves any
-    // user-customized text alone so they don't lose work on file swap.
+    // Best-effort autofill of Text layers from "Artist - Title.ext".
+    // Only fires on file SET. We GUARD against re-creating layers on
+    // every file swap: if the user already has any text layers with
+    // content, leave their work alone.
     if (audioFile) {
-      const baseName = audioFile.name.replace(/\.[^/.]+$/, '')
-      const parts = baseName.split(' - ').map((s) => s.trim())
-      const textStore = useTextStore.getState()
-      if (parts.length >= 2 && parts[0] && parts[1]) {
-        textStore.setLayer('artist', { text: parts[0], enabled: true })
-        textStore.setLayer('title', {
-          text: parts.slice(1).join(' - '),
-          enabled: true,
-        })
-      } else {
-        textStore.setLayer('title', { text: baseName, enabled: true })
+      const layerStore = useLayerStore.getState()
+      const hasUserText = layerStore.layers.some(
+        (l) => l.type === 'text' && l.config.text.trim().length > 0,
+      )
+      if (!hasUserText) {
+        const baseName = audioFile.name.replace(/\.[^/.]+$/, '')
+        const parts = baseName.split(' - ').map((s) => s.trim())
+
+        const addText = (
+          text: string,
+          x: number,
+          y: number,
+          fontSize: number,
+          rename: string,
+        ): void => {
+          const id = layerStore.addLayer('text')
+          layerStore.updateConfig(id, { text, x, y, fontSize })
+          layerStore.renameLayer(id, rename)
+        }
+
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          addText(parts[0], 0.5, 0.92, 28, 'Artist')
+          addText(parts.slice(1).join(' - '), 0.5, 0.85, 48, 'Title')
+        } else {
+          addText(baseName, 0.5, 0.85, 48, 'Title')
+        }
       }
     }
   },

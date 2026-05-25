@@ -14,6 +14,15 @@ export type LayerType =
   | 'particles'
   | 'logo'
   | 'frame'
+  | 'background'
+  | 'text'
+
+export type FontFamily =
+  | 'Inter'
+  | 'Bebas Neue'
+  | 'Playfair Display'
+  | 'Pacifico'
+  | 'Space Mono'
 
 export interface BarsLayer {
   type: 'bars'
@@ -62,6 +71,52 @@ export interface FrameLayer {
   config: FrameConfig
 }
 
+export interface BackgroundLayerConfig {
+  bgType: 'color' | 'gradient' | 'image' | 'transparent'
+  /** Solid color, or first gradient stop. */
+  color: string
+  /** Second gradient stop. */
+  color2: string
+  /** 0–360 degrees. */
+  gradientAngle: number
+  /** Data URL for 'image' bgType. null when not uploaded. */
+  imageSrc: string | null
+  imageFit: 'cover' | 'contain' | 'fill'
+  /** CSS-filter blur in px applied to image. 0 disables. */
+  blur: number
+  /** 0–1 global alpha. */
+  opacity: number
+}
+
+export interface BackgroundLayer {
+  type: 'background'
+  config: BackgroundLayerConfig
+}
+
+export interface TextLayerConfig {
+  text: string
+  font: FontFamily
+  fontWeight: 400 | 600 | 700
+  /** 12–120. */
+  fontSize: number
+  color: string
+  /** 0–1 horizontal center. */
+  x: number
+  /** 0–1 vertical center. */
+  y: number
+  /** -2 to 10 px. */
+  letterSpacing: number
+  shadowEnabled: boolean
+  /** 0–100. */
+  shadowIntensity: number
+  shadowColor: string
+}
+
+export interface TextLayer {
+  type: 'text'
+  config: TextLayerConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -70,6 +125,8 @@ export type LayerData =
   | ParticlesLayer
   | LogoLayer
   | FrameLayer
+  | BackgroundLayer
+  | TextLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -94,15 +151,19 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   particles: 'Particles',
   logo: 'Logo',
   frame: 'Frame',
+  background: 'Background',
+  text: 'Text',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
+  'background',
   'bars',
   'circular',
   'wave',
   'polygon',
   'particles',
   'logo',
+  'text',
   'frame',
 ] as const
 
@@ -111,6 +172,31 @@ export const DEFAULT_LOGO_LAYER_CONFIG: LogoLayerConfig = {
   logoCropMode: 'square',
   position: { x: 0.5, y: 0.5 },
   autoLogoSync: true,
+}
+
+export const DEFAULT_BACKGROUND_CONFIG: BackgroundLayerConfig = {
+  bgType: 'color',
+  color: '#0a0a0a',
+  color2: '#1a1a1a',
+  gradientAngle: 135,
+  imageSrc: null,
+  imageFit: 'cover',
+  blur: 0,
+  opacity: 1,
+}
+
+export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {
+  text: '',
+  font: 'Inter',
+  fontWeight: 700,
+  fontSize: 48,
+  color: '#ffffff',
+  x: 0.5,
+  y: 0.5,
+  letterSpacing: 0,
+  shadowEnabled: true,
+  shadowIntensity: 60,
+  shadowColor: '#000000',
 }
 
 /**

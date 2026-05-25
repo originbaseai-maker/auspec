@@ -35,6 +35,8 @@ const LAYER_CATEGORIES = new Set([
   'particles',
   'logo',
   'frame',
+  'background',
+  'text',
 ])
 
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
@@ -75,15 +77,15 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <LogoPanel layerId={activeLayer.id} />
         case 'frame':
           return <FramePanel layerId={activeLayer.id} />
+        case 'background':
+          return <BackgroundPanel layerId={activeLayer.id} />
+        case 'text':
+          return <TextPanel layerId={activeLayer.id} />
       }
     }
 
-    // Remaining singleton-overlay categories (Part 2C-2 will migrate).
+    // Only AI Style remains as a non-layer singleton (preset generator).
     switch (activeCategory) {
-      case 'background':
-        return <BackgroundPanel />
-      case 'text':
-        return <TextPanel />
       case 'ai_style':
         return <AIPanel />
       default:

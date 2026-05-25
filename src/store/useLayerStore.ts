@@ -8,7 +8,9 @@ import { DEFAULT_POLYGON_CONFIG } from '@/lib/renderers/polygonSpectrum'
 import { DEFAULT_PARTICLE_CONFIG } from '@/store/useParticleStore'
 import { DEFAULT_FRAME_CONFIG } from '@/store/useFrameStore'
 import {
+  DEFAULT_BACKGROUND_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
+  DEFAULT_TEXT_CONFIG,
   generateLayerName,
   LAYER_TYPES,
   type Layer,
@@ -45,6 +47,10 @@ function defaultData(type: LayerType): LayerData {
       }
     case 'frame':
       return { type: 'frame', config: { ...DEFAULT_FRAME_CONFIG } }
+    case 'background':
+      return { type: 'background', config: { ...DEFAULT_BACKGROUND_CONFIG } }
+    case 'text':
+      return { type: 'text', config: { ...DEFAULT_TEXT_CONFIG } }
   }
 }
 
@@ -101,6 +107,18 @@ function createLayer(
         type: 'frame',
         config: { ...DEFAULT_FRAME_CONFIG },
       }
+    case 'background':
+      return {
+        ...base,
+        type: 'background',
+        config: { ...DEFAULT_BACKGROUND_CONFIG },
+      }
+    case 'text':
+      return {
+        ...base,
+        type: 'text',
+        config: { ...DEFAULT_TEXT_CONFIG },
+      }
   }
 }
 
@@ -111,8 +129,15 @@ function makeDefaultLayers(): Layer[] {
 export interface LayerStore {
   layers: Layer[]
   activeLayerId: string | null
+  /**
+   * Transient: which TEXT layer (if any) is being inline-edited on
+   * canvas. Drives `drawTextLayer`'s "skip" branch so the canvas-painted
+   * text doesn't double up with the HTML input. Always a text-layer id.
+   */
+  editingTextLayerId: string | null
 
   setActiveLayer: (id: string | null) => void
+  setEditingTextLayerId: (id: string | null) => void
   toggleEnabled: (id: string) => void
   toggleLocked: (id: string) => void
   setEnabled: (id: string, enabled: boolean) => void
@@ -144,8 +169,10 @@ export interface LayerStore {
 export const useLayerStore = create<LayerStore>((set, get) => ({
   layers: makeDefaultLayers(),
   activeLayerId: null,
+  editingTextLayerId: null,
 
   setActiveLayer: (activeLayerId) => set({ activeLayerId }),
+  setEditingTextLayerId: (editingTextLayerId) => set({ editingTextLayerId }),
 
   toggleEnabled: (id) =>
     set((s) => ({
@@ -271,6 +298,12 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         case 'frame':
           dup = { ...base, type: 'frame', config: { ...source.config } }
           break
+        case 'background':
+          dup = { ...base, type: 'background', config: { ...source.config } }
+          break
+        case 'text':
+          dup = { ...base, type: 'text', config: { ...source.config } }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -342,6 +375,20 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'frame',
               config: { ...(fresh as { type: 'frame'; config: object })
+                .config },
+            } as Layer
+          case 'background':
+            return {
+              ...l,
+              type: 'background',
+              config: { ...(fresh as { type: 'background'; config: object })
+                .config },
+            } as Layer
+          case 'text':
+            return {
+              ...l,
+              type: 'text',
+              config: { ...(fresh as { type: 'text'; config: object })
                 .config },
             } as Layer
         }
@@ -490,9 +537,40 @@ export function initializeLayersFromVisualizerStore(): void {
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break
+        case 'background':
+          layer = {
+            ...base,
+            type: 'background',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'text':
+          layer = {
+            ...base,
+            type: 'text',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
       }
       layers.push(layer)
     }
+
+    // Background goes FIRST so it has the lowest z-order (drawn behind
+    // everything). Legacy single-color background → 'color' bgType.
+    push(
+      'background',
+      {
+        bgType: 'color',
+        color: vis.backgroundColor,
+        color2: '#1a1a1a',
+        gradientAngle: 135,
+        imageSrc: null,
+        imageFit: 'cover',
+        blur: 0,
+        opacity: 1,
+      },
+      true,
+    )
 
     push('bars', cfg.linearBars, visualType === 'bars')
     push('circular', cfg.circularSpectrum, visualType === 'circular')
@@ -505,7 +583,8 @@ export function initializeLayersFromVisualizerStore(): void {
       import('./useParticleStore'),
       import('./useFrameStore'),
       import('./useCoverArtStore'),
-    ]).then(([particleMod, frameMod, coverArtMod]) => {
+      import('./useTextStore'),
+    ]).then(([particleMod, frameMod, coverArtMod, textMod]) => {
       const p = particleMod.useParticleStore.getState()
       const f = frameMod.useFrameStore.getState()
       const c = coverArtMod.useCoverArtStore.getState()
@@ -541,6 +620,32 @@ export function initializeLayersFromVisualizerStore(): void {
       // Enable the Logo layer if the user has uploaded a logo (preserves
       // the visual behavior from before the migration).
       push('logo', logoConfig, c.logo !== null)
+
+      // Text layers — migrate the 3 legacy sub-layers (title/artist/
+      // custom) into TextLayers if they have content. Each gets its
+      // own zOrder slot; their existing position/font/etc. carry over.
+      const t = textMod.useTextStore.getState()
+      for (const legacyId of ['title', 'artist', 'custom'] as const) {
+        const sub = t[legacyId]
+        if (!sub || !sub.text || !sub.text.trim()) continue
+        push(
+          'text',
+          {
+            text: sub.text,
+            font: sub.font,
+            fontWeight: sub.fontWeight,
+            fontSize: sub.fontSize,
+            color: sub.color,
+            x: sub.x,
+            y: sub.y,
+            letterSpacing: sub.letterSpacing,
+            shadowEnabled: sub.shadowEnabled,
+            shadowIntensity: sub.shadowIntensity,
+            shadowColor: sub.shadowColor,
+          },
+          sub.enabled,
+        )
+      }
 
       const frameConfig = {
         enabled: f.enabled,
