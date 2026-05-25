@@ -2,7 +2,7 @@ import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import type { CropMode } from '@/types/coverArt'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
-import { PanelGroup, SegmentedGroup, Slider } from './shared'
+import { PanelGroup, SegmentedGroup, Slider, SliderRow } from './shared'
 
 const CROP_MODES = [
   { id: 'circle' as const, label: 'Circle' },
@@ -18,6 +18,8 @@ export function LogoPanel() {
   const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const setAutoLogoSync = useCoverArtStore((s) => s.setAutoLogoSync)
+  const coverArtPosition = useCoverArtStore((s) => s.coverArtPosition)
+  const setCoverArtPosition = useCoverArtStore((s) => s.setCoverArtPosition)
 
   const polygonRotation = useVisualizerStore(
     (s) => s.visualizerConfig.polygon.rotation,
@@ -39,6 +41,36 @@ export function LogoPanel() {
               onChange={(id) => setLogoCropMode(id)}
               cols={3}
             />
+          </PanelGroup>
+
+          <PanelGroup title="Position">
+            <SliderRow
+              label="X"
+              hint={`${Math.round(coverArtPosition.x * 100)}%`}
+              value={coverArtPosition.x * 100}
+              min={0}
+              max={100}
+              step={1}
+              onChange={(v) =>
+                setCoverArtPosition({ x: v / 100, y: coverArtPosition.y })
+              }
+              ariaLabel="Logo horizontal position"
+            />
+            <SliderRow
+              label="Y"
+              hint={`${Math.round(coverArtPosition.y * 100)}%`}
+              value={coverArtPosition.y * 100}
+              min={0}
+              max={100}
+              step={1}
+              onChange={(v) =>
+                setCoverArtPosition({ x: coverArtPosition.x, y: v / 100 })
+              }
+              ariaLabel="Logo vertical position"
+            />
+            <p className="text-[9px] text-white/30">
+              Or drag the logo directly on the canvas
+            </p>
           </PanelGroup>
 
           <PanelGroup

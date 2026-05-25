@@ -33,6 +33,9 @@ export interface CircularSpectrumConfig {
   bassSensitivity?: number
   midSensitivity?: number
   trebleSensitivity?: number
+  /** Center position as fraction of canvas (0–1). Default 0.5 = center. */
+  offsetX?: number
+  offsetY?: number
 }
 
 const FALLBACK_SAMPLE_RATE = 44100
@@ -99,8 +102,9 @@ export function renderCircularSpectrum(
   const drawOutward = sideMode !== 'side_b'
   const drawInward = sideMode !== 'side_a'
 
-  const cx = width / 2
-  const cy = height / 2
+  // Position fraction (0–1); defaults to 0.5 = canvas center.
+  const cx = width * (config.offsetX ?? 0.5)
+  const cy = height * (config.offsetY ?? 0.5)
   const minDim = Math.min(width, height)
 
   // Scale base radius to fit canvas (min dimension)

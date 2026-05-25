@@ -8,6 +8,7 @@ import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
 import { TextInteractive } from '../components/studio/TextInteractive';
+import { CanvasInteractiveOverlay } from '../components/studio/CanvasInteractiveOverlay';
 import { FpsCounter } from '../components/studio/FpsCounter';
 import VisualizerCanvas from '../components/studio/VisualizerCanvas';
 import { AudioPlayerBar } from '../components/studio/AudioPlayerBar';
@@ -566,6 +567,9 @@ function CanvasArea({
       }}
     >
       <VisualizerCanvas />
+      {/* Visualizer drag/resize overlay sits BELOW TextInteractive so
+          text remains the primary tap target when both are present. */}
+      <CanvasInteractiveOverlay />
       <TextInteractive />
       <FpsCounter />
       {showFormatFlash && <FormatFlashOverlay format={format} />}

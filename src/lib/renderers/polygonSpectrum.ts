@@ -42,6 +42,9 @@ export interface PolygonSpectrumConfig {
   bassSensitivity?: number
   midSensitivity?: number
   trebleSensitivity?: number
+  /** Center position as fraction of canvas (0–1). Default 0.5 = center. */
+  offsetX?: number
+  offsetY?: number
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -262,8 +265,9 @@ export function renderPolygonSpectrum(
   const slicedRaw = raw.subarray(startBin, endBin + 1)
   const sourceLen = slicedRaw.length || 1
 
-  const cx = width / 2
-  const cy = height / 2
+  // Position fraction (0–1); defaults to 0.5 = canvas center.
+  const cx = width * (config.offsetX ?? 0.5)
+  const cy = height * (config.offsetY ?? 0.5)
 
   // Fit radius inside canvas with a small margin.
   const maxR = Math.min(width, height) / 2 - 20

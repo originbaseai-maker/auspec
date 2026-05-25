@@ -96,6 +96,32 @@ export function CircularPanel({ layerId }: Props) {
         />
       </PanelGroup>
 
+      <PanelGroup title="Position">
+        <SliderRow
+          label="X"
+          hint={`${Math.round((cfg.offsetX ?? 0.5) * 100)}%`}
+          value={(cfg.offsetX ?? 0.5) * 100}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(v) => update({ offsetX: v / 100 })}
+          ariaLabel="Horizontal position"
+        />
+        <SliderRow
+          label="Y"
+          hint={`${Math.round((cfg.offsetY ?? 0.5) * 100)}%`}
+          value={(cfg.offsetY ?? 0.5) * 100}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(v) => update({ offsetY: v / 100 })}
+          ariaLabel="Vertical position"
+        />
+        <p className="text-[9px] text-white/30">
+          Or drag the element directly on the canvas
+        </p>
+      </PanelGroup>
+
       <PanelGroup title="Radius" hint={`${Math.round(cfg.radius)}px`}>
         <Slider
           value={cfg.radius}
