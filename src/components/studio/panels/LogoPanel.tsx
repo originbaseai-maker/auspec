@@ -1,8 +1,16 @@
 import { useCoverArtStore } from '@/store/useCoverArtStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import type { CropMode } from '@/types/coverArt'
+import type { LogoLayerConfig } from '@/types/layer'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
-import { PanelGroup, SegmentedGroup, Slider, SliderRow } from './shared'
+import {
+  LockedLayerBanner,
+  PanelGroup,
+  SegmentedGroup,
+  Slider,
+  SliderRow,
+} from './shared'
 
 const CROP_MODES = [
   { id: 'circle' as const, label: 'Circle' },
@@ -10,24 +18,50 @@ const CROP_MODES = [
   { id: 'none' as const, label: 'None' },
 ]
 
-export function LogoPanel() {
-  const logo = useCoverArtStore((s) => s.logo)
-  const logoSize = useCoverArtStore((s) => s.logoSize)
-  const setLogoSize = useCoverArtStore((s) => s.setLogoSize)
-  const logoCropMode = useCoverArtStore((s) => s.logoCropMode)
-  const setLogoCropMode = useCoverArtStore((s) => s.setLogoCropMode)
-  const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
-  const setAutoLogoSync = useCoverArtStore((s) => s.setAutoLogoSync)
-  const coverArtPosition = useCoverArtStore((s) => s.coverArtPosition)
-  const setCoverArtPosition = useCoverArtStore((s) => s.setCoverArtPosition)
+interface Props {
+  layerId: string
+}
 
+export function LogoPanel({ layerId }: Props) {
+  const layer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === layerId && l.type === 'logo'),
+  )
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+
+  // The IMAGE itself still lives in useCoverArtStore (one upload shared
+  // across all logo layers in V1). The layer owns size/crop/position.
+  const logo = useCoverArtStore((s) => s.logo)
+
+  // Polygon rotation legacy slider — still global because logo-in-polygon
+  // uses the polygon layer's own rotation; kept for back-compat UX.
   const polygonRotation = useVisualizerStore(
     (s) => s.visualizerConfig.polygon.rotation,
   )
   const updatePolygon = useVisualizerStore((s) => s.updatePolygon)
 
+  if (!layer) {
+    return (
+      <div className="p-4 text-center text-[11px] text-white/50">
+        Layer not found. Select a layer in the Layers sidebar.
+      </div>
+    )
+  }
+
+  const cfg = layer.config as LogoLayerConfig
+  const isLocked = layer.locked
+  const update = (partial: Partial<LogoLayerConfig>) =>
+    updateConfig(layerId, partial)
+
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+
       <PanelGroup title="Logo Overlay">
         <CoverArtUploaderSingle type="logo" />
       </PanelGroup>
@@ -37,8 +71,8 @@ export function LogoPanel() {
           <PanelGroup title="Crop Mode">
             <SegmentedGroup<CropMode>
               options={CROP_MODES}
-              value={logoCropMode}
-              onChange={(id) => setLogoCropMode(id)}
+              value={cfg.logoCropMode}
+              onChange={(id) => update({ logoCropMode: id })}
               cols={3}
             />
           </PanelGroup>
@@ -46,25 +80,25 @@ export function LogoPanel() {
           <PanelGroup title="Position">
             <SliderRow
               label="X"
-              hint={`${Math.round(coverArtPosition.x * 100)}%`}
-              value={coverArtPosition.x * 100}
+              hint={`${Math.round(cfg.position.x * 100)}%`}
+              value={cfg.position.x * 100}
               min={0}
               max={100}
               step={1}
               onChange={(v) =>
-                setCoverArtPosition({ x: v / 100, y: coverArtPosition.y })
+                update({ position: { x: v / 100, y: cfg.position.y } })
               }
               ariaLabel="Logo horizontal position"
             />
             <SliderRow
               label="Y"
-              hint={`${Math.round(coverArtPosition.y * 100)}%`}
-              value={coverArtPosition.y * 100}
+              hint={`${Math.round(cfg.position.y * 100)}%`}
+              value={cfg.position.y * 100}
               min={0}
               max={100}
               step={1}
               onChange={(v) =>
-                setCoverArtPosition({ x: coverArtPosition.x, y: v / 100 })
+                update({ position: { x: cfg.position.x, y: v / 100 } })
               }
               ariaLabel="Logo vertical position"
             />
@@ -75,26 +109,26 @@ export function LogoPanel() {
 
           <PanelGroup
             title="Fill Scale"
-            hint={`${Math.round(logoSize * 100)}%`}
+            hint={`${Math.round(cfg.logoSize * 100)}%`}
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[11px] text-white/70">Auto sync</span>
               <button
                 type="button"
-                onClick={() => setAutoLogoSync(!autoLogoSync)}
-                aria-pressed={autoLogoSync}
+                onClick={() => update({ autoLogoSync: !cfg.autoLogoSync })}
+                aria-pressed={cfg.autoLogoSync}
                 className="rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-all"
                 style={{
-                  background: autoLogoSync
+                  background: cfg.autoLogoSync
                     ? 'linear-gradient(90deg, #3b82f6, #8b5cf6)'
                     : '#1a1a1a',
-                  border: autoLogoSync
+                  border: cfg.autoLogoSync
                     ? '1px solid #3b82f6'
                     : '1px solid #2a2a2a',
-                  color: autoLogoSync
+                  color: cfg.autoLogoSync
                     ? '#fff'
                     : 'rgba(255,255,255,0.4)',
-                  boxShadow: autoLogoSync
+                  boxShadow: cfg.autoLogoSync
                     ? '0 0 8px rgba(59,130,246,0.5)'
                     : 'none',
                 }}
@@ -102,15 +136,17 @@ export function LogoPanel() {
                 Auto
               </button>
             </div>
-            <div style={{ opacity: autoLogoSync ? 0.4 : 1 }}>
+            <div style={{ opacity: cfg.autoLogoSync ? 0.4 : 1 }}>
               <Slider
-                value={logoSize * 100}
+                value={cfg.logoSize * 100}
                 min={10}
                 max={100}
                 step={1}
                 onChange={(v) => {
-                  setAutoLogoSync(false)
-                  setLogoSize(v / 100)
+                  update({
+                    autoLogoSync: false,
+                    logoSize: Math.max(0.1, Math.min(1.0, v / 100)),
+                  })
                 }}
                 ariaLabel="Logo scale"
               />

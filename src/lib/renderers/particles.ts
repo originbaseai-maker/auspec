@@ -333,10 +333,18 @@ class ParticleSystem {
   }
 }
 
-const particleSystem = new ParticleSystem()
+/**
+ * One ParticleSystem per layer ID. Each system owns its 500-particle
+ * pool and lastTimestamp, so simulations don't bleed across layers when
+ * the user has multiple particle layers running at once. Cleanup on
+ * layer remove is handled by useLayerStore.removeLayer calling
+ * `cleanupParticleSystem(id)` below.
+ */
+const particleSystems = new Map<string, ParticleSystem>()
 
-export function updateAndDrawParticles(
+export function drawParticlesForLayer(
   ctx: CanvasRenderingContext2D,
+  layerId: string,
   config: ParticleConfig,
   width: number,
   height: number,
@@ -344,12 +352,23 @@ export function updateAndDrawParticles(
   frequencyData: FrequencyData | null,
   timestamp: number,
 ): void {
-  const deltaMs = particleSystem.step(timestamp)
+  let system = particleSystems.get(layerId)
+  if (!system) {
+    system = new ParticleSystem()
+    particleSystems.set(layerId, system)
+  }
+  const deltaMs = system.step(timestamp)
   const bassEnergy = frequencyData ? frequencyData.bass / 255 : 0
-  particleSystem.update(config, width, height, deltaMs, bassEnergy)
-  particleSystem.draw(ctx, config, visualizerPalette, bassEnergy)
+  system.update(config, width, height, deltaMs, bassEnergy)
+  system.draw(ctx, config, visualizerPalette, bassEnergy)
 }
 
-export function resetParticles(): void {
-  particleSystem.reset()
+/** Drop the particle system for a removed layer (frees the pool). */
+export function cleanupParticleSystem(layerId: string): void {
+  particleSystems.delete(layerId)
+}
+
+/** Reset all particle systems — used on full layer-stack replace (preset apply). */
+export function resetAllParticles(): void {
+  for (const sys of particleSystems.values()) sys.reset()
 }

@@ -2,8 +2,18 @@ import type { LinearBarsConfig } from '@/lib/renderers/linearBars'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import type { WaveConfig } from '@/lib/renderers/wave'
 import type { PolygonSpectrumConfig } from '@/lib/renderers/polygonSpectrum'
+import type { ParticleConfig } from '@/store/useParticleStore'
+import type { FrameConfig } from '@/store/useFrameStore'
+import type { CropMode } from '@/types/coverArt'
 
-export type LayerType = 'bars' | 'circular' | 'wave' | 'polygon'
+export type LayerType =
+  | 'bars'
+  | 'circular'
+  | 'wave'
+  | 'polygon'
+  | 'particles'
+  | 'logo'
+  | 'frame'
 
 export interface BarsLayer {
   type: 'bars'
@@ -21,8 +31,45 @@ export interface PolygonLayer {
   type: 'polygon'
   config: PolygonSpectrumConfig
 }
+export interface ParticlesLayer {
+  type: 'particles'
+  config: ParticleConfig
+}
 
-export type LayerData = BarsLayer | CircularLayer | WaveLayer | PolygonLayer
+/**
+ * Per-layer logo configuration. The IMAGE itself lives in
+ * `useCoverArtStore.logo` (shared across all logo layers in V1 — users
+ * upload one image, can show it in multiple places). Each LogoLayer
+ * provides its own size / position / crop / sync setting.
+ */
+export interface LogoLayerConfig {
+  /** Fraction of min(width, height). 0.1–1.0. */
+  logoSize: number
+  logoCropMode: CropMode
+  /** Center position 0–1. */
+  position: { x: number; y: number }
+  /** Auto-sync to a circular/polygon layer's radius (V1: still global behavior). */
+  autoLogoSync: boolean
+}
+
+export interface LogoLayer {
+  type: 'logo'
+  config: LogoLayerConfig
+}
+
+export interface FrameLayer {
+  type: 'frame'
+  config: FrameConfig
+}
+
+export type LayerData =
+  | BarsLayer
+  | CircularLayer
+  | WaveLayer
+  | PolygonLayer
+  | ParticlesLayer
+  | LogoLayer
+  | FrameLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -44,6 +91,9 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   circular: 'Circular',
   wave: 'Wave',
   polygon: 'Polygon',
+  particles: 'Particles',
+  logo: 'Logo',
+  frame: 'Frame',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -51,7 +101,17 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'circular',
   'wave',
   'polygon',
+  'particles',
+  'logo',
+  'frame',
 ] as const
+
+export const DEFAULT_LOGO_LAYER_CONFIG: LogoLayerConfig = {
+  logoSize: 0.25,
+  logoCropMode: 'square',
+  position: { x: 0.5, y: 0.5 },
+  autoLogoSync: true,
+}
 
 /**
  * Pick the next free name for a new layer of `type`. Uses the existing

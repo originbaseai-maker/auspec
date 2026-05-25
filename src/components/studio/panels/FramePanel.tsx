@@ -1,43 +1,83 @@
-import { useFrameStore } from '@/store/useFrameStore'
+import type { FrameConfig } from '@/store/useFrameStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import {
   ColorRow,
+  LockedLayerBanner,
   PanelGroup,
   Slider,
   SliderRow,
   Toggle,
 } from './shared'
 
-export function FramePanel() {
-  const enabled = useFrameStore((s) => s.enabled)
-  const color = useFrameStore((s) => s.color)
-  const thickness = useFrameStore((s) => s.thickness)
-  const smoothness = useFrameStore((s) => s.smoothness)
-  const haloEnabled = useFrameStore((s) => s.haloEnabled)
-  const haloIntensity = useFrameStore((s) => s.haloIntensity)
-  const shadowEnabled = useFrameStore((s) => s.shadowEnabled)
-  const shadowIntensity = useFrameStore((s) => s.shadowIntensity)
-  const shadowColor = useFrameStore((s) => s.shadowColor)
-  const reflectionEnabled = useFrameStore((s) => s.reflectionEnabled)
-  const reflectionIntensity = useFrameStore((s) => s.reflectionIntensity)
-  const pulseEnabled = useFrameStore((s) => s.pulseEnabled)
-  const pulseIntensity = useFrameStore((s) => s.pulseIntensity)
+interface Props {
+  layerId: string
+}
 
-  const setEnabled = useFrameStore((s) => s.setEnabled)
-  const setColor = useFrameStore((s) => s.setColor)
-  const setThickness = useFrameStore((s) => s.setThickness)
-  const setSmoothness = useFrameStore((s) => s.setSmoothness)
-  const setHaloEnabled = useFrameStore((s) => s.setHaloEnabled)
-  const setHaloIntensity = useFrameStore((s) => s.setHaloIntensity)
-  const setShadowEnabled = useFrameStore((s) => s.setShadowEnabled)
-  const setShadowIntensity = useFrameStore((s) => s.setShadowIntensity)
-  const setShadowColor = useFrameStore((s) => s.setShadowColor)
-  const setReflectionEnabled = useFrameStore((s) => s.setReflectionEnabled)
-  const setReflectionIntensity = useFrameStore((s) => s.setReflectionIntensity)
-  const setPulseEnabled = useFrameStore((s) => s.setPulseEnabled)
-  const setPulseIntensity = useFrameStore((s) => s.setPulseIntensity)
+export function FramePanel({ layerId }: Props) {
+  const layer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === layerId && l.type === 'frame'),
+  )
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+
+  if (!layer) {
+    return (
+      <div className="p-4 text-center text-[11px] text-white/50">
+        Layer not found. Select a layer in the Layers sidebar.
+      </div>
+    )
+  }
+
+  const cfg = layer.config as FrameConfig
+  const isLocked = layer.locked
+
+  const update = (partial: Partial<FrameConfig>) =>
+    updateConfig(layerId, partial)
+  const clamp = (v: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, v))
+
+  const enabled = cfg.enabled
+  const color = cfg.color
+  const thickness = cfg.thickness
+  const smoothness = cfg.smoothness
+  const haloEnabled = cfg.haloEnabled
+  const haloIntensity = cfg.haloIntensity
+  const shadowEnabled = cfg.shadowEnabled
+  const shadowIntensity = cfg.shadowIntensity
+  const shadowColor = cfg.shadowColor
+  const reflectionEnabled = cfg.reflectionEnabled
+  const reflectionIntensity = cfg.reflectionIntensity
+  const pulseEnabled = cfg.pulseEnabled
+  const pulseIntensity = cfg.pulseIntensity
+
+  const setEnabled = (v: boolean) => update({ enabled: v })
+  const setColor = (v: string) => update({ color: v })
+  const setThickness = (v: number) => update({ thickness: clamp(v, 0, 40) })
+  const setSmoothness = (v: number) => update({ smoothness: clamp(v, 0, 50) })
+  const setHaloEnabled = (v: boolean) => update({ haloEnabled: v })
+  const setHaloIntensity = (v: number) =>
+    update({ haloIntensity: clamp(v, 0, 100) })
+  const setShadowEnabled = (v: boolean) => update({ shadowEnabled: v })
+  const setShadowIntensity = (v: number) =>
+    update({ shadowIntensity: clamp(v, 0, 100) })
+  const setShadowColor = (v: string) => update({ shadowColor: v })
+  const setReflectionEnabled = (v: boolean) =>
+    update({ reflectionEnabled: v })
+  const setReflectionIntensity = (v: number) =>
+    update({ reflectionIntensity: clamp(v, 0, 100) })
+  const setPulseEnabled = (v: boolean) => update({ pulseEnabled: v })
+  const setPulseIntensity = (v: number) =>
+    update({ pulseIntensity: clamp(v, 0, 100) })
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Frame">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-white/70">Enabled</span>
@@ -187,6 +227,7 @@ export function FramePanel() {
             />
           </div>
         </PanelGroup>
+      </div>
       </div>
     </div>
   )

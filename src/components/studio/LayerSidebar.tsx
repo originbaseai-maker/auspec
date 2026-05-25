@@ -9,10 +9,13 @@ import {
   Eye,
   EyeOff,
   Hexagon,
+  Image as ImageIcon,
   Lock,
   Pencil,
   Plus,
   RotateCcw,
+  Sparkles,
+  Square,
   Trash2,
   Unlock,
   type LucideIcon,
@@ -32,6 +35,9 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   circular: Circle,
   wave: AudioWaveform,
   polygon: Hexagon,
+  particles: Sparkles,
+  logo: ImageIcon,
+  frame: Square,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -39,6 +45,9 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   circular: 'visualizer_circular',
   wave: 'visualizer_wave',
   polygon: 'visualizer_polygon',
+  particles: 'particles',
+  logo: 'logo',
+  frame: 'frame',
 }
 
 interface ContextMenuState {

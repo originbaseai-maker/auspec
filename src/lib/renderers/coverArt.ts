@@ -185,3 +185,41 @@ export function renderLogoOnly(
 export function clearImageCache(objectUrl: string): void {
   imageCache.delete(objectUrl)
 }
+
+/**
+ * Per-layer logo entry point. Reads the shared logo image from
+ * `useCoverArtStore` and renders it at the layer-specific position +
+ * size. If no logo is uploaded the layer is silently skipped.
+ *
+ * V1 behavior: all logo layers share the same uploaded image (single
+ * upload point). Layer config independently controls placement/size.
+ */
+export interface LogoLayerRenderConfig {
+  logoSize: number
+  logoCropMode: CropMode
+  position: { x: number; y: number }
+}
+
+export function drawLogoLayer(
+  ctx: CanvasRenderingContext2D,
+  logo: CoverArtImage | null,
+  config: LogoLayerRenderConfig,
+  width: number,
+  height: number,
+): void {
+  if (!logo) return
+  const logoImg = getOrLoadImage(logo.objectUrl)
+  if (!logoImg) return
+
+  const minDim = Math.min(width, height)
+  const logoSizePx = minDim * config.logoSize
+  const cx = width * config.position.x
+  const cy = height * config.position.y
+
+  ctx.save()
+  ctx.shadowBlur = 30
+  ctx.shadowColor = 'rgba(59,130,246,0.4)'
+  drawCroppedImage(ctx, logoImg, cx, cy, logoSizePx, config.logoCropMode)
+  ctx.shadowBlur = 0
+  ctx.restore()
+}

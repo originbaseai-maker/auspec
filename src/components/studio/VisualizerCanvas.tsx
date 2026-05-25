@@ -6,18 +6,20 @@ import { renderCircularSpectrum } from '@/lib/renderers/circularSpectrum'
 import { renderWave } from '@/lib/renderers/wave'
 import { renderPolygonSpectrum } from '@/lib/renderers/polygonSpectrum'
 import { renderFramePulse } from '@/lib/renderers/framePulse'
-import { renderCoverArt, renderLogoOnly } from '@/lib/renderers/coverArt'
-import { drawFrame } from '@/lib/renderers/frame'
+import {
+  drawLogoLayer,
+  renderCoverArt,
+  renderLogoOnly,
+} from '@/lib/renderers/coverArt'
+import { drawFrameLayer } from '@/lib/renderers/frame'
 import { drawTextOverlay } from '@/lib/renderers/textOverlay'
-import { updateAndDrawParticles } from '@/lib/renderers/particles'
+import { drawParticlesForLayer } from '@/lib/renderers/particles'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
-import { useFrameStore } from '@/store/useFrameStore'
 import { useTextStore } from '@/store/useTextStore'
-import { useParticleStore } from '@/store/useParticleStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
@@ -43,9 +45,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const previewMode = useAudioStore((s) => s.previewMode)
   const audioFile = useAudioStore((s) => s.audioFile)
-  const frameConfig = useFrameStore()
   const textConfig = useTextStore()
-  const particleConfig = useParticleStore()
   const layers = useLayerStore((s) => s.layers)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
@@ -122,9 +122,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const coverArtStateRef = useRef(coverArtState)
   const previewModeRef = useRef(previewMode)
   const audioFileRef = useRef(audioFile)
-  const frameConfigRef = useRef(frameConfig)
   const textConfigRef = useRef(textConfig)
-  const particleConfigRef = useRef(particleConfig)
   const layersRef = useRef(layers)
 
   useEffect(() => {
@@ -136,20 +134,12 @@ export default function VisualizerCanvas(): JSX.Element {
   }, [textConfig])
 
   useEffect(() => {
-    particleConfigRef.current = particleConfig
-  }, [particleConfig])
-
-  useEffect(() => {
     previewModeRef.current = previewMode
   }, [previewMode])
 
   useEffect(() => {
     audioFileRef.current = audioFile
   }, [audioFile])
-
-  useEffect(() => {
-    frameConfigRef.current = frameConfig
-  }, [frameConfig])
 
   useEffect(() => {
     configRef.current = config
@@ -204,6 +194,24 @@ export default function VisualizerCanvas(): JSX.Element {
         const enabledLayers = [...layersRef.current]
           .filter((l) => l.enabled)
           .sort((a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt)
+
+        // Precompute palette for any "Sync with visualizer" particle
+        // layers: topmost enabled visualizer-type layer's palette wins.
+        let visualizerPalette: string[] | undefined
+        {
+          const topDown = [...enabledLayers].reverse()
+          for (const l of topDown) {
+            if (l.type === 'bars' || l.type === 'circular' ||
+                l.type === 'wave' || l.type === 'polygon') {
+              if (l.config.palette && l.config.palette.length > 0) {
+                visualizerPalette = l.config.palette
+                break
+              }
+            }
+          }
+        }
+        const bassEnergy = data.bass / 255
+        const nowMs = performance.now()
 
         for (const layer of enabledLayers) {
           switch (layer.type) {
@@ -268,6 +276,34 @@ export default function VisualizerCanvas(): JSX.Element {
               )
               break
             }
+            case 'particles':
+              drawParticlesForLayer(
+                ctx,
+                layer.id,
+                layer.config,
+                width,
+                height,
+                visualizerPalette,
+                data,
+                nowMs,
+              )
+              break
+            case 'logo':
+              drawLogoLayer(
+                ctx,
+                cover.logo,
+                {
+                  logoSize: layer.config.logoSize,
+                  logoCropMode: layer.config.logoCropMode,
+                  position: layer.config.position,
+                },
+                width,
+                height,
+              )
+              break
+            case 'frame':
+              drawFrameLayer(ctx, layer.config, width, height, bassEnergy)
+              break
           }
         }
 
@@ -276,6 +312,8 @@ export default function VisualizerCanvas(): JSX.Element {
         }
       }
 
+      // Cover-art overlay (separate from Logo layers — driven by the
+      // existing CoverArtUploader; still global for now).
       if (cover.coverArt) {
         renderCoverArt(
           ctx,
@@ -293,56 +331,7 @@ export default function VisualizerCanvas(): JSX.Element {
           width,
           height,
         )
-      } else if (
-        cover.logo &&
-        !layersRef.current.some((l) => l.type === 'polygon' && l.enabled)
-      ) {
-        // If ANY polygon layer is enabled it already drew the logo
-        // inside its shape. Otherwise render the logo here on top with
-        // its standard crop mode.
-        renderLogoOnly(
-          ctx,
-          cover.logo,
-          {
-            logoSize: cover.logoSize,
-            logoCropMode: cover.logoCropMode,
-            coverArtPosition: cover.coverArtPosition,
-          },
-          width,
-          height,
-        )
       }
-
-      // Particles overlay — drawn between the main visualizer and the
-      // frame so the frame border still sits on top. With multiple
-      // layers enabled, pick the TOPMOST enabled layer's palette as the
-      // ambient sync source.
-      let activePalette: string[] | undefined
-      {
-        const topToBottom = [...layersRef.current]
-          .filter((l) => l.enabled)
-          .sort((a, b) => b.zOrder - a.zOrder || b.createdAt - a.createdAt)
-        for (const l of topToBottom) {
-          if (l.config.palette && l.config.palette.length > 0) {
-            activePalette = l.config.palette
-            break
-          }
-        }
-      }
-      updateAndDrawParticles(
-        ctx,
-        particleConfigRef.current,
-        width,
-        height,
-        activePalette,
-        data,
-        performance.now(),
-      )
-
-      // Frame draws on top of the visualizer + particles. Painted onto
-      // the canvas (not as CSS) so captureStream() includes it in export.
-      const bassEnergy = data ? data.bass / 255 : 0
-      drawFrame(ctx, width, height, frameConfigRef.current, bassEnergy)
 
       // Text overlay draws LAST so titles/artist sit on top of everything,
       // including the frame border. We pass `editingLayerId` so the layer

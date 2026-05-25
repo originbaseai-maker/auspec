@@ -56,7 +56,7 @@ export interface ParticleStore extends ParticleConfig {
   resetToDefaults: () => void
 }
 
-const DEFAULTS: ParticleConfig = {
+export const DEFAULT_PARTICLE_CONFIG: ParticleConfig = {
   enabled: false,
   shape: 'circle',
   motion: 'float',
@@ -78,7 +78,7 @@ const DEFAULTS: ParticleConfig = {
 }
 
 export const useParticleStore = create<ParticleStore>((set) => ({
-  ...DEFAULTS,
+  ...DEFAULT_PARTICLE_CONFIG,
   setEnabled: (enabled) => set({ enabled }),
   setShape: (shape) => set({ shape }),
   setMotion: (motion) => set({ motion }),
@@ -102,5 +102,5 @@ export const useParticleStore = create<ParticleStore>((set) => ({
   setGravity: (gravity) => set({ gravity: clamp(gravity, -1, 1) }),
   setFriction: (friction) => set({ friction: clamp(friction, 0.85, 1) }),
   setSpread: (spread) => set({ spread: clamp(spread, 0, 100) }),
-  resetToDefaults: () => set(DEFAULTS),
+  resetToDefaults: () => set(DEFAULT_PARTICLE_CONFIG),
 }))

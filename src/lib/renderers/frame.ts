@@ -16,6 +16,21 @@ import type { FrameConfig } from '@/store/useFrameStore'
  * and the reflection is inset by the FULL thickness so the gradient
  * sheen stays inside the border rather than overlapping it.
  */
+/**
+ * Per-layer drawing entry point used by the canvas layer loop. Signature
+ * mirrors the other layer renderers (ctx, config, width, height, data).
+ * Computes its own bassEnergy from frequencyData when present.
+ */
+export function drawFrameLayer(
+  ctx: CanvasRenderingContext2D,
+  config: FrameConfig,
+  width: number,
+  height: number,
+  bassEnergy: number,
+): void {
+  drawFrame(ctx, width, height, config, bassEnergy)
+}
+
 export function drawFrame(
   ctx: CanvasRenderingContext2D,
   width: number,

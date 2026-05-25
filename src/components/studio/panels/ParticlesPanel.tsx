@@ -1,9 +1,12 @@
 import {
-  useParticleStore,
+  DEFAULT_PARTICLE_CONFIG,
+  type ParticleConfig,
   type ParticleMotion,
   type ParticleShape,
 } from '@/store/useParticleStore'
+import { useLayerStore } from '@/store/useLayerStore'
 import {
+  LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -27,11 +30,79 @@ const MOTIONS: { id: ParticleMotion; label: string }[] = [
   { id: 'orbit', label: 'Orbit' },
 ]
 
-export function ParticlesPanel() {
-  const store = useParticleStore()
+interface Props {
+  layerId: string
+}
+
+export function ParticlesPanel({ layerId }: Props) {
+  const layer = useLayerStore((s) =>
+    s.layers.find((l) => l.id === layerId && l.type === 'particles'),
+  )
+  const updateConfig = useLayerStore((s) => s.updateConfig)
+
+  if (!layer) {
+    return (
+      <div className="p-4 text-center text-[11px] text-white/50">
+        Layer not found. Select a layer in the Layers sidebar.
+      </div>
+    )
+  }
+
+  const cfg = layer.config as ParticleConfig
+  const isLocked = layer.locked
+
+  // Build a shim that matches the legacy `store` API the JSX expects —
+  // getters proxy to cfg, setters call updateConfig. Lets the panel body
+  // stay unchanged while the data flows through the layer store.
+  const update = (partial: Partial<ParticleConfig>) =>
+    updateConfig(layerId, partial)
+  const store = {
+    ...cfg,
+    setEnabled: (v: boolean) => update({ enabled: v }),
+    setShape: (v: ParticleShape) => update({ shape: v }),
+    setMotion: (v: ParticleMotion) => update({ motion: v }),
+    setDensity: (v: number) =>
+      update({ density: Math.max(10, Math.min(500, Math.round(v))) }),
+    setSize: (v: number) =>
+      update({ size: Math.max(1, Math.min(20, v)) }),
+    setSpeed: (v: number) =>
+      update({ speed: Math.max(0.1, Math.min(3, v)) }),
+    setLifespan: (v: number) =>
+      update({ lifespan: Math.max(0.5, Math.min(5, v)) }),
+    setFadeOut: (v: boolean) => update({ fadeOut: v }),
+    setGlowEnabled: (v: boolean) => update({ glowEnabled: v }),
+    setGlowIntensity: (v: number) =>
+      update({ glowIntensity: Math.max(0, Math.min(100, v)) }),
+    setPalette: (v: string[]) =>
+      update({ palette: v.length >= 1 ? v : ['#ffffff'] }),
+    setUseVisualizerPalette: (v: boolean) =>
+      update({ useVisualizerPalette: v }),
+    setBeatReactive: (v: boolean) => update({ beatReactive: v }),
+    setBeatBurstAmount: (v: number) =>
+      update({
+        beatBurstAmount: Math.max(0, Math.min(100, Math.round(v))),
+      }),
+    setBeatSizeMultiplier: (v: number) =>
+      update({ beatSizeMultiplier: Math.max(1, Math.min(3, v)) }),
+    setGravity: (v: number) =>
+      update({ gravity: Math.max(-1, Math.min(1, v)) }),
+    setFriction: (v: number) =>
+      update({ friction: Math.max(0.85, Math.min(1, v)) }),
+    setSpread: (v: number) =>
+      update({ spread: Math.max(0, Math.min(100, v)) }),
+    resetToDefaults: () => update({ ...DEFAULT_PARTICLE_CONFIG }),
+  }
 
   return (
-    <div className="space-y-5">
+    <div
+      className="space-y-5"
+      style={{
+        opacity: isLocked ? 0.5 : 1,
+        pointerEvents: isLocked ? 'none' : 'auto',
+      }}
+    >
+      {isLocked && <LockedLayerBanner />}
+      <div className="space-y-5">
       <PanelGroup title="Particles">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-white/70">Enabled</span>
@@ -252,6 +323,7 @@ export function ParticlesPanel() {
         </PanelGroup>
       </div>
 
+      </div>
       <button
         type="button"
         onClick={store.resetToDefaults}

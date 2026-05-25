@@ -5,7 +5,10 @@ import {
   DEFAULT_WAVE,
 } from '@/lib/visualizerConfig'
 import { DEFAULT_POLYGON_CONFIG } from '@/lib/renderers/polygonSpectrum'
+import { DEFAULT_PARTICLE_CONFIG } from '@/store/useParticleStore'
+import { DEFAULT_FRAME_CONFIG } from '@/store/useFrameStore'
 import {
+  DEFAULT_LOGO_LAYER_CONFIG,
   generateLayerName,
   LAYER_TYPES,
   type Layer,
@@ -30,6 +33,18 @@ function defaultData(type: LayerType): LayerData {
       return { type: 'wave', config: { ...DEFAULT_WAVE } }
     case 'polygon':
       return { type: 'polygon', config: { ...DEFAULT_POLYGON_CONFIG } }
+    case 'particles':
+      return { type: 'particles', config: { ...DEFAULT_PARTICLE_CONFIG } }
+    case 'logo':
+      return {
+        type: 'logo',
+        config: {
+          ...DEFAULT_LOGO_LAYER_CONFIG,
+          position: { ...DEFAULT_LOGO_LAYER_CONFIG.position },
+        },
+      }
+    case 'frame':
+      return { type: 'frame', config: { ...DEFAULT_FRAME_CONFIG } }
   }
 }
 
@@ -65,6 +80,27 @@ function createLayer(
       return { ...base, type: 'wave', config: { ...DEFAULT_WAVE } }
     case 'polygon':
       return { ...base, type: 'polygon', config: { ...DEFAULT_POLYGON_CONFIG } }
+    case 'particles':
+      return {
+        ...base,
+        type: 'particles',
+        config: { ...DEFAULT_PARTICLE_CONFIG },
+      }
+    case 'logo':
+      return {
+        ...base,
+        type: 'logo',
+        config: {
+          ...DEFAULT_LOGO_LAYER_CONFIG,
+          position: { ...DEFAULT_LOGO_LAYER_CONFIG.position },
+        },
+      }
+    case 'frame':
+      return {
+        ...base,
+        type: 'frame',
+        config: { ...DEFAULT_FRAME_CONFIG },
+      }
   }
 }
 
@@ -165,6 +201,14 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 
   removeLayer: (id) =>
     set((s) => {
+      const removed = s.layers.find((l) => l.id === id)
+      // Particle systems own per-layer simulation state in a module-level
+      // Map; prune the entry so we don't leak the 500-particle pool.
+      if (removed?.type === 'particles') {
+        void import('@/lib/renderers/particles').then((m) =>
+          m.cleanupParticleSystem(id),
+        )
+      }
       const remaining = s.layers.filter((l) => l.id !== id)
       // Re-pack zOrder so it stays dense (0..N-1) — keeps the up/down
       // chevron disabled-edge logic predictable.
@@ -210,6 +254,22 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           break
         case 'polygon':
           dup = { ...base, type: 'polygon', config: { ...source.config } }
+          break
+        case 'particles':
+          dup = { ...base, type: 'particles', config: { ...source.config } }
+          break
+        case 'logo':
+          dup = {
+            ...base,
+            type: 'logo',
+            config: {
+              ...source.config,
+              position: { ...source.config.position },
+            },
+          }
+          break
+        case 'frame':
+          dup = { ...base, type: 'frame', config: { ...source.config } }
           break
       }
       return {
@@ -261,6 +321,27 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'polygon',
               config: { ...(fresh as { type: 'polygon'; config: object })
+                .config },
+            } as Layer
+          case 'particles':
+            return {
+              ...l,
+              type: 'particles',
+              config: { ...(fresh as { type: 'particles'; config: object })
+                .config },
+            } as Layer
+          case 'logo':
+            return {
+              ...l,
+              type: 'logo',
+              config: { ...(fresh as { type: 'logo'; config: object })
+                .config },
+            } as Layer
+          case 'frame':
+            return {
+              ...l,
+              type: 'frame',
+              config: { ...(fresh as { type: 'frame'; config: object })
                 .config },
             } as Layer
         }
@@ -388,6 +469,27 @@ export function initializeLayersFromVisualizerStore(): void {
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break
+        case 'particles':
+          layer = {
+            ...base,
+            type: 'particles',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'logo':
+          layer = {
+            ...base,
+            type: 'logo',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'frame':
+          layer = {
+            ...base,
+            type: 'frame',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
       }
       layers.push(layer)
     }
@@ -397,17 +499,78 @@ export function initializeLayersFromVisualizerStore(): void {
     push('wave', cfg.wave, visualType === 'wave')
     push('polygon', cfg.polygon, visualType === 'polygon')
 
-    const validType: LayerType = LAYER_TYPES.includes(
-      visualType as LayerType,
-    )
-      ? (visualType as LayerType)
-      : 'bars'
-    const active =
-      layers.find((l) => l.type === validType && l.enabled) ?? layers[0]
+    // Pull legacy single-instance state from the dedicated stores.
+    // Loaded lazily so this file doesn't take a hard dep on them.
+    Promise.all([
+      import('./useParticleStore'),
+      import('./useFrameStore'),
+      import('./useCoverArtStore'),
+    ]).then(([particleMod, frameMod, coverArtMod]) => {
+      const p = particleMod.useParticleStore.getState()
+      const f = frameMod.useFrameStore.getState()
+      const c = coverArtMod.useCoverArtStore.getState()
 
-    useLayerStore.setState({
-      layers,
-      activeLayerId: active?.id ?? null,
+      const particleConfig = {
+        enabled: p.enabled,
+        shape: p.shape,
+        motion: p.motion,
+        density: p.density,
+        size: p.size,
+        speed: p.speed,
+        lifespan: p.lifespan,
+        fadeOut: p.fadeOut,
+        glowEnabled: p.glowEnabled,
+        glowIntensity: p.glowIntensity,
+        palette: [...p.palette],
+        useVisualizerPalette: p.useVisualizerPalette,
+        beatReactive: p.beatReactive,
+        beatBurstAmount: p.beatBurstAmount,
+        beatSizeMultiplier: p.beatSizeMultiplier,
+        gravity: p.gravity,
+        friction: p.friction,
+        spread: p.spread,
+      }
+      push('particles', particleConfig, p.enabled)
+
+      const logoConfig = {
+        logoSize: c.logoSize,
+        logoCropMode: c.logoCropMode,
+        position: { ...c.coverArtPosition },
+        autoLogoSync: c.autoLogoSync,
+      }
+      // Enable the Logo layer if the user has uploaded a logo (preserves
+      // the visual behavior from before the migration).
+      push('logo', logoConfig, c.logo !== null)
+
+      const frameConfig = {
+        enabled: f.enabled,
+        color: f.color,
+        thickness: f.thickness,
+        smoothness: f.smoothness,
+        haloEnabled: f.haloEnabled,
+        haloIntensity: f.haloIntensity,
+        shadowEnabled: f.shadowEnabled,
+        shadowIntensity: f.shadowIntensity,
+        shadowColor: f.shadowColor,
+        reflectionEnabled: f.reflectionEnabled,
+        reflectionIntensity: f.reflectionIntensity,
+        pulseEnabled: f.pulseEnabled,
+        pulseIntensity: f.pulseIntensity,
+      }
+      push('frame', frameConfig, f.enabled)
+
+      const validType: LayerType = LAYER_TYPES.includes(
+        visualType as LayerType,
+      )
+        ? (visualType as LayerType)
+        : 'bars'
+      const active =
+        layers.find((l) => l.type === validType && l.enabled) ?? layers[0]
+
+      useLayerStore.setState({
+        layers,
+        activeLayerId: active?.id ?? null,
+      })
     })
   })
 }

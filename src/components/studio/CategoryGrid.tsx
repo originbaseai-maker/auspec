@@ -9,6 +9,10 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'visualizer_circular') return 'circular'
   if (id === 'visualizer_wave') return 'wave'
   if (id === 'visualizer_polygon') return 'polygon'
+  if (id === 'particles') return 'particles'
+  if (id === 'logo') return 'logo'
+  if (id === 'frame') return 'frame'
+  // background, text — Part 2C-2. ai_style — never (preset generator).
   return null
 }
 

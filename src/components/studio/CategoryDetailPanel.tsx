@@ -22,11 +22,19 @@ interface Props {
   hideHeader?: boolean
 }
 
-const VISUALIZER_CATEGORIES = new Set([
+/**
+ * Categories whose detail panel routes through the active layer (i.e.
+ * the user can have multiple layers of this type). Background/Text/AI
+ * Style remain singleton-overlay categories handled in the default switch.
+ */
+const LAYER_CATEGORIES = new Set([
   'visualizer_bars',
   'visualizer_circular',
   'visualizer_wave',
   'visualizer_polygon',
+  'particles',
+  'logo',
+  'frame',
 ])
 
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
@@ -42,9 +50,9 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   if (!cat) return null
 
   const renderPanel = () => {
-    // Visualizer categories route by the ACTIVE LAYER'S type — the
-    // category just opens a panel, the layer determines which one.
-    if (VISUALIZER_CATEGORIES.has(activeCategory)) {
+    // Layer-backed categories route by the ACTIVE LAYER's type — the
+    // category just opens a panel; the layer determines which one.
+    if (LAYER_CATEGORIES.has(activeCategory)) {
       if (!activeLayer) {
         return (
           <div className="p-6 text-center text-[11px] text-white/50">
@@ -61,22 +69,23 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <WavePanel layerId={activeLayer.id} />
         case 'polygon':
           return <PolygonPanel layerId={activeLayer.id} />
+        case 'particles':
+          return <ParticlesPanel layerId={activeLayer.id} />
+        case 'logo':
+          return <LogoPanel layerId={activeLayer.id} />
+        case 'frame':
+          return <FramePanel layerId={activeLayer.id} />
       }
     }
 
+    // Remaining singleton-overlay categories (Part 2C-2 will migrate).
     switch (activeCategory) {
-      case 'particles':
-        return <ParticlesPanel />
       case 'background':
         return <BackgroundPanel />
-      case 'logo':
-        return <LogoPanel />
       case 'text':
         return <TextPanel />
       case 'ai_style':
         return <AIPanel />
-      case 'frame':
-        return <FramePanel />
       default:
         return null
     }
@@ -88,7 +97,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
 
   // Show the active layer's name in the header when editing a layer,
   // otherwise fall back to the category label.
-  const isLayerCategory = VISUALIZER_CATEGORIES.has(activeCategory)
+  const isLayerCategory = LAYER_CATEGORIES.has(activeCategory)
   const headerLabel =
     isLayerCategory && activeLayer ? activeLayer.name : cat.label
 
