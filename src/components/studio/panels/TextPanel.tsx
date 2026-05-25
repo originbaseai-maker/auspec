@@ -1,3 +1,4 @@
+import { useBrandKitStore } from '@/store/useBrandKitStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import type { FontFamily, TextLayerConfig } from '@/types/layer'
 import {
@@ -50,6 +51,7 @@ export function TextPanel({ layerId }: Props) {
   const isLocked = layer.locked
   const update = (partial: Partial<TextLayerConfig>) =>
     updateConfig(layerId, partial)
+  const brandFonts = useBrandKitStore((s) => s.kit.fonts)
 
   return (
     <div
@@ -74,6 +76,68 @@ export function TextPanel({ layerId }: Props) {
           style={{ borderColor: '#2a2a2a' }}
         />
       </div>
+
+      {(brandFonts.primary || brandFonts.secondary) && (
+        <div
+          className="rounded-md border p-2"
+          style={{ borderColor: '#2a2a2a', background: '#0a0a0a' }}
+        >
+          <p className="mb-1 text-[9px] uppercase tracking-wider text-white/40">
+            🎨 Brand
+          </p>
+          <div className="flex gap-1">
+            {brandFonts.primary && (
+              <button
+                type="button"
+                onClick={() =>
+                  brandFonts.primary && update({ font: brandFonts.primary })
+                }
+                className="flex-1 rounded border px-2 py-1.5 text-[11px]"
+                style={{
+                  borderColor:
+                    cfg.font === brandFonts.primary ? '#3b82f6' : '#2a2a2a',
+                  background:
+                    cfg.font === brandFonts.primary
+                      ? 'rgba(59,130,246,0.15)'
+                      : '#1a1a1a',
+                  color: '#fff',
+                  fontFamily: `"${brandFonts.primary}", sans-serif`,
+                }}
+              >
+                {brandFonts.primary}
+                <span className="ml-1 text-[8px] text-white/40">primary</span>
+              </button>
+            )}
+            {brandFonts.secondary && (
+              <button
+                type="button"
+                onClick={() =>
+                  brandFonts.secondary &&
+                  update({ font: brandFonts.secondary })
+                }
+                className="flex-1 rounded border px-2 py-1.5 text-[11px]"
+                style={{
+                  borderColor:
+                    cfg.font === brandFonts.secondary
+                      ? '#3b82f6'
+                      : '#2a2a2a',
+                  background:
+                    cfg.font === brandFonts.secondary
+                      ? 'rgba(59,130,246,0.15)'
+                      : '#1a1a1a',
+                  color: '#fff',
+                  fontFamily: `"${brandFonts.secondary}", sans-serif`,
+                }}
+              >
+                {brandFonts.secondary}
+                <span className="ml-1 text-[8px] text-white/40">
+                  secondary
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">

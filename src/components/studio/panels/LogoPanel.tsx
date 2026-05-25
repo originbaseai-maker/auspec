@@ -1,6 +1,8 @@
+import { useBrandKitStore } from '@/store/useBrandKitStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { loadImageFile } from '@/types/coverArt'
 import type { CropMode } from '@/types/coverArt'
 import type { LogoLayerConfig } from '@/types/layer'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
@@ -31,6 +33,28 @@ export function LogoPanel({ layerId }: Props) {
   // The IMAGE itself still lives in useCoverArtStore (one upload shared
   // across all logo layers in V1). The layer owns size/crop/position.
   const logo = useCoverArtStore((s) => s.logo)
+  const setCoverArtLogo = useCoverArtStore((s) => s.setLogo)
+  const brandLogos = useBrandKitStore((s) => s.kit.logos)
+
+  /** Convert a brand kit's data-URL logo into a CoverArtImage and apply. */
+  const applyBrandLogo = async (
+    name: string,
+    imageSrc: string,
+  ): Promise<void> => {
+    try {
+      const res = await fetch(imageSrc)
+      const blob = await res.blob()
+      const file = new File(
+        [blob],
+        `${name}.${blob.type.split('/')[1] ?? 'png'}`,
+        { type: blob.type || 'image/png' },
+      )
+      const image = await loadImageFile(file)
+      setCoverArtLogo(image)
+    } catch (err) {
+      console.warn('[brand-kit] failed to apply brand logo:', err)
+    }
+  }
 
   // Polygon rotation legacy slider — still global because logo-in-polygon
   // uses the polygon layer's own rotation; kept for back-compat UX.
@@ -61,6 +85,30 @@ export function LogoPanel({ layerId }: Props) {
       }}
     >
       {isLocked && <LockedLayerBanner />}
+
+      {brandLogos.length > 0 && (
+        <PanelGroup title="From Brand Kit">
+          <div className="grid grid-cols-3 gap-2">
+            {brandLogos.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => void applyBrandLogo(l.name, l.imageSrc)}
+                title={l.name}
+                aria-label={`Apply brand logo ${l.name}`}
+                className="aspect-square rounded border bg-[#0f0f0f] p-1 hover:border-blue-500"
+                style={{ borderColor: '#2a2a2a' }}
+              >
+                <img
+                  src={l.imageSrc}
+                  alt={l.name}
+                  className="h-full w-full object-contain"
+                />
+              </button>
+            ))}
+          </div>
+        </PanelGroup>
+      )}
 
       <PanelGroup title="Logo Overlay">
         <CoverArtUploaderSingle type="logo" />

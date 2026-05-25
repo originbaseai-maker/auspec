@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { PRESET_PALETTES } from '@/lib/colorPalette'
+import { useBrandKitStore } from '@/store/useBrandKitStore'
 
 export const COLOR_SWATCHES = [
   '#3b82f6',
@@ -395,6 +396,7 @@ export function PaletteEditor({
 
   const colors = palette ?? [fallbackStart, fallbackEnd]
   const isPaletteMode = palette !== undefined && palette.length >= 2
+  const brandColors = useBrandKitStore((s) => s.kit.colors)
 
   const updateColor = (index: number, color: string) => {
     const next = [...colors]
@@ -460,6 +462,46 @@ export function PaletteEditor({
         }}
         aria-hidden="true"
       />
+
+      {brandColors.length >= 2 && (
+        <div
+          className="rounded-md border p-2"
+          style={{ borderColor: '#2a2a2a', background: '#0a0a0a' }}
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[9px] uppercase tracking-wider text-white/40">
+              🎨 Brand Colors
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(brandColors.map((c) => c.value))}
+              className="text-[9px] text-blue-400 hover:text-blue-300"
+            >
+              Apply all →
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {brandColors.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  // Append this brand color to the palette unless it's
+                  // already there (case-insensitive).
+                  const lower = c.value.toLowerCase()
+                  if (!colors.some((x) => x.toLowerCase() === lower)) {
+                    onChange([...colors, c.value])
+                  }
+                }}
+                title={`${c.name} · ${c.value}`}
+                aria-label={`Add brand color ${c.name}`}
+                className="h-5 w-5 rounded border transition-transform hover:scale-110"
+                style={{ background: c.value, borderColor: '#2a2a2a' }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-1.5">
         <button

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Menu, Upload, Sparkles } from 'lucide-react';
+import { Download, Menu, Palette, Upload, Sparkles } from 'lucide-react';
+import { BrandKitModal } from '@/components/studio/BrandKitModal';
 import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
@@ -287,6 +288,7 @@ function SaveProjectControl() {
 function TopBar({ hasAudio }: { hasAudio: boolean }) {
   const user = useAuthStore((s) => s.user);
   const [showAuth, setShowAuth] = useState(false);
+  const [showBrandKit, setShowBrandKit] = useState(false);
   const openExport = useExportStore((s) => s.open);
   const isExportOpen = useExportStore((s) => s.isOpen);
 
@@ -301,6 +303,17 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
         <nav className="flex items-center gap-2">
           <SaveProjectControl />
           <FormatSelector />
+          <button
+            type="button"
+            onClick={() => setShowBrandKit(true)}
+            aria-label="Brand Kit"
+            title="Brand Kit"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-3 py-1.5 text-sm text-white/80 hover:text-white transition-colors"
+            style={{ borderColor: '#2a2a2a' }}
+          >
+            <Palette className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">Brand</span>
+          </button>
           <a
             href="/dashboard"
             className="rounded-md px-3 py-1.5 text-sm text-white/80 hover:text-white hover:bg-white/5 transition-colors"
@@ -339,6 +352,10 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
       </div>
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
       {isExportOpen && <ExportModal />}
+      <BrandKitModal
+        open={showBrandKit}
+        onClose={() => setShowBrandKit(false)}
+      />
     </header>
   );
 }
@@ -346,6 +363,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
 function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
   const user = useAuthStore((s) => s.user);
   const [showAuth, setShowAuth] = useState(false);
+  const [showBrandKit, setShowBrandKit] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const openExport = useExportStore((s) => s.open);
   const isExportOpen = useExportStore((s) => s.isOpen);
@@ -362,6 +380,15 @@ function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
 
       <div className="flex items-center gap-1.5">
         <FormatSelector compact />
+        <button
+          type="button"
+          onClick={() => setShowBrandKit(true)}
+          aria-label="Brand Kit"
+          className="flex h-8 w-8 items-center justify-center rounded-md border text-white/80"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          <Palette className="h-4 w-4" aria-hidden="true" />
+        </button>
         {hasAudio && (
           <button
             type="button"
@@ -434,6 +461,10 @@ function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
 
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
       {isExportOpen && <ExportModal />}
+      <BrandKitModal
+        open={showBrandKit}
+        onClose={() => setShowBrandKit(false)}
+      />
     </header>
   );
 }
