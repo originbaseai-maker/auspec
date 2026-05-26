@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { STUDIO_CATEGORIES } from '@/types/studio'
@@ -44,9 +44,18 @@ const LAYER_CATEGORIES = new Set([
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
-  const activeLayer = useLayerStore((s) =>
-    s.layers.find((l) => l.id === s.activeLayerId),
-  )
+  // Includes the draft as a candidate, so the panel can edit a draft
+  // before it's committed to the layers array.
+  const activeLayer = useLayerStore((s) => {
+    if (!s.activeLayerId) return undefined
+    if (s.draftLayer && s.draftLayer.id === s.activeLayerId) return s.draftLayer
+    return s.layers.find((l) => l.id === s.activeLayerId)
+  })
+  const draftLayer = useLayerStore((s) => s.draftLayer)
+  const commitDraft = useLayerStore((s) => s.commitDraft)
+  const discardDraft = useLayerStore((s) => s.discardDraft)
+  const isDraft =
+    draftLayer !== null && activeLayer?.id === draftLayer.id
 
   if (!activeCategory) return null
 
@@ -97,15 +106,70 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
     }
   }
 
+  const draftBanner = isDraft ? (
+    <div
+      className="mb-3 rounded-lg border p-3"
+      style={{
+        borderColor: 'rgba(139,92,246,0.4)',
+        background:
+          'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08))',
+      }}
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles
+          className="h-3.5 w-3.5 text-purple-300"
+          aria-hidden="true"
+        />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-purple-200">
+          Draft Mode
+        </span>
+      </div>
+      <p className="mb-3 text-[11px] text-white/60">
+        Adjust the settings below — your draft is previewing live on the
+        canvas but won't appear in Layers until you save it.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => commitDraft()}
+          className="flex-1 rounded-md px-3 py-2 text-[11px] font-medium text-white"
+          style={{
+            background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+            boxShadow: '0 2px 8px rgba(59,130,246,0.25)',
+          }}
+        >
+          + Save as Layer
+        </button>
+        <button
+          type="button"
+          onClick={() => discardDraft()}
+          className="rounded-md border px-3 py-2 text-[11px] text-white/60 hover:border-red-400/40 hover:text-red-400"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          Discard
+        </button>
+      </div>
+    </div>
+  ) : null
+
   if (hideHeader) {
-    return <div className="p-4">{renderPanel()}</div>
+    return (
+      <div className="p-4">
+        {draftBanner}
+        {renderPanel()}
+      </div>
+    )
   }
 
   // Show the active layer's name in the header when editing a layer,
   // otherwise fall back to the category label.
   const isLayerCategory = LAYER_CATEGORIES.has(activeCategory)
   const headerLabel =
-    isLayerCategory && activeLayer ? activeLayer.name : cat.label
+    isLayerCategory && activeLayer
+      ? isDraft
+        ? `${activeLayer.name} · Draft`
+        : activeLayer.name
+      : cat.label
 
   return (
     <div
@@ -129,6 +193,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
         </button>
       </div>
       <div className="max-h-[calc(100vh-400px)] overflow-y-auto p-4">
+        {draftBanner}
         {renderPanel()}
       </div>
     </div>

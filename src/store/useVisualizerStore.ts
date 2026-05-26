@@ -122,6 +122,14 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
     })),
 
   applyPreset: (preset) => {
+    // Applying a preset is a clean-slate action — any in-flight draft
+    // gets dropped silently so the new stack starts pristine.
+    // (replaceLayers below also nulls draftLayer; this is belt-and-
+    // suspenders in case the preset takes the legacy single-layer path.)
+    if (useLayerStore.getState().draftLayer) {
+      useLayerStore.getState().discardDraft()
+    }
+
     // Frame state is a separate store, so reset/apply it explicitly here.
     // Without this, the previous preset's frame stays active and layers
     // over the new one.

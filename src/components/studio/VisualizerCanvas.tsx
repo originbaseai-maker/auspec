@@ -22,6 +22,7 @@ import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
 import { useLayerStore } from '@/store/useLayerStore'
+import type { Layer } from '@/types/layer'
 import { DEFAULT_VISUALIZER_CONFIG } from '@/lib/visualizerConfig'
 import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
@@ -47,6 +48,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const previewMode = useAudioStore((s) => s.previewMode)
   const audioFile = useAudioStore((s) => s.audioFile)
   const layers = useLayerStore((s) => s.layers)
+  const draftLayer = useLayerStore((s) => s.draftLayer)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -123,10 +125,15 @@ export default function VisualizerCanvas(): JSX.Element {
   const previewModeRef = useRef(previewMode)
   const audioFileRef = useRef(audioFile)
   const layersRef = useRef(layers)
+  const draftLayerRef = useRef(draftLayer)
 
   useEffect(() => {
     layersRef.current = layers
   }, [layers])
+
+  useEffect(() => {
+    draftLayerRef.current = draftLayer
+  }, [draftLayer])
 
   useEffect(() => {
     previewModeRef.current = previewMode
@@ -188,7 +195,13 @@ export default function VisualizerCanvas(): JSX.Element {
       // + text layers DON'T require audio data, so the layer loop runs
       // unconditionally; audio-dependent renderers (bars/circular/wave/
       // polygon/particles/frame-pulse) gate themselves on `data`.
-      const enabledLayers = [...layersRef.current]
+      // Draft layer (if any) is merged into the iteration so the user
+      // sees a live preview while exploring. It disappears on commit
+      // (which moves it into layers[] with the same id, no re-render
+      // gap) or on discard.
+      const baseLayers: Layer[] = [...layersRef.current]
+      if (draftLayerRef.current) baseLayers.push(draftLayerRef.current)
+      const enabledLayers = baseLayers
         .filter((l) => l.enabled)
         .sort((a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt)
 

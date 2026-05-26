@@ -99,7 +99,10 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
           fontSize: number,
           rename: string,
         ): void => {
-          const id = layerStore.addLayer('text')
+          // System-initiated: bypass the draft flow so we don't
+          // surprise the user with a "Save your draft?" prompt on
+          // every file change.
+          const id = layerStore.addLayerImmediate('text')
           layerStore.updateConfig(id, { text, x, y, fontSize })
           layerStore.renameLayer(id, rename)
         }

@@ -149,6 +149,15 @@ export interface LayerStore {
    * text doesn't double up with the HTML input. Always a text-layer id.
    */
   editingTextLayerId: string | null
+  /**
+   * Transient: an in-memory draft layer that's rendered on canvas (live
+   * preview) but NOT yet in the `layers` array. Created via `startDraft`
+   * when the user clicks a category tile / "+ Add Layer". Becomes a real
+   * layer via `commitDraft`, or is destroyed via `discardDraft`. Setters
+   * (updateConfig, toggleEnabled, …) route to the draft when its id is
+   * passed, so panels and overlays can edit it transparently.
+   */
+  draftLayer: Layer | null
 
   setActiveLayer: (id: string | null) => void
   setEditingTextLayerId: (id: string | null) => void
@@ -158,8 +167,26 @@ export interface LayerStore {
   setLocked: (id: string, locked: boolean) => void
   updateConfig: (id: string, partial: object) => void
 
-  /** Returns the new layer id, makes it active. */
+  /**
+   * User-initiated add: creates a DRAFT (not committed to `layers`).
+   * Returns the draft's id, makes it active.
+   */
   addLayer: (type: LayerType) => string
+  /**
+   * System-initiated add (presets, migrations, filename auto-populate):
+   * bypasses the draft flow and commits directly to `layers`.
+   */
+  addLayerImmediate: (type: LayerType) => string
+
+  /** Start a new draft layer. Replaces any existing draft. Returns its id. */
+  startDraft: (type: LayerType) => string
+  /** Commit the current draft into `layers`. No-op if no draft. */
+  commitDraft: () => string | null
+  /** Throw away the current draft. No-op if no draft. */
+  discardDraft: () => void
+  /** Whether an unsaved draft currently exists. */
+  hasUnsavedDraft: () => boolean
+
   removeLayer: (id: string) => void
   /** Returns the new layer id, makes it active. */
   duplicateLayer: (id: string) => string
@@ -169,7 +196,9 @@ export interface LayerStore {
 
   getOrderedLayers: () => Layer[]
   getEnabledLayers: () => Layer[]
+  /** Includes draft lookup. */
   getLayerById: (id: string) => Layer | undefined
+  /** Includes draft lookup. */
   getActiveLayer: () => Layer | null
 
   moveLayerToIndex: (id: string, targetIndex: number) => void
@@ -184,48 +213,88 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   layers: makeDefaultLayers(),
   activeLayerId: null,
   editingTextLayerId: null,
+  draftLayer: null,
 
   setActiveLayer: (activeLayerId) => set({ activeLayerId }),
   setEditingTextLayerId: (editingTextLayerId) => set({ editingTextLayerId }),
 
   toggleEnabled: (id) =>
-    set((s) => ({
-      layers: s.layers.map((l) =>
-        l.id === id ? ({ ...l, enabled: !l.enabled } as Layer) : l,
-      ),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return {
+          draftLayer: { ...s.draftLayer, enabled: !s.draftLayer.enabled } as Layer,
+        }
+      }
+      return {
+        layers: s.layers.map((l) =>
+          l.id === id ? ({ ...l, enabled: !l.enabled } as Layer) : l,
+        ),
+      }
+    }),
 
   toggleLocked: (id) =>
-    set((s) => ({
-      layers: s.layers.map((l) =>
-        l.id === id ? ({ ...l, locked: !l.locked } as Layer) : l,
-      ),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return {
+          draftLayer: { ...s.draftLayer, locked: !s.draftLayer.locked } as Layer,
+        }
+      }
+      return {
+        layers: s.layers.map((l) =>
+          l.id === id ? ({ ...l, locked: !l.locked } as Layer) : l,
+        ),
+      }
+    }),
 
   setEnabled: (id, enabled) =>
-    set((s) => ({
-      layers: s.layers.map((l) =>
-        l.id === id ? ({ ...l, enabled } as Layer) : l,
-      ),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return { draftLayer: { ...s.draftLayer, enabled } as Layer }
+      }
+      return {
+        layers: s.layers.map((l) =>
+          l.id === id ? ({ ...l, enabled } as Layer) : l,
+        ),
+      }
+    }),
 
   setLocked: (id, locked) =>
-    set((s) => ({
-      layers: s.layers.map((l) =>
-        l.id === id ? ({ ...l, locked } as Layer) : l,
-      ),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return { draftLayer: { ...s.draftLayer, locked } as Layer }
+      }
+      return {
+        layers: s.layers.map((l) =>
+          l.id === id ? ({ ...l, locked } as Layer) : l,
+        ),
+      }
+    }),
 
   updateConfig: (id, partial) =>
-    set((s) => ({
-      layers: s.layers.map((l) => {
-        if (l.id !== id) return l
-        if (l.locked) return l
-        return { ...l, config: { ...l.config, ...partial } } as Layer
-      }),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        // Drafts ignore the locked check — they're being actively edited.
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            config: { ...s.draftLayer.config, ...partial },
+          } as Layer,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id) return l
+          if (l.locked) return l
+          return { ...l, config: { ...l.config, ...partial } } as Layer
+        }),
+      }
+    }),
 
-  addLayer: (type) => {
+  // User-initiated path: opens a draft instead of committing immediately.
+  addLayer: (type) => get().startDraft(type),
+
+  // System-initiated path: commits directly, no draft.
+  addLayerImmediate: (type) => {
     let newId = ''
     set((s) => {
       const maxZ = s.layers.reduce((m, l) => Math.max(m, l.zOrder), -1)
@@ -240,8 +309,64 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
     return newId
   },
 
+  startDraft: (type) => {
+    let draftId = ''
+    set((s) => {
+      // Existing draft (if any) is silently replaced — callers that
+      // care about preserving it must show a confirm dialog first.
+      const existingNames = [
+        ...s.layers.map((l) => l.name),
+        ...(s.draftLayer ? [s.draftLayer.name] : []),
+      ]
+      const maxZ = Math.max(
+        -1,
+        ...s.layers.map((l) => l.zOrder),
+        s.draftLayer?.zOrder ?? -1,
+      )
+      const draft = createLayer(type, existingNames, maxZ + 1, true)
+      draftId = draft.id
+      return { draftLayer: draft, activeLayerId: draftId }
+    })
+    return draftId
+  },
+
+  commitDraft: () => {
+    let committedId: string | null = null
+    set((s) => {
+      if (!s.draftLayer) return s
+      committedId = s.draftLayer.id
+      return {
+        layers: [...s.layers, s.draftLayer],
+        draftLayer: null,
+        // activeLayerId stays — the id is preserved as the draft
+        // becomes a real layer.
+      }
+    })
+    return committedId
+  },
+
+  discardDraft: () =>
+    set((s) => {
+      if (!s.draftLayer) return s
+      const newActive =
+        s.activeLayerId === s.draftLayer.id
+          ? (s.layers[s.layers.length - 1]?.id ?? null)
+          : s.activeLayerId
+      return { draftLayer: null, activeLayerId: newActive }
+    }),
+
+  hasUnsavedDraft: () => get().draftLayer !== null,
+
   removeLayer: (id) =>
     set((s) => {
+      // If the draft is being "removed", just discard it.
+      if (s.draftLayer && s.draftLayer.id === id) {
+        const newActive =
+          s.activeLayerId === id
+            ? (s.layers[s.layers.length - 1]?.id ?? null)
+            : s.activeLayerId
+        return { draftLayer: null, activeLayerId: newActive }
+      }
       const removed = s.layers.find((l) => l.id === id)
       // Particle systems own per-layer simulation state in a module-level
       // Map; prune the entry so we don't leak the 500-particle pool.
@@ -340,14 +465,75 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   },
 
   renameLayer: (id, name) =>
-    set((s) => ({
-      layers: s.layers.map((l) =>
-        l.id === id ? ({ ...l, name: name.trim() || l.name } as Layer) : l,
-      ),
-    })),
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            name: name.trim() || s.draftLayer.name,
+          } as Layer,
+        }
+      }
+      return {
+        layers: s.layers.map((l) =>
+          l.id === id ? ({ ...l, name: name.trim() || l.name } as Layer) : l,
+        ),
+      }
+    }),
 
   resetLayer: (id) =>
-    set((s) => ({
+    set((s) => {
+      // Draft branch: rebuild draft.config from its type defaults while
+      // preserving id/name/enabled/locked/zOrder/createdAt.
+      if (s.draftLayer && s.draftLayer.id === id) {
+        const fresh = defaultData(s.draftLayer.type)
+        const draft = s.draftLayer
+        let newDraft: Layer
+        switch (draft.type) {
+          case 'bars':
+            newDraft = { ...draft, type: 'bars',
+              config: { ...(fresh as { type: 'bars'; config: object }).config } } as Layer
+            break
+          case 'circular':
+            newDraft = { ...draft, type: 'circular',
+              config: { ...(fresh as { type: 'circular'; config: object }).config } } as Layer
+            break
+          case 'wave':
+            newDraft = { ...draft, type: 'wave',
+              config: { ...(fresh as { type: 'wave'; config: object }).config } } as Layer
+            break
+          case 'polygon':
+            newDraft = { ...draft, type: 'polygon',
+              config: { ...(fresh as { type: 'polygon'; config: object }).config } } as Layer
+            break
+          case 'bloom':
+            newDraft = { ...draft, type: 'bloom',
+              config: { ...(fresh as { type: 'bloom'; config: object }).config } } as Layer
+            break
+          case 'particles':
+            newDraft = { ...draft, type: 'particles',
+              config: { ...(fresh as { type: 'particles'; config: object }).config } } as Layer
+            break
+          case 'logo':
+            newDraft = { ...draft, type: 'logo',
+              config: { ...(fresh as { type: 'logo'; config: object }).config } } as Layer
+            break
+          case 'frame':
+            newDraft = { ...draft, type: 'frame',
+              config: { ...(fresh as { type: 'frame'; config: object }).config } } as Layer
+            break
+          case 'background':
+            newDraft = { ...draft, type: 'background',
+              config: { ...(fresh as { type: 'background'; config: object }).config } } as Layer
+            break
+          case 'text':
+            newDraft = { ...draft, type: 'text',
+              config: { ...(fresh as { type: 'text'; config: object }).config } } as Layer
+            break
+        }
+        return { draftLayer: newDraft }
+      }
+      return {
       layers: s.layers.map((l) => {
         if (l.id !== id) return l
         const fresh = defaultData(l.type)
@@ -426,7 +612,8 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             } as Layer
         }
       }),
-    })),
+      }
+    }),
 
   getOrderedLayers: () => {
     return [...get().layers].sort(
@@ -440,12 +627,18 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       .filter((l) => l.enabled)
   },
 
-  getLayerById: (id) => get().layers.find((l) => l.id === id),
+  getLayerById: (id) => {
+    const s = get()
+    if (s.draftLayer && s.draftLayer.id === id) return s.draftLayer
+    return s.layers.find((l) => l.id === id)
+  },
 
   getActiveLayer: () => {
-    const id = get().activeLayerId
+    const s = get()
+    const id = s.activeLayerId
     if (!id) return null
-    return get().layers.find((l) => l.id === id) ?? null
+    if (s.draftLayer && s.draftLayer.id === id) return s.draftLayer
+    return s.layers.find((l) => l.id === id) ?? null
   },
 
   moveLayerToIndex: (id, targetIndex) =>
@@ -475,6 +668,8 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           : layers.length > 0
             ? layers[layers.length - 1].id
             : null,
+      // Replace = clean slate — any in-flight draft is silently dropped.
+      draftLayer: null,
     }),
 
   resetAll: () => {
@@ -482,6 +677,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
     set({
       layers: defaults,
       activeLayerId: defaults[0]?.id ?? null,
+      draftLayer: null,
     })
   },
 }))

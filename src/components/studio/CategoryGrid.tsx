@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 import { useLayerStore } from '@/store/useLayerStore'
-import { STUDIO_CATEGORIES, type CategoryConfig } from '@/types/studio'
+import { STUDIO_CATEGORIES, type CategoryConfig, type StudioCategory } from '@/types/studio'
 import type { LayerType } from '@/types/layer'
 import { CategoryIcon } from './CategoryIcon'
+import { DraftConfirmDialog } from './DraftConfirmDialog'
 
 function categoryToLayerType(id: string): LayerType | null {
   if (id === 'visualizer_bars') return 'bars'
@@ -19,24 +21,77 @@ function categoryToLayerType(id: string): LayerType | null {
   return null
 }
 
+interface PendingAction {
+  type: 'tile' | 'close'
+  targetCategory?: StudioCategory
+  targetLayerType?: LayerType
+}
+
 export function CategoryGrid() {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const layers = useLayerStore((s) => s.layers)
-  const addLayer = useLayerStore((s) => s.addLayer)
+  const draftLayer = useLayerStore((s) => s.draftLayer)
+  const startDraft = useLayerStore((s) => s.startDraft)
+  const commitDraft = useLayerStore((s) => s.commitDraft)
+  const discardDraft = useLayerStore((s) => s.discardDraft)
+
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+    null,
+  )
+
+  const hasDraft = draftLayer !== null
 
   const handleClick = (cat: CategoryConfig) => {
     if (cat.id === activeCategory) {
-      setActiveCategory(null)
+      // User wants to close the detail panel — confirm if draft exists.
+      if (hasDraft) {
+        setPendingAction({ type: 'close' })
+      } else {
+        setActiveCategory(null)
+      }
       return
     }
-    // Clicking a visualizer tile always ADDS a new layer of that type.
-    // Auto-naming handles duplicates (Circular → Circular 2 → Circular 3).
+
     const layerType = categoryToLayerType(cat.id)
+
+    if (hasDraft) {
+      // Switching off a draft — gate on the user's choice.
+      setPendingAction({
+        type: 'tile',
+        targetCategory: cat.id,
+        targetLayerType: layerType ?? undefined,
+      })
+      return
+    }
+
+    // Clean slate — proceed normally.
     if (layerType) {
-      addLayer(layerType)
+      startDraft(layerType)
     }
     setActiveCategory(cat.id)
+  }
+
+  const handleDialogAction = (action: 'save' | 'discard' | 'cancel') => {
+    if (!pendingAction) return
+    if (action === 'cancel') {
+      setPendingAction(null)
+      return
+    }
+    if (action === 'save') commitDraft()
+    else discardDraft()
+
+    if (pendingAction.type === 'close') {
+      setActiveCategory(null)
+    } else {
+      if (pendingAction.targetLayerType) {
+        startDraft(pendingAction.targetLayerType)
+      }
+      if (pendingAction.targetCategory) {
+        setActiveCategory(pendingAction.targetCategory)
+      }
+    }
+    setPendingAction(null)
   }
 
   return (
@@ -45,6 +100,8 @@ export function CategoryGrid() {
         {STUDIO_CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.id
           const layerType = categoryToLayerType(cat.id)
+          // Count committed layers of this type. The draft is intentionally
+          // excluded so the badge reflects what's actually in the stack.
           const layerCount = layerType
             ? layers.filter((l) => l.type === layerType).length
             : null
@@ -89,7 +146,6 @@ export function CategoryGrid() {
                   AI
                 </div>
               )}
-              {/* Layer count badge: blue + when none, green count pill when ≥1 */}
               {layerCount === 0 && !cat.hasAI && (
                 <div
                   className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-bold text-white"
@@ -112,6 +168,11 @@ export function CategoryGrid() {
           )
         })}
       </div>
+
+      <DraftConfirmDialog
+        open={pendingAction !== null}
+        onAction={handleDialogAction}
+      />
     </div>
   )
 }

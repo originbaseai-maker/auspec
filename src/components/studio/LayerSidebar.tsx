@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
+import { DraftConfirmDialog } from './DraftConfirmDialog'
 import type { StudioCategory } from '@/types/studio'
 import {
   LAYER_LABELS,
@@ -103,11 +104,14 @@ function MenuItem({
 export function LayerSidebar(): JSX.Element {
   const layers = useLayerStore((s) => s.layers)
   const activeLayerId = useLayerStore((s) => s.activeLayerId)
+  const draftLayer = useLayerStore((s) => s.draftLayer)
   const toggleEnabled = useLayerStore((s) => s.toggleEnabled)
   const toggleLocked = useLayerStore((s) => s.toggleLocked)
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
   const moveLayerToIndex = useLayerStore((s) => s.moveLayerToIndex)
   const addLayer = useLayerStore((s) => s.addLayer)
+  const commitDraft = useLayerStore((s) => s.commitDraft)
+  const discardDraft = useLayerStore((s) => s.discardDraft)
   const removeLayer = useLayerStore((s) => s.removeLayer)
   const duplicateLayer = useLayerStore((s) => s.duplicateLayer)
   const renameLayer = useLayerStore((s) => s.renameLayer)
@@ -121,6 +125,14 @@ export function LayerSidebar(): JSX.Element {
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
+  // Pending-action slots — when set, the DraftConfirmDialog is shown
+  // and resolves the queued action on Save/Discard.
+  const [pendingLayerSelect, setPendingLayerSelect] = useState<string | null>(
+    null,
+  )
+  const [pendingAdd, setPendingAdd] = useState<LayerType | null>(null)
+
+  const hasDraft = draftLayer !== null
 
   const ordered = [...layers].sort(
     (a, b) => a.zOrder - b.zOrder || a.createdAt - b.createdAt,
@@ -131,14 +143,56 @@ export function LayerSidebar(): JSX.Element {
 
   const handleRowClick = (layer: Layer) => {
     if (renamingId === layer.id) return
+    // Selecting an existing layer while a draft exists triggers the
+    // confirm dialog. Clicking the draft itself is fine (it's already
+    // active by definition).
+    if (hasDraft && layer.id !== draftLayer?.id) {
+      setPendingLayerSelect(layer.id)
+      return
+    }
     setActiveLayer(layer.id)
     setActiveCategory(CATEGORY_MAP[layer.type])
   }
 
   const handleAdd = (type: LayerType) => {
-    addLayer(type)
+    if (hasDraft) {
+      setPendingAdd(type)
+      setShowAddMenu(false)
+      return
+    }
+    addLayer(type) // wraps startDraft internally now
     setActiveCategory(CATEGORY_MAP[type])
     setShowAddMenu(false)
+  }
+
+  const resolvePendingLayerSelect = (
+    action: 'save' | 'discard' | 'cancel',
+  ) => {
+    if (!pendingLayerSelect) return
+    if (action === 'cancel') {
+      setPendingLayerSelect(null)
+      return
+    }
+    if (action === 'save') commitDraft()
+    else discardDraft()
+    const targetId = pendingLayerSelect
+    setActiveLayer(targetId)
+    const layer = useLayerStore.getState().getLayerById(targetId)
+    if (layer) setActiveCategory(CATEGORY_MAP[layer.type])
+    setPendingLayerSelect(null)
+  }
+
+  const resolvePendingAdd = (action: 'save' | 'discard' | 'cancel') => {
+    if (!pendingAdd) return
+    if (action === 'cancel') {
+      setPendingAdd(null)
+      return
+    }
+    if (action === 'save') commitDraft()
+    else discardDraft()
+    addLayer(pendingAdd) // starts a fresh draft of the requested type
+    setActiveCategory(CATEGORY_MAP[pendingAdd])
+    setPendingAdd(null)
   }
 
   const startRename = (layer: Layer) => {
@@ -521,6 +575,14 @@ export function LayerSidebar(): JSX.Element {
           </div>
         </>
       )}
+    <DraftConfirmDialog
+        open={pendingLayerSelect !== null}
+        onAction={resolvePendingLayerSelect}
+      />
+      <DraftConfirmDialog
+        open={pendingAdd !== null}
+        onAction={resolvePendingAdd}
+      />
     </section>
   )
 }
