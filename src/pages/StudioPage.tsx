@@ -653,8 +653,18 @@ export function StudioPage() {
   const showCanvas = hasAudio || previewMode;
 
   const activeFormat = useFormatStore((s) => s.activeFormat);
+  const setFormatAuto = useFormatStore((s) => s.setFormatAuto);
   const format = getFormat(activeFormat);
   const viewport = useViewport();
+
+  // Smart format default: mobile devices land on tiktok (9:16, Reels)
+  // so the canvas fills the portrait viewport; desktop lands on
+  // youtube (16:9). `setFormatAuto` is a no-op once the user has
+  // explicitly picked a format (formatChosenByUser flag).
+  useEffect(() => {
+    if (viewport === 'mobile') setFormatAuto('tiktok');
+    else setFormatAuto('youtube');
+  }, [viewport, setFormatAuto]);
 
   const [showFormatFlash, setShowFormatFlash] = useState(false);
   const prevFormat = useRef(activeFormat);
