@@ -730,7 +730,7 @@ export function StudioPage() {
             open={mobileTab === 'presets'}
             onClose={() => setMobileTab(null)}
             title="Presets"
-            height="70%"
+            variant="grid"
           >
             <PresetsSidebar variant="mobile" />
           </MobileBottomSheet>
@@ -742,9 +742,10 @@ export function StudioPage() {
               activeCategory ? () => setActiveCategory(null) : undefined
             }
             title={activeCategoryLabel}
-            // 50% when adjusting a category so the canvas stays visible
-            // above; 70% when picking a category so the full grid fits.
-            height={activeCategory ? '50%' : '70%'}
+            // Detail sheet is shorter so the user can see the canvas
+            // preview while dragging sliders. Drag the grab handle up
+            // to expand within the clamped range.
+            variant={activeCategory ? 'detail' : 'grid'}
           >
             <div className="pb-4">
               {activeCategory ? (
