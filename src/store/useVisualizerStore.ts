@@ -171,6 +171,7 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         locked: false,
         zOrder: 0,
         createdAt: now,
+        opacity: 1,
       }
       let layer: Layer
       if (presetType === 'bars') {

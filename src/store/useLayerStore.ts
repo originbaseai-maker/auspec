@@ -86,6 +86,7 @@ function createLayer(
     locked: false,
     zOrder,
     createdAt: Date.now(),
+    opacity: 1,
   }
   switch (type) {
     case 'bars':
@@ -212,6 +213,8 @@ export interface LayerStore {
   toggleLocked: (id: string) => void
   setEnabled: (id: string, enabled: boolean) => void
   setLocked: (id: string, locked: boolean) => void
+  /** Clamped to [0, 1]; respects lock on committed layers. */
+  setOpacity: (id: string, opacity: number) => void
   updateConfig: (id: string, partial: object) => void
 
   /**
@@ -430,6 +433,23 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       }
     }),
 
+  setOpacity: (id, opacity) =>
+    set((s) => {
+      const clamped = Math.max(0, Math.min(1, opacity))
+      if (s.draftLayer && s.draftLayer.id === id) {
+        return {
+          draftLayer: { ...s.draftLayer, opacity: clamped } as Layer,
+          draftIsDirty: true,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id || l.locked) return l
+          return { ...l, opacity: clamped } as Layer
+        }),
+      }
+    }),
+
   updateConfig: (id, partial) =>
     set((s) => {
       if (s.draftLayer && s.draftLayer.id === id) {
@@ -577,6 +597,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         locked: source.locked,
         zOrder: maxZ + 1,
         createdAt: Date.now(),
+        opacity: source.opacity ?? 1,
       }
       switch (source.type) {
         case 'bars':
@@ -867,7 +888,12 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 
   replaceLayers: (layers, activeId) =>
     set({
-      layers,
+      // Legacy persisted projects predate the universal-opacity field;
+      // default any missing value to 1 (fully opaque) so old projects
+      // load unchanged.
+      layers: layers.map((l) =>
+        typeof l.opacity === 'number' ? l : ({ ...l, opacity: 1 } as Layer),
+      ),
       activeLayerId:
         activeId !== undefined
           ? activeId
@@ -923,6 +949,7 @@ export function initializeLayersFromVisualizerStore(): void {
         locked: false,
         zOrder: z++,
         createdAt: now + z,
+        opacity: 1,
       }
       // Literal type so the union narrows.
       let layer: Layer

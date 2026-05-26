@@ -49,6 +49,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
+  const setOpacity = useLayerStore((s) => s.setOpacity)
   // Includes the draft as a candidate, so the panel can edit a draft
   // before it's committed to the layers array.
   const activeLayer = useLayerStore((s) => {
@@ -173,10 +174,44 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
     </div>
   ) : null
 
+  // AI Style isn't backed by a layer — opacity card has nothing to bind to.
+  const isAIStyle = activeCategory === 'ai_style'
+  const opacityCard =
+    activeLayer && !isAIStyle ? (
+      <div
+        className="mb-4 rounded-md border p-3"
+        style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+      >
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-wider text-white/40">
+            Layer Opacity
+          </span>
+          <span className="text-[10px] tabular-nums text-white/60">
+            {Math.round((activeLayer.opacity ?? 1) * 100)}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round((activeLayer.opacity ?? 1) * 100)}
+          onChange={(e) =>
+            setOpacity(activeLayer.id, Number(e.target.value) / 100)
+          }
+          disabled={activeLayer.locked}
+          className="auspec-slider w-full cursor-pointer"
+          style={{ accentColor: '#3b82f6' }}
+          aria-label="Layer opacity"
+        />
+      </div>
+    ) : null
+
   if (hideHeader) {
     return (
       <div className="p-4">
         {draftBanner}
+        {opacityCard}
         {renderPanel()}
       </div>
     )
@@ -215,6 +250,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
       </div>
       <div className="max-h-[calc(100vh-400px)] overflow-y-auto p-4">
         {draftBanner}
+        {opacityCard}
         {renderPanel()}
       </div>
     </div>

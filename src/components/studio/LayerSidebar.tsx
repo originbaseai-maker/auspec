@@ -114,6 +114,7 @@ export function LayerSidebar(): JSX.Element {
   const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
   const toggleEnabled = useLayerStore((s) => s.toggleEnabled)
   const toggleLocked = useLayerStore((s) => s.toggleLocked)
+  const setOpacity = useLayerStore((s) => s.setOpacity)
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
   const moveLayerToIndex = useLayerStore((s) => s.moveLayerToIndex)
   const addLayer = useLayerStore((s) => s.addLayer)
@@ -309,7 +310,7 @@ export function LayerSidebar(): JSX.Element {
             startRename(layer)
           }
         }}
-        className="group flex items-center gap-1.5 rounded-md border px-2 py-1.5 transition-all"
+        className="group rounded-md border transition-all"
         style={{
           borderColor: isActive
             ? '#3b82f6'
@@ -326,6 +327,7 @@ export function LayerSidebar(): JSX.Element {
           cursor: layer.enabled && !isRenaming ? 'grab' : 'default',
         }}
       >
+        <div className="flex items-center gap-1.5 px-2 py-1.5">
         <button
           type="button"
           onClick={(e) => {
@@ -426,6 +428,40 @@ export function LayerSidebar(): JSX.Element {
               <Unlock className="h-3.5 w-3.5" />
             )}
           </button>
+        )}
+        </div>
+
+        {isActive && !isRenaming && (
+          <div
+            className="flex items-center gap-2 border-t px-2 py-1"
+            style={{ borderColor: '#1a1a1a' }}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span className="text-[9px] uppercase tracking-wider text-white/40 w-6 shrink-0">
+              Opc
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round((layer.opacity ?? 1) * 100)}
+              onChange={(e) => {
+                e.stopPropagation()
+                setOpacity(layer.id, Number(e.target.value) / 100)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              disabled={layer.locked}
+              className="auspec-slider flex-1 h-1 cursor-pointer"
+              style={{ accentColor: '#3b82f6' }}
+              aria-label={`Opacity for ${layer.name}`}
+            />
+            <span className="text-[9px] tabular-nums text-white/60 w-8 text-right">
+              {Math.round((layer.opacity ?? 1) * 100)}%
+            </span>
+          </div>
         )}
       </div>
     )

@@ -324,6 +324,13 @@ export interface LayerState {
   zOrder: number
   /** Wall-clock timestamp at creation, used as a stable tie-break for sort. */
   createdAt: number
+  /**
+   * 0–1 universal alpha multiplier applied via `ctx.globalAlpha` in the
+   * render loop. Multiplies with any renderer-internal opacities
+   * (Background.opacity, ShapeLayerConfig.fillOpacity, …) — so an
+   * 80% layer carrying a 50% fill renders at 40% on-screen.
+   */
+  opacity: number
 }
 
 export type Layer = LayerData & LayerState

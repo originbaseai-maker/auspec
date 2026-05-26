@@ -367,6 +367,16 @@ export default function VisualizerCanvas(): JSX.Element {
       const editingTextId = useLayerStore.getState().editingTextLayerId
 
       for (const layer of enabledLayers) {
+        // Universal layer opacity: wrap each draw in save/restore so the
+        // outer globalAlpha doesn't bleed into the next layer. Multiplies
+        // with any renderer-internal opacity (e.g. ShapeLayerConfig
+        // .fillOpacity, BackgroundLayerConfig.opacity). Fully transparent
+        // layers skip the work entirely.
+        const layerOpacity = layer.opacity ?? 1
+        if (layerOpacity <= 0) continue
+        ctx.save()
+        ctx.globalAlpha = layerOpacity
+
         switch (layer.type) {
           case 'background':
             drawBackgroundLayer(ctx, layer.config, width, height)
@@ -485,6 +495,7 @@ export default function VisualizerCanvas(): JSX.Element {
             )
             break
         }
+        ctx.restore()
       }
 
       if (data && cfg.framePulse.enabled) {
