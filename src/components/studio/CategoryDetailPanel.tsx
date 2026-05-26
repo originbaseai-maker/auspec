@@ -7,6 +7,7 @@ import { CircularPanel } from './panels/CircularPanel'
 import { WavePanel } from './panels/WavePanel'
 import { PolygonPanel } from './panels/PolygonPanel'
 import { BloomPanel } from './panels/BloomPanel'
+import { CustomShapePanel } from './panels/CustomShapePanel'
 import { ParticlesPanel } from './panels/ParticlesPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
@@ -34,6 +35,7 @@ const LAYER_CATEGORIES = new Set([
   'visualizer_wave',
   'visualizer_polygon',
   'visualizer_bloom',
+  'visualizer_shape',
   'particles',
   'logo',
   'frame',
@@ -44,6 +46,7 @@ const LAYER_CATEGORIES = new Set([
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
+  const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
   // Includes the draft as a candidate, so the panel can edit a draft
   // before it's committed to the layers array.
   const activeLayer = useLayerStore((s) => {
@@ -84,6 +87,8 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <PolygonPanel layerId={activeLayer.id} />
         case 'bloom':
           return <BloomPanel layerId={activeLayer.id} />
+        case 'shape':
+          return <CustomShapePanel layerId={activeLayer.id} />
         case 'particles':
           return <ParticlesPanel layerId={activeLayer.id} />
         case 'logo':
@@ -123,10 +128,22 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-purple-200">
           Draft Mode
         </span>
+        {draftIsDirty && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[9px] font-medium"
+            style={{
+              background: 'rgba(245,158,11,0.2)',
+              color: '#fbbf24',
+            }}
+          >
+            • Unsaved
+          </span>
+        )}
       </div>
       <p className="mb-3 text-[11px] text-white/60">
-        Adjust the settings below — your draft is previewing live on the
-        canvas but won't appear in Layers until you save it.
+        {draftIsDirty
+          ? "You've made changes — save them as a layer or discard."
+          : 'Adjust the settings below to customize this layer, then save it.'}
       </p>
       <div className="flex gap-2">
         <button

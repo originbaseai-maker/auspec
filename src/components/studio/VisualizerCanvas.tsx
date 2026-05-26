@@ -16,6 +16,7 @@ import { drawTextLayer } from '@/lib/renderers/textOverlay'
 import { drawParticlesForLayer } from '@/lib/renderers/particles'
 import { drawBackgroundLayer } from '@/lib/renderers/background'
 import { drawBloom } from '@/lib/renderers/bloom'
+import { drawCustomShape } from '@/lib/renderers/customShape'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
@@ -302,6 +303,9 @@ export default function VisualizerCanvas(): JSX.Element {
           case 'bloom':
             if (!data) break
             drawBloom(ctx, layer.config, data, width, height)
+            break
+          case 'shape':
+            drawCustomShape(ctx, layer.config, data, width, height)
             break
           case 'particles':
             drawParticlesForLayer(

@@ -94,6 +94,23 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           />
         </svg>
       )
+    case 'shape':
+      return (
+        <svg {...props}>
+          {/* Custom polygon with visible vertices, hinting at the pen tool */}
+          <polygon
+            points="20,6 32,16 28,32 12,32 8,16"
+            fill="rgba(139,92,246,0.15)"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="1.5"
+          />
+          <circle cx="20" cy="6" r="2" fill="rgba(139,92,246,1)" />
+          <circle cx="32" cy="16" r="2" fill="rgba(139,92,246,1)" />
+          <circle cx="28" cy="32" r="2" fill="rgba(139,92,246,1)" />
+          <circle cx="12" cy="32" r="2" fill="rgba(139,92,246,1)" />
+          <circle cx="8" cy="16" r="2" fill="rgba(139,92,246,1)" />
+        </svg>
+      )
     case 'particles':
       return (
         <svg {...props}>

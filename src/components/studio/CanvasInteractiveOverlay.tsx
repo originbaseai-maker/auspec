@@ -9,10 +9,26 @@ import { useLayerStore } from '@/store/useLayerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 import type { StudioCategory } from '@/types/studio'
+import type { ShapeLayerConfig } from '@/types/layer'
 
 type SelectableTarget =
   | { kind: 'layer'; layerId: string }
   | { kind: 'logo' }
+
+interface PointDragState {
+  layerId: string
+  index: number
+  startMouseX: number
+  startMouseY: number
+  startX: number
+  startY: number
+  wrapperWidth: number
+  wrapperHeight: number
+  /** Whether the pointer has actually moved past the click-threshold yet. */
+  moved: boolean
+}
+
+const POINT_CLICK_THRESHOLD_PX = 4
 
 interface Selectable {
   target: SelectableTarget
@@ -62,11 +78,31 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const layers = useLayerStore((s) => s.layers)
+  const draftLayer = useLayerStore((s) => s.draftLayer)
   const activeLayerId = useLayerStore((s) => s.activeLayerId)
   const updateConfig = useLayerStore((s) => s.updateConfig)
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
+  const penToolActive = useLayerStore((s) => s.penToolActive)
+  const addShapePoint = useLayerStore((s) => s.addShapePoint)
+  const updateShapePoint = useLayerStore((s) => s.updateShapePoint)
+  const removeShapePoint = useLayerStore((s) => s.removeShapePoint)
 
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
+
+  // Resolve the active shape layer (draft OR committed) — Pen Mode is
+  // active only when both penToolActive is true and the active layer is
+  // a shape.
+  const activeLayer = activeLayerId
+    ? draftLayer && draftLayer.id === activeLayerId
+      ? draftLayer
+      : layers.find((l) => l.id === activeLayerId)
+    : undefined
+  const activeShape =
+    activeLayer && activeLayer.type === 'shape' ? activeLayer : null
+  const penMode = penToolActive && activeShape !== null
+  const shapeCfg = penMode && activeShape
+    ? (activeShape.config as ShapeLayerConfig)
+    : null
 
   // Cover art store doubles as the logo store — coverArtPosition is
   // shared between cover art + logo, logoSize controls logo render scale.
@@ -78,6 +114,7 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
 
   const [selected, setSelected] = useState<SelectableTarget | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
+  const [pointDrag, setPointDrag] = useState<PointDragState | null>(null)
   const [wrapperSize, setWrapperSize] = useState<{ w: number; h: number }>({
     w: 0,
     h: 0,
@@ -305,7 +342,77 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     }
   }, [dragState, onPointerMove, onPointerUp])
 
-  if (selectables.length === 0) return null
+  // Pen Mode point-drag: stream pointer moves into updateShapePoint.
+  const onPointPointerMove = useCallback(
+    (e: PointerEvent) => {
+      if (!pointDrag) return
+      const dx = e.clientX - pointDrag.startMouseX
+      const dy = e.clientY - pointDrag.startMouseY
+      const distSq = dx * dx + dy * dy
+      const moved =
+        pointDrag.moved ||
+        distSq > POINT_CLICK_THRESHOLD_PX * POINT_CLICK_THRESHOLD_PX
+      if (!moved) return
+      const newX = Math.max(
+        0,
+        Math.min(1, pointDrag.startX + dx / pointDrag.wrapperWidth),
+      )
+      const newY = Math.max(
+        0,
+        Math.min(1, pointDrag.startY + dy / pointDrag.wrapperHeight),
+      )
+      updateShapePoint(pointDrag.layerId, pointDrag.index, {
+        x: newX,
+        y: newY,
+      })
+      if (!pointDrag.moved) {
+        setPointDrag({ ...pointDrag, moved: true })
+      }
+    },
+    [pointDrag, updateShapePoint],
+  )
+
+  const onPointPointerUp = useCallback(() => {
+    setPointDrag(null)
+  }, [])
+
+  useEffect(() => {
+    if (!pointDrag) return
+    window.addEventListener('pointermove', onPointPointerMove)
+    window.addEventListener('pointerup', onPointPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', onPointPointerMove)
+      window.removeEventListener('pointerup', onPointPointerUp)
+    }
+  }, [pointDrag, onPointPointerMove, onPointPointerUp])
+
+  // Escape exits pen mode (in addition to deselecting selectables).
+  useEffect(() => {
+    if (!penMode) return
+    const setPen = useLayerStore.getState().setPenToolActive
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [penMode])
+
+  const handleCanvasClickAddPoint = (e: React.PointerEvent) => {
+    if (!penMode || !activeShape || activeShape.locked) return
+    // Only react to clicks on the catcher itself — not on numbered
+    // handles (those have their own stopPropagation handlers).
+    if (e.target !== e.currentTarget) return
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+    addShapePoint(activeShape.id, {
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+    })
+  }
+
+  if (selectables.length === 0 && !penMode) return null
 
   return (
     <div
@@ -315,7 +422,7 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     >
       {/* Deselect catcher: only active while something is selected so we
           don't block clicks on the underlying canvas in idle state. */}
-      {selected && (
+      {selected && !penMode && (
         <div
           className="absolute inset-0"
           style={{ pointerEvents: 'auto' }}
@@ -323,6 +430,21 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
             if (e.target === e.currentTarget) setSelected(null)
           }}
           aria-hidden="true"
+        />
+      )}
+
+      {/* Pen Mode click-catcher: takes precedence over selectables so
+          empty-canvas clicks add a new point. Numbered handles render
+          on top with their own pointer handlers. */}
+      {penMode && activeShape && (
+        <div
+          className="absolute inset-0"
+          style={{
+            pointerEvents: 'auto',
+            cursor: activeShape.locked ? 'not-allowed' : 'crosshair',
+          }}
+          onPointerDown={handleCanvasClickAddPoint}
+          aria-label="Click to add shape point"
         />
       )}
 
@@ -412,7 +534,7 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
         )
       })}
 
-      {selected && !dragState && (
+      {selected && !dragState && !penMode && (
         <div
           className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[10px] text-white/80 backdrop-blur"
           style={{
@@ -422,6 +544,88 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
           }}
         >
           Drag to move · Corners to resize
+        </div>
+      )}
+
+      {/* Pen Mode: numbered handles for each point + helper banner. The
+          handles render on top of the click-catcher; their own
+          stopPropagation prevents the catcher from also adding a point. */}
+      {penMode && shapeCfg && activeShape && shapeCfg.points.map((pt, i) => {
+        const isDragging =
+          pointDrag !== null &&
+          pointDrag.layerId === activeShape.id &&
+          pointDrag.index === i
+        return (
+          <div
+            key={i}
+            className="absolute flex items-center justify-center"
+            style={{
+              left: `${pt.x * 100}%`,
+              top: `${pt.y * 100}%`,
+              transform: 'translate(-50%, -50%)',
+              width: 22,
+              height: 22,
+              borderRadius: '50%',
+              background: isDragging ? '#8b5cf6' : '#3b82f6',
+              border: '2px solid white',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
+              color: 'white',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: isDragging ? 'grabbing' : 'grab',
+              pointerEvents: 'auto',
+              userSelect: 'none',
+              touchAction: 'none',
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              const rect = wrapperRef.current?.getBoundingClientRect()
+              if (!rect) return
+              ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+              setPointDrag({
+                layerId: activeShape.id,
+                index: i,
+                startMouseX: e.clientX,
+                startMouseY: e.clientY,
+                startX: pt.x,
+                startY: pt.y,
+                wrapperWidth: rect.width,
+                wrapperHeight: rect.height,
+                moved: false,
+              })
+            }}
+            onPointerUp={(e) => {
+              // If the pointer never moved past the threshold, treat as
+              // a "remove point" tap.
+              if (
+                pointDrag &&
+                pointDrag.layerId === activeShape.id &&
+                pointDrag.index === i &&
+                !pointDrag.moved
+              ) {
+                e.stopPropagation()
+                removeShapePoint(activeShape.id, i)
+              }
+            }}
+            aria-label={`Point ${i + 1}`}
+            title="Drag to move · Tap to remove"
+          >
+            {i + 1}
+          </div>
+        )
+      })}
+
+      {penMode && activeShape && (
+        <div
+          className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[10px] text-white backdrop-blur"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(59,130,246,0.85), rgba(139,92,246,0.85))',
+            borderColor: 'rgba(255,255,255,0.2)',
+            pointerEvents: 'none',
+          }}
+        >
+          ✎ Pen Tool — click empty canvas to add · drag handles to move · tap to remove
         </div>
       )}
     </div>

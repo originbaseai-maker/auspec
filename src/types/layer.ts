@@ -17,6 +17,7 @@ export type LayerType =
   | 'frame'
   | 'background'
   | 'text'
+  | 'shape'
 
 export type FontFamily =
   | 'Inter'
@@ -186,6 +187,77 @@ export interface BloomLayer {
   config: BloomConfig
 }
 
+/**
+ * Custom Shape — user-drawn polygon defined by a list of points, filled
+ * with color/gradient/image. Points live in 0–1 canvas-fraction space so
+ * the shape scales with the canvas. Audio drives an optional pulse on
+ * scale and stroke width.
+ */
+export interface ShapePoint {
+  /** 0–1 horizontal fraction of canvas. */
+  x: number
+  /** 0–1 vertical fraction of canvas. */
+  y: number
+}
+
+export type ShapeFillType = 'color' | 'gradient' | 'image' | 'none'
+export type ShapeImageFit = 'cover' | 'contain' | 'fill'
+
+export interface ShapeLayerConfig {
+  /** Ordered list of vertices, fraction of canvas. */
+  points: ShapePoint[]
+  /** 0 = polygon edges, 1 = quadratic-bezier rounded curves. */
+  smoothness: number
+  /** Close the path back to point 0. */
+  closed: boolean
+
+  // Fill
+  fillType: ShapeFillType
+  /** Solid color, or first gradient stop. */
+  fillColor: string
+  /** Second gradient stop. */
+  fillColor2: string
+  /** 0–360 deg for linear gradient direction. */
+  gradientAngle: number
+  /** Data URL when fillType === 'image'. */
+  imageSrc: string | null
+  imageFit: ShapeImageFit
+  /** 0–1 fill alpha. */
+  fillOpacity: number
+
+  // Stroke
+  strokeEnabled: boolean
+  strokeColor: string
+  /** 1–20 px. */
+  strokeWidth: number
+  /** 0–1 stroke alpha. */
+  strokeOpacity: number
+
+  // Transform
+  /** Static rotation in degrees, 0–360. */
+  rotation: number
+  /** Auto-rotate speed deg/sec, -180..180. 0 = static. */
+  rotationSpeed: number
+  /** Multiplicative base scale, 0.1–3. */
+  scale: number
+
+  // Glow
+  glowEnabled: boolean
+  /** 0–100 shadowBlur for stroke + fill. */
+  glowIntensity: number
+
+  // Audio reactivity
+  /** 0–1: bass adds to the scale on each beat. */
+  bassPulse: number
+  /** 0–1: mid energy adds to the stroke width. */
+  strokePulse: number
+}
+
+export interface ShapeLayer {
+  type: 'shape'
+  config: ShapeLayerConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -197,6 +269,7 @@ export type LayerData =
   | FrameLayer
   | BackgroundLayer
   | TextLayer
+  | ShapeLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -224,6 +297,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   frame: 'Frame',
   background: 'Background',
   text: 'Text',
+  shape: 'Shape',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -234,6 +308,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'polygon',
   'bloom',
   'particles',
+  'shape',
   'logo',
   'text',
   'frame',
@@ -283,6 +358,30 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   offsetY: 0.5,
   startFrequency: 0,
   endFrequency: 80,
+}
+
+export const DEFAULT_SHAPE_CONFIG: ShapeLayerConfig = {
+  points: [],
+  smoothness: 0,
+  closed: true,
+  fillType: 'color',
+  fillColor: '#8b5cf6',
+  fillColor2: '#3b82f6',
+  gradientAngle: 135,
+  imageSrc: null,
+  imageFit: 'cover',
+  fillOpacity: 1,
+  strokeEnabled: true,
+  strokeColor: '#ffffff',
+  strokeWidth: 2,
+  strokeOpacity: 1,
+  rotation: 0,
+  rotationSpeed: 0,
+  scale: 1,
+  glowEnabled: false,
+  glowIntensity: 40,
+  bassPulse: 0.15,
+  strokePulse: 0,
 }
 
 export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {

@@ -12,6 +12,7 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'visualizer_wave') return 'wave'
   if (id === 'visualizer_polygon') return 'polygon'
   if (id === 'visualizer_bloom') return 'bloom'
+  if (id === 'visualizer_shape') return 'shape'
   if (id === 'particles') return 'particles'
   if (id === 'logo') return 'logo'
   if (id === 'frame') return 'frame'
@@ -32,6 +33,7 @@ export function CategoryGrid() {
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const layers = useLayerStore((s) => s.layers)
   const draftLayer = useLayerStore((s) => s.draftLayer)
+  const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
   const startDraft = useLayerStore((s) => s.startDraft)
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
@@ -44,10 +46,12 @@ export function CategoryGrid() {
 
   const handleClick = (cat: CategoryConfig) => {
     if (cat.id === activeCategory) {
-      // User wants to close the detail panel — confirm if draft exists.
-      if (hasDraft) {
+      // User wants to close the detail panel.
+      if (hasDraft && draftIsDirty) {
         setPendingAction({ type: 'close' })
       } else {
+        // No draft, or untouched draft → silent discard + close.
+        if (hasDraft) discardDraft()
         setActiveCategory(null)
       }
       return
@@ -55,8 +59,8 @@ export function CategoryGrid() {
 
     const layerType = categoryToLayerType(cat.id)
 
-    if (hasDraft) {
-      // Switching off a draft — gate on the user's choice.
+    if (hasDraft && draftIsDirty) {
+      // Real changes pending — confirm before discarding.
       setPendingAction({
         type: 'tile',
         targetCategory: cat.id,
@@ -65,7 +69,8 @@ export function CategoryGrid() {
       return
     }
 
-    // Clean slate — proceed normally.
+    // No draft OR untouched draft — proceed silently.
+    if (hasDraft) discardDraft()
     if (layerType) {
       startDraft(layerType)
     }

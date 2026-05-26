@@ -14,6 +14,7 @@ import {
   Layers as LayersIcon,
   Lock,
   Pencil,
+  PenTool,
   Plus,
   RotateCcw,
   Sparkles,
@@ -45,6 +46,7 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   frame: Square,
   background: LayersIcon,
   text: TypeIcon,
+  shape: PenTool,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -58,6 +60,7 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   frame: 'frame',
   background: 'background',
   text: 'text',
+  shape: 'visualizer_shape',
 }
 
 interface ContextMenuState {
@@ -105,6 +108,7 @@ export function LayerSidebar(): JSX.Element {
   const layers = useLayerStore((s) => s.layers)
   const activeLayerId = useLayerStore((s) => s.activeLayerId)
   const draftLayer = useLayerStore((s) => s.draftLayer)
+  const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
   const toggleEnabled = useLayerStore((s) => s.toggleEnabled)
   const toggleLocked = useLayerStore((s) => s.toggleLocked)
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
@@ -143,23 +147,26 @@ export function LayerSidebar(): JSX.Element {
 
   const handleRowClick = (layer: Layer) => {
     if (renamingId === layer.id) return
-    // Selecting an existing layer while a draft exists triggers the
-    // confirm dialog. Clicking the draft itself is fine (it's already
-    // active by definition).
-    if (hasDraft && layer.id !== draftLayer?.id) {
+    // Clicking the draft row itself is a no-op (it's already active).
+    if (draftLayer && layer.id === draftLayer.id) return
+    // Real changes pending → confirm; otherwise silently discard
+    // the untouched draft and switch.
+    if (hasDraft && draftIsDirty) {
       setPendingLayerSelect(layer.id)
       return
     }
+    if (hasDraft) discardDraft()
     setActiveLayer(layer.id)
     setActiveCategory(CATEGORY_MAP[layer.type])
   }
 
   const handleAdd = (type: LayerType) => {
-    if (hasDraft) {
+    if (hasDraft && draftIsDirty) {
       setPendingAdd(type)
       setShowAddMenu(false)
       return
     }
+    if (hasDraft) discardDraft()
     addLayer(type) // wraps startDraft internally now
     setActiveCategory(CATEGORY_MAP[type])
     setShowAddMenu(false)

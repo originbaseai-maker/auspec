@@ -11,12 +11,15 @@ import {
   DEFAULT_BACKGROUND_CONFIG,
   DEFAULT_BLOOM_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
+  DEFAULT_SHAPE_CONFIG,
   DEFAULT_TEXT_CONFIG,
   generateLayerName,
   LAYER_TYPES,
   type Layer,
   type LayerData,
   type LayerType,
+  type ShapeLayerConfig,
+  type ShapePoint,
 } from '@/types/layer'
 
 function makeId(): string {
@@ -54,6 +57,11 @@ function defaultData(type: LayerType): LayerData {
       return { type: 'background', config: { ...DEFAULT_BACKGROUND_CONFIG } }
     case 'text':
       return { type: 'text', config: { ...DEFAULT_TEXT_CONFIG } }
+    case 'shape':
+      return {
+        type: 'shape',
+        config: { ...DEFAULT_SHAPE_CONFIG, points: [] },
+      }
   }
 }
 
@@ -133,6 +141,12 @@ function createLayer(
         type: 'text',
         config: { ...DEFAULT_TEXT_CONFIG },
       }
+    case 'shape':
+      return {
+        ...base,
+        type: 'shape',
+        config: { ...DEFAULT_SHAPE_CONFIG, points: [] },
+      }
   }
 }
 
@@ -158,9 +172,33 @@ export interface LayerStore {
    * passed, so panels and overlays can edit it transparently.
    */
   draftLayer: Layer | null
+  /**
+   * True after the user has made any edit to the current draft. Used
+   * by tile-switch / sidebar-row / +Add handlers to decide between
+   * showing the confirm dialog (real changes) vs. silent-discarding
+   * an untouched draft. Cleared by startDraft / commitDraft /
+   * discardDraft / replaceLayers / resetAll.
+   */
+  draftIsDirty: boolean
+  /**
+   * Transient: whether the Pen Tool is currently active for the active
+   * shape layer. While true, canvas clicks add/move points and the
+   * default drag-to-move selectable for the shape is suppressed.
+   */
+  penToolActive: boolean
 
   setActiveLayer: (id: string | null) => void
   setEditingTextLayerId: (id: string | null) => void
+  setPenToolActive: (active: boolean) => void
+
+  /** Append a point (0–1 fractional coords) to a shape layer. */
+  addShapePoint: (id: string, point: ShapePoint) => void
+  /** Replace point at index for a shape layer. No-op for non-shape. */
+  updateShapePoint: (id: string, index: number, point: ShapePoint) => void
+  /** Remove point at index from a shape layer. */
+  removeShapePoint: (id: string, index: number) => void
+  /** Wipe all points on a shape layer (Clear All in pen panel). */
+  clearShapePoints: (id: string) => void
   toggleEnabled: (id: string) => void
   toggleLocked: (id: string) => void
   setEnabled: (id: string, enabled: boolean) => void
@@ -214,15 +252,121 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   activeLayerId: null,
   editingTextLayerId: null,
   draftLayer: null,
+  draftIsDirty: false,
+  penToolActive: false,
 
-  setActiveLayer: (activeLayerId) => set({ activeLayerId }),
+  // Auto-disable the Pen Tool whenever the active layer changes —
+  // pen mode is scoped to the shape currently being edited; switching
+  // layers should leave a clean slate.
+  setActiveLayer: (activeLayerId) =>
+    set({ activeLayerId, penToolActive: false }),
   setEditingTextLayerId: (editingTextLayerId) => set({ editingTextLayerId }),
+  setPenToolActive: (penToolActive) => set({ penToolActive }),
+
+  addShapePoint: (id, point) =>
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id && s.draftLayer.type === 'shape') {
+        const cfg = s.draftLayer.config as ShapeLayerConfig
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            config: { ...cfg, points: [...cfg.points, { ...point }] },
+          } as Layer,
+          draftIsDirty: true,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id || l.type !== 'shape' || l.locked) return l
+          const cfg = l.config as ShapeLayerConfig
+          return {
+            ...l,
+            type: 'shape',
+            config: { ...cfg, points: [...cfg.points, { ...point }] },
+          } as Layer
+        }),
+      }
+    }),
+
+  updateShapePoint: (id, index, point) =>
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id && s.draftLayer.type === 'shape') {
+        const cfg = s.draftLayer.config as ShapeLayerConfig
+        if (index < 0 || index >= cfg.points.length) return s
+        const points = cfg.points.slice()
+        points[index] = { ...point }
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            config: { ...cfg, points },
+          } as Layer,
+          draftIsDirty: true,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id || l.type !== 'shape' || l.locked) return l
+          const cfg = l.config as ShapeLayerConfig
+          if (index < 0 || index >= cfg.points.length) return l
+          const points = cfg.points.slice()
+          points[index] = { ...point }
+          return { ...l, type: 'shape', config: { ...cfg, points } } as Layer
+        }),
+      }
+    }),
+
+  removeShapePoint: (id, index) =>
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id && s.draftLayer.type === 'shape') {
+        const cfg = s.draftLayer.config as ShapeLayerConfig
+        if (index < 0 || index >= cfg.points.length) return s
+        const points = cfg.points.filter((_, i) => i !== index)
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            config: { ...cfg, points },
+          } as Layer,
+          draftIsDirty: true,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id || l.type !== 'shape' || l.locked) return l
+          const cfg = l.config as ShapeLayerConfig
+          if (index < 0 || index >= cfg.points.length) return l
+          const points = cfg.points.filter((_, i) => i !== index)
+          return { ...l, type: 'shape', config: { ...cfg, points } } as Layer
+        }),
+      }
+    }),
+
+  clearShapePoints: (id) =>
+    set((s) => {
+      if (s.draftLayer && s.draftLayer.id === id && s.draftLayer.type === 'shape') {
+        const cfg = s.draftLayer.config as ShapeLayerConfig
+        return {
+          draftLayer: {
+            ...s.draftLayer,
+            config: { ...cfg, points: [] },
+          } as Layer,
+          draftIsDirty: true,
+        }
+      }
+      return {
+        layers: s.layers.map((l) => {
+          if (l.id !== id || l.type !== 'shape' || l.locked) return l
+          const cfg = l.config as ShapeLayerConfig
+          return { ...l, type: 'shape', config: { ...cfg, points: [] } } as Layer
+        }),
+      }
+    }),
 
   toggleEnabled: (id) =>
     set((s) => {
       if (s.draftLayer && s.draftLayer.id === id) {
         return {
           draftLayer: { ...s.draftLayer, enabled: !s.draftLayer.enabled } as Layer,
+          draftIsDirty: true,
         }
       }
       return {
@@ -237,6 +381,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       if (s.draftLayer && s.draftLayer.id === id) {
         return {
           draftLayer: { ...s.draftLayer, locked: !s.draftLayer.locked } as Layer,
+          draftIsDirty: true,
         }
       }
       return {
@@ -249,7 +394,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setEnabled: (id, enabled) =>
     set((s) => {
       if (s.draftLayer && s.draftLayer.id === id) {
-        return { draftLayer: { ...s.draftLayer, enabled } as Layer }
+        return {
+          draftLayer: { ...s.draftLayer, enabled } as Layer,
+          draftIsDirty: true,
+        }
       }
       return {
         layers: s.layers.map((l) =>
@@ -261,7 +409,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLocked: (id, locked) =>
     set((s) => {
       if (s.draftLayer && s.draftLayer.id === id) {
-        return { draftLayer: { ...s.draftLayer, locked } as Layer }
+        return {
+          draftLayer: { ...s.draftLayer, locked } as Layer,
+          draftIsDirty: true,
+        }
       }
       return {
         layers: s.layers.map((l) =>
@@ -279,6 +430,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             ...s.draftLayer,
             config: { ...s.draftLayer.config, ...partial },
           } as Layer,
+          draftIsDirty: true,
         }
       }
       return {
@@ -325,7 +477,11 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       )
       const draft = createLayer(type, existingNames, maxZ + 1, true)
       draftId = draft.id
-      return { draftLayer: draft, activeLayerId: draftId }
+      return {
+        draftLayer: draft,
+        activeLayerId: draftId,
+        draftIsDirty: false,
+      }
     })
     return draftId
   },
@@ -338,6 +494,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       return {
         layers: [...s.layers, s.draftLayer],
         draftLayer: null,
+        draftIsDirty: false,
         // activeLayerId stays — the id is preserved as the draft
         // becomes a real layer.
       }
@@ -352,7 +509,11 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         s.activeLayerId === s.draftLayer.id
           ? (s.layers[s.layers.length - 1]?.id ?? null)
           : s.activeLayerId
-      return { draftLayer: null, activeLayerId: newActive }
+      return {
+        draftLayer: null,
+        draftIsDirty: false,
+        activeLayerId: newActive,
+      }
     }),
 
   hasUnsavedDraft: () => get().draftLayer !== null,
@@ -365,7 +526,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           s.activeLayerId === id
             ? (s.layers[s.layers.length - 1]?.id ?? null)
             : s.activeLayerId
-        return { draftLayer: null, activeLayerId: newActive }
+        return { draftLayer: null, draftIsDirty: false, activeLayerId: newActive }
       }
       const removed = s.layers.find((l) => l.id === id)
       // Particle systems own per-layer simulation state in a module-level
@@ -455,6 +616,16 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         case 'text':
           dup = { ...base, type: 'text', config: { ...source.config } }
           break
+        case 'shape':
+          dup = {
+            ...base,
+            type: 'shape',
+            config: {
+              ...source.config,
+              points: source.config.points.map((p) => ({ ...p })),
+            },
+          }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -472,6 +643,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             ...s.draftLayer,
             name: name.trim() || s.draftLayer.name,
           } as Layer,
+          draftIsDirty: true,
         }
       }
       return {
@@ -530,8 +702,12 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             newDraft = { ...draft, type: 'text',
               config: { ...(fresh as { type: 'text'; config: object }).config } } as Layer
             break
+          case 'shape':
+            newDraft = { ...draft, type: 'shape',
+              config: { ...(fresh as { type: 'shape'; config: object }).config } } as Layer
+            break
         }
-        return { draftLayer: newDraft }
+        return { draftLayer: newDraft, draftIsDirty: true }
       }
       return {
       layers: s.layers.map((l) => {
@@ -610,6 +786,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               config: { ...(fresh as { type: 'text'; config: object })
                 .config },
             } as Layer
+          case 'shape':
+            return {
+              ...l,
+              type: 'shape',
+              config: { ...(fresh as { type: 'shape'; config: object })
+                .config },
+            } as Layer
         }
       }),
       }
@@ -670,6 +853,8 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             : null,
       // Replace = clean slate — any in-flight draft is silently dropped.
       draftLayer: null,
+      draftIsDirty: false,
+      penToolActive: false,
     }),
 
   resetAll: () => {
@@ -678,6 +863,8 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       layers: defaults,
       activeLayerId: defaults[0]?.id ?? null,
       draftLayer: null,
+      draftIsDirty: false,
+      penToolActive: false,
     })
   },
 }))
@@ -784,6 +971,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'text',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'shape':
+          layer = {
+            ...base,
+            type: 'shape',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break
