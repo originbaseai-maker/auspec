@@ -51,6 +51,16 @@ const MIN_HEIGHT_VH = 0.2
 const MAX_HEIGHT_VH = 0.75
 
 /**
+ * backdrop-filter is widely supported on modern Safari/Chrome but can
+ * be expensive on older Android. Detect once at module load; renderers
+ * fall back to a near-opaque solid bg when unsupported.
+ */
+const SUPPORTS_BACKDROP_FILTER =
+  typeof CSS !== 'undefined' &&
+  (CSS.supports('backdrop-filter', 'blur(1px)') ||
+    CSS.supports('-webkit-backdrop-filter', 'blur(1px)'))
+
+/**
  * Mobile bottom sheet with backdrop, drag-to-resize grab handle, and
  * slide-up animation. Locks body scroll while open and closes on Escape.
  *
@@ -159,12 +169,29 @@ export function MobileBottomSheet({
       ? `${manualHeightPx}px`
       : (height ?? defaultHeightFor(variant, smallPhone))
 
+  // Translucent overlay pattern (iOS Music / Reels Editor): the sheet
+  // is frosted glass over the canvas. The "backdrop" scrim is barely
+  // tinted — it exists for click-to-close and aria, NOT to dim the
+  // canvas. With backdrop-filter unsupported we fall back to a more
+  // opaque sheet bg so the contrast stays readable.
+  const sheetBackground = SUPPORTS_BACKDROP_FILTER
+    ? 'rgba(10, 10, 10, 0.72)'
+    : 'rgba(10, 10, 10, 0.95)'
+  const sheetBackdropFilter = SUPPORTS_BACKDROP_FILTER
+    ? 'blur(28px) saturate(180%)'
+    : undefined
+
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-40"
         onClick={onClose}
-        style={{ animation: 'auspec-sheet-fade 200ms ease' }}
+        // No dark dim — the canvas should remain visible behind the
+        // sheet. A near-transparent layer still catches taps to close.
+        style={{
+          background: 'rgba(0, 0, 0, 0.05)',
+          animation: 'auspec-sheet-fade 200ms ease',
+        }}
         aria-hidden="true"
       />
       <div
@@ -172,13 +199,17 @@ export function MobileBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl border-t bg-[#0a0a0a]"
+        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl"
         style={{
-          borderColor: '#2a2a2a',
           height: resolvedHeight,
           // Hard ceiling — even drag can't push past this so the canvas
           // is never fully covered.
           maxHeight: 'min(75vh, 600px)',
+          background: sheetBackground,
+          backdropFilter: sheetBackdropFilter,
+          WebkitBackdropFilter: sheetBackdropFilter,
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.4)',
           // The slide-up animation runs once on mount; the height
           // transition runs every time `height` changes — but NOT during
           // an active drag (would lag behind the pointer).
@@ -201,7 +232,11 @@ export function MobileBottomSheet({
           role="separator"
         >
           <div
-            className="h-1 w-10 rounded-full bg-white/30"
+            className="mx-auto h-1 w-12 rounded-full"
+            style={{
+              background: 'rgba(255, 255, 255, 0.5)',
+              boxShadow: '0 0 12px rgba(255, 255, 255, 0.2)',
+            }}
             aria-hidden="true"
           />
         </div>
@@ -257,6 +292,11 @@ export function MobileBottomSheet({
         }
         .auspec-mobile-sheet-body input[type='range'].auspec-slider {
           height: 1.25rem;
+        }
+        /* Slider track contrast against the translucent sheet bg —
+           tracks pull from a lighter base than the default white/10. */
+        .auspec-mobile-sheet-body input[type='range'] {
+          background-color: rgba(255, 255, 255, 0.18);
         }
       `}</style>
     </>
