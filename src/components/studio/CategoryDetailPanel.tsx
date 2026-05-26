@@ -9,6 +9,7 @@ import { PolygonPanel } from './panels/PolygonPanel'
 import { BloomPanel } from './panels/BloomPanel'
 import { CustomShapePanel } from './panels/CustomShapePanel'
 import { ParticlesPanel } from './panels/ParticlesPanel'
+import { VideoPanel } from './panels/VideoPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
 import { TextPanel } from './panels/TextPanel'
@@ -36,6 +37,7 @@ const LAYER_CATEGORIES = new Set([
   'visualizer_polygon',
   'visualizer_bloom',
   'visualizer_shape',
+  'visualizer_video',
   'particles',
   'logo',
   'frame',
@@ -89,6 +91,8 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <BloomPanel layerId={activeLayer.id} />
         case 'shape':
           return <CustomShapePanel layerId={activeLayer.id} />
+        case 'video':
+          return <VideoPanel layerId={activeLayer.id} />
         case 'particles':
           return <ParticlesPanel layerId={activeLayer.id} />
         case 'logo':

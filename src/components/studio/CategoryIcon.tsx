@@ -111,6 +111,31 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           <circle cx="8" cy="16" r="2" fill="rgba(139,92,246,1)" />
         </svg>
       )
+    case 'video':
+      return (
+        <svg {...props}>
+          {/* Film frame + play triangle */}
+          <rect
+            x="6"
+            y="10"
+            width="28"
+            height="20"
+            rx="2"
+            fill="rgba(236,72,153,0.15)"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M 17 17 L 26 20 L 17 23 Z"
+            fill="rgba(255,255,255,0.9)"
+          />
+          {/* film sprockets */}
+          <rect x="8" y="13" width="2" height="2" fill="rgba(255,255,255,0.5)" />
+          <rect x="8" y="25" width="2" height="2" fill="rgba(255,255,255,0.5)" />
+          <rect x="30" y="13" width="2" height="2" fill="rgba(255,255,255,0.5)" />
+          <rect x="30" y="25" width="2" height="2" fill="rgba(255,255,255,0.5)" />
+        </svg>
+      )
     case 'particles':
       return (
         <svg {...props}>

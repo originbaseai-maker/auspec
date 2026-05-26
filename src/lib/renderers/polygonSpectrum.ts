@@ -1,4 +1,6 @@
 import type { FrequencyData } from '@/types/analyzer'
+import type { VideoSyncMode } from '@/types/video'
+import type { VideoFit } from '@/types/layer'
 import {
   applyBandSensitivity,
   getFrequencyBinRange,
@@ -9,6 +11,7 @@ import {
   parseColor,
   resolveBarColor,
 } from '@/lib/colorPalette'
+import { getVideoElement } from '@/lib/videoPool'
 
 const FALLBACK_SAMPLE_RATE = 44100
 
@@ -45,6 +48,11 @@ export interface PolygonSpectrumConfig {
   /** Center position as fraction of canvas (0–1). Default 0.5 = center. */
   offsetX?: number
   offsetY?: number
+  /** When true, clip a video into the polygon interior. */
+  videoFillEnabled?: boolean
+  videoFillAssetId?: string | null
+  videoFillSyncMode?: VideoSyncMode
+  videoFillFit?: VideoFit
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -287,6 +295,56 @@ export function renderPolygonSpectrum(
   const step = Math.max(1, Math.floor(sourceLen / barCount))
 
   ctx.save()
+
+  // 0. Optional video fill — clipped to polygon interior, drawn before
+  // the solid fill so the fill overlays/tints the video.
+  if (config.videoFillEnabled && config.videoFillAssetId) {
+    const video = getVideoElement(config.videoFillAssetId)
+    if (video && video.readyState >= 2 && video.videoWidth > 0) {
+      ctx.save()
+      ctx.beginPath()
+      for (let i = 0; i < vertices.length; i++) {
+        const v = vertices[i]
+        if (i === 0) ctx.moveTo(v.x, v.y)
+        else ctx.lineTo(v.x, v.y)
+      }
+      ctx.closePath()
+      ctx.clip()
+
+      const bw = scaledRadius * 2
+      const bh = scaledRadius * 2
+      const lx = cx - scaledRadius
+      const ly = cy - scaledRadius
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      const vAR = vw / vh
+      const boxAR = bw / Math.max(bh, 1)
+      const fit = config.videoFillFit ?? 'cover'
+      let dx = lx
+      let dy = ly
+      let dw = bw
+      let dh = bh
+      if (fit === 'cover') {
+        if (vAR > boxAR) {
+          dw = bh * vAR
+          dx = lx + (bw - dw) / 2
+        } else {
+          dh = bw / vAR
+          dy = ly + (bh - dh) / 2
+        }
+      } else if (fit === 'contain') {
+        if (vAR > boxAR) {
+          dh = bw / vAR
+          dy = ly + (bh - dh) / 2
+        } else {
+          dw = bh * vAR
+          dx = lx + (bw - dw) / 2
+        }
+      }
+      ctx.drawImage(video, dx, dy, dw, dh)
+      ctx.restore()
+    }
+  }
 
   // 1. Filled polygon (drawn before bars, per contract)
   if (fillShape) {

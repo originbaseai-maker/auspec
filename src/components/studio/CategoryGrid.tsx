@@ -13,6 +13,7 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'visualizer_polygon') return 'polygon'
   if (id === 'visualizer_bloom') return 'bloom'
   if (id === 'visualizer_shape') return 'shape'
+  if (id === 'visualizer_video') return 'video'
   if (id === 'particles') return 'particles'
   if (id === 'logo') return 'logo'
   if (id === 'frame') return 'frame'

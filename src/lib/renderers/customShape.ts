@@ -1,5 +1,6 @@
 import type { ShapeLayerConfig, ShapePoint } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
+import { getVideoElement } from '@/lib/videoPool'
 
 /**
  * Per-config rotation accumulator. WeakMap auto-cleans when the layer
@@ -176,6 +177,47 @@ export function drawCustomShape(
       grad.addColorStop(1, config.fillColor2)
       ctx.fillStyle = grad
       ctx.fill()
+    } else if (config.fillType === 'video' && config.videoAssetId) {
+      // Video fill: same clip+drawImage as image fill, but with a live
+      // HTMLVideoElement from the pool (the canvas2D API treats both
+      // CanvasImageSource types identically).
+      const video = getVideoElement(config.videoAssetId)
+      if (video && video.readyState >= 2 && video.videoWidth > 0) {
+        ctx.save()
+        ctx.clip()
+        const bbox = pointsBBox(pts, width, height)
+        const bw = bbox.maxX - bbox.minX
+        const bh = bbox.maxY - bbox.minY
+        const lx = bbox.minX - cx
+        const ly = bbox.minY - cy
+        const vw = video.videoWidth
+        const vh = video.videoHeight
+        const vAR = vw / vh
+        const boxAR = bw / Math.max(bh, 1)
+        let dx = lx
+        let dy = ly
+        let dw = bw
+        let dh = bh
+        if (config.imageFit === 'cover') {
+          if (vAR > boxAR) {
+            dw = bh * vAR
+            dx = lx + (bw - dw) / 2
+          } else {
+            dh = bw / vAR
+            dy = ly + (bh - dh) / 2
+          }
+        } else if (config.imageFit === 'contain') {
+          if (vAR > boxAR) {
+            dh = bw / vAR
+            dy = ly + (bh - dh) / 2
+          } else {
+            dw = bh * vAR
+            dx = lx + (bw - dw) / 2
+          }
+        }
+        ctx.drawImage(video, dx, dy, dw, dh)
+        ctx.restore()
+      }
     } else if (config.fillType === 'image' && config.imageSrc) {
       // Image fill: clip to the shape, then draw the image fitted to
       // the shape's bbox (cover/contain/fill).

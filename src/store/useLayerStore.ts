@@ -13,6 +13,7 @@ import {
   DEFAULT_LOGO_LAYER_CONFIG,
   DEFAULT_SHAPE_CONFIG,
   DEFAULT_TEXT_CONFIG,
+  DEFAULT_VIDEO_CONFIG,
   generateLayerName,
   LAYER_TYPES,
   type Layer,
@@ -62,6 +63,8 @@ function defaultData(type: LayerType): LayerData {
         type: 'shape',
         config: { ...DEFAULT_SHAPE_CONFIG, points: [] },
       }
+    case 'video':
+      return { type: 'video', config: { ...DEFAULT_VIDEO_CONFIG } }
   }
 }
 
@@ -146,6 +149,12 @@ function createLayer(
         ...base,
         type: 'shape',
         config: { ...DEFAULT_SHAPE_CONFIG, points: [] },
+      }
+    case 'video':
+      return {
+        ...base,
+        type: 'video',
+        config: { ...DEFAULT_VIDEO_CONFIG },
       }
   }
 }
@@ -626,6 +635,9 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             },
           }
           break
+        case 'video':
+          dup = { ...base, type: 'video', config: { ...source.config } }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -705,6 +717,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           case 'shape':
             newDraft = { ...draft, type: 'shape',
               config: { ...(fresh as { type: 'shape'; config: object }).config } } as Layer
+            break
+          case 'video':
+            newDraft = { ...draft, type: 'video',
+              config: { ...(fresh as { type: 'video'; config: object }).config } } as Layer
             break
         }
         return { draftLayer: newDraft, draftIsDirty: true }
@@ -791,6 +807,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'shape',
               config: { ...(fresh as { type: 'shape'; config: object })
+                .config },
+            } as Layer
+          case 'video':
+            return {
+              ...l,
+              type: 'video',
+              config: { ...(fresh as { type: 'video'; config: object })
                 .config },
             } as Layer
         }
@@ -978,6 +1001,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'shape',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'video':
+          layer = {
+            ...base,
+            type: 'video',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break

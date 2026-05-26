@@ -5,6 +5,7 @@ import type { PolygonSpectrumConfig } from '@/lib/renderers/polygonSpectrum'
 import type { ParticleConfig } from '@/store/useParticleStore'
 import type { FrameConfig } from '@/store/useFrameStore'
 import type { CropMode } from '@/types/coverArt'
+import type { VideoSyncMode } from '@/types/video'
 
 export type LayerType =
   | 'bars'
@@ -18,6 +19,7 @@ export type LayerType =
   | 'background'
   | 'text'
   | 'shape'
+  | 'video'
 
 export type FontFamily =
   | 'Inter'
@@ -61,6 +63,12 @@ export interface LogoLayerConfig {
   position: { x: number; y: number }
   /** Auto-sync to a circular/polygon layer's radius (V1: still global behavior). */
   autoLogoSync: boolean
+  /**
+   * Optional: when set, the renderer draws this video into the logo
+   * slot instead of the cover-art image. Same crop / position semantics.
+   */
+  videoAssetId?: string | null
+  videoSyncMode?: VideoSyncMode
 }
 
 export interface LogoLayer {
@@ -200,7 +208,7 @@ export interface ShapePoint {
   y: number
 }
 
-export type ShapeFillType = 'color' | 'gradient' | 'image' | 'none'
+export type ShapeFillType = 'color' | 'gradient' | 'image' | 'video' | 'none'
 export type ShapeImageFit = 'cover' | 'contain' | 'fill'
 
 export interface ShapeLayerConfig {
@@ -224,6 +232,9 @@ export interface ShapeLayerConfig {
   imageFit: ShapeImageFit
   /** 0–1 fill alpha. */
   fillOpacity: number
+  /** When fillType === 'video', which asset to clip into the shape. */
+  videoAssetId?: string | null
+  videoSyncMode?: VideoSyncMode
 
   // Stroke
   strokeEnabled: boolean
@@ -258,6 +269,36 @@ export interface ShapeLayer {
   config: ShapeLayerConfig
 }
 
+/**
+ * Standalone Video Layer — draws a video to the canvas with fit /
+ * transform controls. The asset itself lives in useVideoAssetStore; the
+ * layer holds a pointer + per-layer playback settings.
+ */
+export type VideoFit = 'cover' | 'contain' | 'fill'
+
+export interface VideoLayerConfig {
+  videoAssetId: string | null
+  syncMode: VideoSyncMode
+  fit: VideoFit
+  /** 0–1 — only used when fit !== 'fill'. */
+  offsetX: number
+  offsetY: number
+  /** 0.1–3. */
+  scale: number
+  /** Degrees, 0–360. */
+  rotation: number
+  /** 0.25–2 — only used in 'loop' mode. */
+  playbackRate: number
+  /** Trim: seconds offset within source video. V1: simple start/end. */
+  startTime: number
+  endTime: number | null
+}
+
+export interface VideoLayer {
+  type: 'video'
+  config: VideoLayerConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -270,6 +311,7 @@ export type LayerData =
   | BackgroundLayer
   | TextLayer
   | ShapeLayer
+  | VideoLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -298,6 +340,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   background: 'Background',
   text: 'Text',
   shape: 'Shape',
+  video: 'Video',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -309,6 +352,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'bloom',
   'particles',
   'shape',
+  'video',
   'logo',
   'text',
   'frame',
@@ -358,6 +402,19 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   offsetY: 0.5,
   startFrequency: 0,
   endFrequency: 80,
+}
+
+export const DEFAULT_VIDEO_CONFIG: VideoLayerConfig = {
+  videoAssetId: null,
+  syncMode: 'loop',
+  fit: 'cover',
+  offsetX: 0.5,
+  offsetY: 0.5,
+  scale: 1,
+  rotation: 0,
+  playbackRate: 1,
+  startTime: 0,
+  endTime: null,
 }
 
 export const DEFAULT_SHAPE_CONFIG: ShapeLayerConfig = {

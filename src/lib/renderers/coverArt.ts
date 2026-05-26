@@ -3,6 +3,7 @@ import {
   renderLogoInPolygon,
   type PolygonShape,
 } from '@/lib/renderers/polygonSpectrum'
+import { getVideoElement } from '@/lib/videoPool'
 
 interface CoverArtRenderConfig {
   coverArtSize: number
@@ -198,6 +199,40 @@ export interface LogoLayerRenderConfig {
   logoSize: number
   logoCropMode: CropMode
   position: { x: number; y: number }
+  /** Optional video override — when set, drawn instead of the image. */
+  videoAssetId?: string | null
+}
+
+/**
+ * Draws a video into the logo slot using the same crop / center-crop
+ * geometry as the image branch. Lets the LogoLayer "video instead of
+ * image" feature reuse the existing slot semantics.
+ */
+function drawCroppedVideo(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  x: number,
+  y: number,
+  size: number,
+  cropMode: CropMode,
+): void {
+  ctx.save()
+  if (cropMode === 'circle') {
+    ctx.beginPath()
+    ctx.arc(x, y, size / 2, 0, Math.PI * 2)
+    ctx.clip()
+  } else if (cropMode === 'square') {
+    ctx.beginPath()
+    ctx.roundRect(x - size / 2, y - size / 2, size, size, size * 0.08)
+    ctx.clip()
+  }
+  const vw = video.videoWidth || 1
+  const vh = video.videoHeight || 1
+  const scale = Math.max(size / vw, size / vh)
+  const scaledW = vw * scale
+  const scaledH = vh * scale
+  ctx.drawImage(video, x - scaledW / 2, y - scaledH / 2, scaledW, scaledH)
+  ctx.restore()
 }
 
 export function drawLogoLayer(
@@ -207,14 +242,29 @@ export function drawLogoLayer(
   width: number,
   height: number,
 ): void {
-  if (!logo) return
-  const logoImg = getOrLoadImage(logo.objectUrl)
-  if (!logoImg) return
-
   const minDim = Math.min(width, height)
   const logoSizePx = minDim * config.logoSize
   const cx = width * config.position.x
   const cy = height * config.position.y
+
+  // Video wins if assigned and ready, even if a cover-art image is set.
+  if (config.videoAssetId) {
+    const video = getVideoElement(config.videoAssetId)
+    if (video && video.readyState >= 2 && video.videoWidth > 0) {
+      ctx.save()
+      ctx.shadowBlur = 30
+      ctx.shadowColor = 'rgba(59,130,246,0.4)'
+      drawCroppedVideo(ctx, video, cx, cy, logoSizePx, config.logoCropMode)
+      ctx.shadowBlur = 0
+      ctx.restore()
+      return
+    }
+    // Video assigned but not ready yet → fall through to image, or nothing.
+  }
+
+  if (!logo) return
+  const logoImg = getOrLoadImage(logo.objectUrl)
+  if (!logoImg) return
 
   ctx.save()
   ctx.shadowBlur = 30

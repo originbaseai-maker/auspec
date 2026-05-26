@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { PenTool, Trash2 } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import type { ShapeLayerConfig } from '@/types/layer'
 import {
   ColorRow,
@@ -19,7 +20,13 @@ const FILL_TYPES = [
   { id: 'color' as const, label: 'Color' },
   { id: 'gradient' as const, label: 'Gradient' },
   { id: 'image' as const, label: 'Image' },
+  { id: 'video' as const, label: 'Video' },
   { id: 'none' as const, label: 'None' },
+]
+
+const SYNC_MODES = [
+  { id: 'loop' as const, label: 'Loop' },
+  { id: 'music_sync' as const, label: 'Sync to Music' },
 ]
 
 const FIT_MODES = [
@@ -40,6 +47,7 @@ export function CustomShapePanel({ layerId }: Props) {
   const penToolActive = useLayerStore((s) => s.penToolActive)
   const setPenToolActive = useLayerStore((s) => s.setPenToolActive)
   const clearShapePoints = useLayerStore((s) => s.clearShapePoints)
+  const videoAssets = useVideoAssetStore((s) => s.assets)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!layer) {
@@ -237,9 +245,54 @@ export function CustomShapePanel({ layerId }: Props) {
               onChange={(v) => update({ imageFit: v })}
               cols={3}
             />
-            <p className="text-[9px] text-white/30">
-              Video fill coming in V2
-            </p>
+          </div>
+        )}
+
+        {cfg.fillType === 'video' && (
+          <div className="mt-2 space-y-2">
+            {videoAssets.length === 0 ? (
+              <p
+                className="rounded-md border px-3 py-2 text-[11px] text-white/60"
+                style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+              >
+                No videos uploaded yet. Open the Videos modal (Film icon in
+                the top bar) to add one.
+              </p>
+            ) : (
+              <>
+                <select
+                  value={cfg.videoAssetId ?? ''}
+                  onChange={(e) =>
+                    update({ videoAssetId: e.target.value || null })
+                  }
+                  className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+                  style={{ borderColor: '#2a2a2a' }}
+                  aria-label="Video fill source"
+                >
+                  <option value="">— Connect to video —</option>
+                  {videoAssets.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+                <SegmentedGroup
+                  options={SYNC_MODES}
+                  value={cfg.videoSyncMode ?? 'loop'}
+                  onChange={(v) => update({ videoSyncMode: v })}
+                  cols={2}
+                />
+                <p className="text-[10px] uppercase tracking-wider text-white/40">
+                  Fit
+                </p>
+                <SegmentedGroup
+                  options={FIT_MODES}
+                  value={cfg.imageFit}
+                  onChange={(v) => update({ imageFit: v })}
+                  cols={3}
+                />
+              </>
+            )}
           </div>
         )}
 

@@ -1,4 +1,6 @@
 import type { FrequencyData } from '@/types/analyzer'
+import type { VideoSyncMode } from '@/types/video'
+import type { VideoFit } from '@/types/layer'
 import {
   applyBandSensitivity,
   getFrequencyBinRange,
@@ -9,6 +11,7 @@ import {
   lastColor,
   resolveBarColor,
 } from '@/lib/colorPalette'
+import { getVideoElement } from '@/lib/videoPool'
 
 export type CircularSideMode = 'both' | 'side_a' | 'side_b'
 
@@ -36,6 +39,11 @@ export interface CircularSpectrumConfig {
   /** Center position as fraction of canvas (0–1). Default 0.5 = center. */
   offsetX?: number
   offsetY?: number
+  /** When true, clip a video into the outer ring annulus. */
+  videoFillEnabled?: boolean
+  videoFillAssetId?: string | null
+  videoFillSyncMode?: VideoSyncMode
+  videoFillFit?: VideoFit
 }
 
 const FALLBACK_SAMPLE_RATE = 44100
@@ -150,6 +158,50 @@ export function renderCircularSpectrum(
   addPaletteStops(gradient, palette, colorStart, colorEnd)
 
   ctx.save()
+
+  // Optional video fill — clipped to the outer circular boundary
+  // (annulus = full outer disc; bars overdraw and frame the video).
+  if (config.videoFillEnabled && config.videoFillAssetId) {
+    const video = getVideoElement(config.videoFillAssetId)
+    if (video && video.readyState >= 2 && video.videoWidth > 0) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, effectiveOuterRadius, 0, Math.PI * 2)
+      ctx.clip()
+      const bw = effectiveOuterRadius * 2
+      const bh = effectiveOuterRadius * 2
+      const lx = cx - effectiveOuterRadius
+      const ly = cy - effectiveOuterRadius
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      const vAR = vw / vh
+      const boxAR = bw / Math.max(bh, 1)
+      const fit = config.videoFillFit ?? 'cover'
+      let dx = lx
+      let dy = ly
+      let dw = bw
+      let dh = bh
+      if (fit === 'cover') {
+        if (vAR > boxAR) {
+          dw = bh * vAR
+          dx = lx + (bw - dw) / 2
+        } else {
+          dh = bw / vAR
+          dy = ly + (bh - dh) / 2
+        }
+      } else if (fit === 'contain') {
+        if (vAR > boxAR) {
+          dh = bw / vAR
+          dy = ly + (bh - dh) / 2
+        } else {
+          dw = bh * vAR
+          dx = lx + (bw - dw) / 2
+        }
+      }
+      ctx.drawImage(video, dx, dy, dw, dh)
+      ctx.restore()
+    }
+  }
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity

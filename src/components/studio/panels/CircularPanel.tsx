@@ -1,4 +1,5 @@
 import { useLayerStore } from '@/store/useLayerStore'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import {
   FreqRangeBlock,
@@ -20,6 +21,17 @@ const SIDE_MODES = [
   { id: 'side_b' as const, label: 'Side B' },
 ]
 
+const SYNC_MODES = [
+  { id: 'loop' as const, label: 'Loop' },
+  { id: 'music_sync' as const, label: 'Sync to Music' },
+]
+
+const FIT_MODES = [
+  { id: 'cover' as const, label: 'Cover' },
+  { id: 'contain' as const, label: 'Contain' },
+  { id: 'fill' as const, label: 'Fill' },
+]
+
 type Patch = Partial<CircularSpectrumConfig> & {
   hueInterpolation?: number
   startFrequency?: number
@@ -36,6 +48,7 @@ export function CircularPanel({ layerId }: Props) {
     s.layers.find((l) => l.id === layerId && l.type === 'circular'),
   )
   const updateConfig = useLayerStore((s) => s.updateConfig)
+  const videoAssets = useVideoAssetStore((s) => s.assets)
 
   if (!layer) {
     return (
@@ -239,6 +252,64 @@ export function CircularPanel({ layerId }: Props) {
           setStart={(v) => update({ startFrequency: v })}
           setEnd={(v) => update({ endFrequency: v })}
         />
+      </PanelGroup>
+
+      <PanelGroup title="Video Fill">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] text-white/70">Enabled</span>
+          <Toggle
+            checked={!!cfg.videoFillEnabled}
+            onChange={(v) => update({ videoFillEnabled: v })}
+            ariaLabel="Video fill enabled"
+          />
+        </div>
+        {cfg.videoFillEnabled && (
+          <div className="space-y-2" style={{ opacity: cfg.videoFillEnabled ? 1 : 0.4 }}>
+            {videoAssets.length === 0 ? (
+              <p
+                className="rounded-md border px-3 py-2 text-[11px] text-white/60"
+                style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+              >
+                No videos uploaded yet. Open the Videos modal (Film icon
+                in the top bar) to add one.
+              </p>
+            ) : (
+              <>
+                <select
+                  value={cfg.videoFillAssetId ?? ''}
+                  onChange={(e) =>
+                    update({ videoFillAssetId: e.target.value || null })
+                  }
+                  className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+                  style={{ borderColor: '#2a2a2a' }}
+                  aria-label="Circular video fill source"
+                >
+                  <option value="">— Connect to video —</option>
+                  {videoAssets.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+                <SegmentedGroup
+                  options={SYNC_MODES}
+                  value={cfg.videoFillSyncMode ?? 'loop'}
+                  onChange={(v) => update({ videoFillSyncMode: v })}
+                  cols={2}
+                />
+                <p className="text-[10px] uppercase tracking-wider text-white/40">
+                  Fit
+                </p>
+                <SegmentedGroup
+                  options={FIT_MODES}
+                  value={cfg.videoFillFit ?? 'cover'}
+                  onChange={(v) => update({ videoFillFit: v })}
+                  cols={3}
+                />
+              </>
+            )}
+          </div>
+        )}
       </PanelGroup>
       </div>
     </div>

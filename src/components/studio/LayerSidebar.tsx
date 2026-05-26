@@ -10,6 +10,7 @@ import {
   EyeOff,
   Hexagon,
   Flower2,
+  Film,
   Image as ImageIcon,
   Layers as LayersIcon,
   Lock,
@@ -47,6 +48,7 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   background: LayersIcon,
   text: TypeIcon,
   shape: PenTool,
+  video: Film,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -61,6 +63,7 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   background: 'background',
   text: 'text',
   shape: 'visualizer_shape',
+  video: 'visualizer_video',
 }
 
 interface ContextMenuState {

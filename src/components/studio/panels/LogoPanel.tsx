@@ -2,6 +2,7 @@ import { useBrandKitStore } from '@/store/useBrandKitStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import { loadImageFile } from '@/types/coverArt'
 import type { CropMode } from '@/types/coverArt'
 import type { LogoLayerConfig } from '@/types/layer'
@@ -20,6 +21,11 @@ const CROP_MODES = [
   { id: 'none' as const, label: 'None' },
 ]
 
+const SYNC_MODES = [
+  { id: 'loop' as const, label: 'Loop' },
+  { id: 'music_sync' as const, label: 'Sync to Music' },
+]
+
 interface Props {
   layerId: string
 }
@@ -35,6 +41,7 @@ export function LogoPanel({ layerId }: Props) {
   const logo = useCoverArtStore((s) => s.logo)
   const setCoverArtLogo = useCoverArtStore((s) => s.setLogo)
   const brandLogos = useBrandKitStore((s) => s.kit.logos)
+  const videoAssets = useVideoAssetStore((s) => s.assets)
 
   /** Convert a brand kit's data-URL logo into a CoverArtImage and apply. */
   const applyBrandLogo = async (
@@ -112,6 +119,46 @@ export function LogoPanel({ layerId }: Props) {
 
       <PanelGroup title="Logo Overlay">
         <CoverArtUploaderSingle type="logo" />
+      </PanelGroup>
+
+      <PanelGroup title="Use Video Instead">
+        {videoAssets.length === 0 ? (
+          <p
+            className="rounded-md border px-3 py-2 text-[11px] text-white/60"
+            style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+          >
+            No videos uploaded yet. Open the Videos modal (Film icon in
+            the top bar) to add one. When a video is selected here, it
+            replaces the logo image in this slot.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <select
+              value={cfg.videoAssetId ?? ''}
+              onChange={(e) =>
+                update({ videoAssetId: e.target.value || null })
+              }
+              className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+              style={{ borderColor: '#2a2a2a' }}
+              aria-label="Logo video override"
+            >
+              <option value="">— Use image (no video) —</option>
+              {videoAssets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            {cfg.videoAssetId && (
+              <SegmentedGroup
+                options={SYNC_MODES}
+                value={cfg.videoSyncMode ?? 'loop'}
+                onChange={(v) => update({ videoSyncMode: v })}
+                cols={2}
+              />
+            )}
+          </div>
+        )}
       </PanelGroup>
 
       {logo && (

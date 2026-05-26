@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Menu, Palette, Upload, Sparkles } from 'lucide-react';
+import { Download, Film, Menu, Palette, Upload, Sparkles } from 'lucide-react';
 import { BrandKitModal } from '@/components/studio/BrandKitModal';
+import { VideoAssetsModal } from '@/components/studio/VideoAssetsModal';
 import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
@@ -289,6 +290,7 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
   const user = useAuthStore((s) => s.user);
   const [showAuth, setShowAuth] = useState(false);
   const [showBrandKit, setShowBrandKit] = useState(false);
+  const [showVideos, setShowVideos] = useState(false);
   const openExport = useExportStore((s) => s.open);
   const isExportOpen = useExportStore((s) => s.isOpen);
 
@@ -313,6 +315,17 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
           >
             <Palette className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">Brand</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowVideos(true)}
+            aria-label="Videos"
+            title="Videos"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-3 py-1.5 text-sm text-white/80 hover:text-white transition-colors"
+            style={{ borderColor: '#2a2a2a' }}
+          >
+            <Film className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">Videos</span>
           </button>
           <a
             href="/dashboard"
@@ -356,6 +369,10 @@ function TopBar({ hasAudio }: { hasAudio: boolean }) {
         open={showBrandKit}
         onClose={() => setShowBrandKit(false)}
       />
+      <VideoAssetsModal
+        open={showVideos}
+        onClose={() => setShowVideos(false)}
+      />
     </header>
   );
 }
@@ -364,6 +381,7 @@ function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
   const user = useAuthStore((s) => s.user);
   const [showAuth, setShowAuth] = useState(false);
   const [showBrandKit, setShowBrandKit] = useState(false);
+  const [showVideos, setShowVideos] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const openExport = useExportStore((s) => s.open);
   const isExportOpen = useExportStore((s) => s.isOpen);
@@ -388,6 +406,15 @@ function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
           style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
         >
           <Palette className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowVideos(true)}
+          aria-label="Videos"
+          className="flex h-8 w-8 items-center justify-center rounded-md border text-white/80"
+          style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+        >
+          <Film className="h-4 w-4" aria-hidden="true" />
         </button>
         {hasAudio && (
           <button
@@ -464,6 +491,10 @@ function MobileTopBar({ hasAudio }: { hasAudio: boolean }) {
       <BrandKitModal
         open={showBrandKit}
         onClose={() => setShowBrandKit(false)}
+      />
+      <VideoAssetsModal
+        open={showVideos}
+        onClose={() => setShowVideos(false)}
       />
     </header>
   );

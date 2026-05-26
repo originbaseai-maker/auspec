@@ -17,6 +17,13 @@ import { drawParticlesForLayer } from '@/lib/renderers/particles'
 import { drawBackgroundLayer } from '@/lib/renderers/background'
 import { drawBloom } from '@/lib/renderers/bloom'
 import { drawCustomShape } from '@/lib/renderers/customShape'
+import { drawVideoLayer } from '@/lib/renderers/video'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
+import {
+  getPoolEntries,
+  removeVideoElement,
+  setVideoElement,
+} from '@/lib/videoPool'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
@@ -48,8 +55,11 @@ export default function VisualizerCanvas(): JSX.Element {
   const autoLogoSync = useCoverArtStore((s) => s.autoLogoSync)
   const previewMode = useAudioStore((s) => s.previewMode)
   const audioFile = useAudioStore((s) => s.audioFile)
+  const isPlaying = useAudioStore((s) => s.isPlaying)
+  const currentTime = useAudioStore((s) => s.currentTime)
   const layers = useLayerStore((s) => s.layers)
   const draftLayer = useLayerStore((s) => s.draftLayer)
+  const videoAssets = useVideoAssetStore((s) => s.assets)
   const config = storeConfig ?? DEFAULT_VISUALIZER_CONFIG
 
   // Smart Logo Mode: when a logo is uploaded, auto-pick a visualizer that
@@ -166,6 +176,132 @@ export default function VisualizerCanvas(): JSX.Element {
     canvasRegistry.set(canvasRef.current)
     return () => canvasRegistry.set(null)
   }, [canvasRef])
+
+  // ----- Video Asset Pool Lifecycle -----
+  // Mirror useVideoAssetStore.assets into the module-level HTMLVideoElement
+  // pool. One <video> element per asset (shared across all layers that
+  // reference it). Removed assets get their element torn down + their blob
+  // URL revoked by the store.
+  useEffect(() => {
+    // Add missing
+    for (const asset of videoAssets) {
+      const existing = getPoolEntries().find(([id]) => id === asset.id)
+      if (!existing) {
+        const v = document.createElement('video')
+        v.src = asset.src
+        v.muted = true
+        v.playsInline = true
+        v.loop = true
+        v.crossOrigin = 'anonymous'
+        v.preload = 'auto'
+        v.load()
+        setVideoElement(asset.id, v)
+      }
+    }
+    // Remove orphans (asset was deleted from the store)
+    for (const [id] of getPoolEntries()) {
+      if (!videoAssets.find((a) => a.id === id)) {
+        removeVideoElement(id)
+      }
+    }
+  }, [videoAssets])
+
+  // ----- Video ↔ Audio Sync -----
+  // Mirrors play/pause + currentTime from the audio store to every pooled
+  // video. Per-layer sync mode is resolved here (looking across both
+  // `layers` and `draftLayer`), with music_sync winning over loop when
+  // any reference asks for it. Drift correction only fires when the gap
+  // exceeds 200 ms — setting currentTime every frame would stall the tab.
+  useEffect(() => {
+    const pool = getPoolEntries()
+    if (pool.length === 0) return
+
+    const allLayers = draftLayer ? [...layers, draftLayer] : layers
+
+    const getSyncModeForAsset = (assetId: string): 'loop' | 'music_sync' => {
+      let mode: 'loop' | 'music_sync' = 'loop'
+      for (const l of allLayers) {
+        if (l.type === 'video') {
+          const cfg = l.config
+          if (cfg.videoAssetId === assetId && cfg.syncMode === 'music_sync') {
+            return 'music_sync'
+          }
+        } else if (l.type === 'shape') {
+          const cfg = l.config
+          if (
+            cfg.fillType === 'video' &&
+            cfg.videoAssetId === assetId &&
+            cfg.videoSyncMode === 'music_sync'
+          ) {
+            return 'music_sync'
+          }
+        } else if (l.type === 'logo') {
+          const cfg = l.config
+          if (
+            cfg.videoAssetId === assetId &&
+            cfg.videoSyncMode === 'music_sync'
+          ) {
+            return 'music_sync'
+          }
+        } else if (l.type === 'circular' || l.type === 'polygon') {
+          const cfg = l.config
+          if (
+            cfg.videoFillEnabled &&
+            cfg.videoFillAssetId === assetId &&
+            cfg.videoFillSyncMode === 'music_sync'
+          ) {
+            return 'music_sync'
+          }
+        }
+      }
+      return mode
+    }
+
+    // Per-layer playback-rate resolver (only meaningful for standalone
+    // VideoLayers in 'loop' mode; container fills always run at 1×).
+    const getPlaybackRateForAsset = (assetId: string): number => {
+      for (const l of allLayers) {
+        if (l.type === 'video' && l.config.videoAssetId === assetId) {
+          return l.config.playbackRate ?? 1
+        }
+      }
+      return 1
+    }
+
+    for (const [assetId, video] of pool) {
+      const mode = getSyncModeForAsset(assetId)
+
+      if (mode === 'music_sync') {
+        video.loop = false
+        video.playbackRate = 1
+        const target = currentTime % (video.duration || 1)
+        const drift = Math.abs(video.currentTime - target)
+        if (drift > 0.2) {
+          try {
+            video.currentTime = target
+          } catch {
+            /* ignore — element might not be ready yet */
+          }
+        }
+      } else {
+        video.loop = true
+        const rate = getPlaybackRateForAsset(assetId)
+        if (Math.abs(video.playbackRate - rate) > 0.01) {
+          video.playbackRate = rate
+        }
+      }
+
+      if (isPlaying) {
+        if (video.paused) {
+          // .play() can reject if blocked by autoplay policy — muted
+          // videos almost always work, but we still swallow the rejection.
+          video.play().catch(() => {})
+        }
+      } else if (!video.paused) {
+        video.pause()
+      }
+    }
+  }, [isPlaying, currentTime, videoAssets, layers, draftLayer])
 
   useEffect(() => {
     if (!ctx || width === 0 || height === 0) return
@@ -307,6 +443,9 @@ export default function VisualizerCanvas(): JSX.Element {
           case 'shape':
             drawCustomShape(ctx, layer.config, data, width, height)
             break
+          case 'video':
+            drawVideoLayer(ctx, layer.config, width, height)
+            break
           case 'particles':
             drawParticlesForLayer(
               ctx,
@@ -327,6 +466,7 @@ export default function VisualizerCanvas(): JSX.Element {
                 logoSize: layer.config.logoSize,
                 logoCropMode: layer.config.logoCropMode,
                 position: layer.config.position,
+                videoAssetId: layer.config.videoAssetId ?? null,
               },
               width,
               height,
