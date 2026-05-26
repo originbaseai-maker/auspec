@@ -670,6 +670,15 @@ export function StudioPage() {
   const prevFormat = useRef(activeFormat);
 
   const [mobileTab, setMobileTab] = useState<MobileTabId | null>(null);
+  // Sheet heights are reported up so a flex spacer (rendered last in
+  // the mobile column) can push the canvas-bearing `main` to shrink
+  // and stay fully visible above the open sheet. Two pieces of state
+  // because both MobileBottomSheets stay mounted; only one is `open`
+  // at a time, so the closed one reports 0 and Math.max() picks the
+  // active height.
+  const [presetSheetHeight, setPresetSheetHeight] = useState(0);
+  const [toolsSheetHeight, setToolsSheetHeight] = useState(0);
+  const mobileSheetHeight = Math.max(presetSheetHeight, toolsSheetHeight);
   const activeCategory = useStudioUIStore((s) => s.activeCategory);
   const layersInitialized = useRef(false);
 
@@ -736,11 +745,25 @@ export function StudioPage() {
             onTabChange={setMobileTab}
           />
 
+          {/* Layout spacer — consumes flex-column height equal to the
+              currently open sheet, which pushes `main` (flex-1) to
+              shrink and the canvas inside it (sized via cqw/cqh) to
+              fit. Result: canvas stays fully visible above the sheet
+              instead of being covered. Aria-hidden because it's pure
+              layout. No height transition: ResizeObserver on the sheet
+              already animates this in real time via the sheet's own
+              CSS transition. */}
+          <div
+            aria-hidden="true"
+            style={{ flexShrink: 0, height: mobileSheetHeight }}
+          />
+
           <MobileBottomSheet
             open={mobileTab === 'presets'}
             onClose={() => setMobileTab(null)}
             title="Presets"
             variant="grid"
+            onHeightChange={setPresetSheetHeight}
           >
             <PresetsSidebar variant="mobile" />
           </MobileBottomSheet>
@@ -756,6 +779,7 @@ export function StudioPage() {
             // preview while dragging sliders. Drag the grab handle up
             // to expand within the clamped range.
             variant={activeCategory ? 'detail' : 'grid'}
+            onHeightChange={setToolsSheetHeight}
           >
             <div className="pb-4">
               {activeCategory ? (

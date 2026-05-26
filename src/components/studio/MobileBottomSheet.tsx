@@ -34,6 +34,14 @@ interface Props {
    * Prefer `variant` for the standard grid/detail flows.
    */
   height?: string
+  /**
+   * Reports the sheet's current rendered height in CSS px to the
+   * parent. Fires on open, on default-height changes (variant /
+   * small-phone resize), and continuously during drag-resize. Reports
+   * 0 when closed. Parent uses this to shrink a layout spacer so the
+   * canvas above physically resizes to stay fully visible.
+   */
+  onHeightChange?: (px: number) => void
 }
 
 /** Heights tuned per spec — detail must keep canvas above ~50% visible. */
@@ -51,16 +59,6 @@ const MIN_HEIGHT_VH = 0.2
 const MAX_HEIGHT_VH = 0.75
 
 /**
- * backdrop-filter is widely supported on modern Safari/Chrome but can
- * be expensive on older Android. Detect once at module load; renderers
- * fall back to a near-opaque solid bg when unsupported.
- */
-const SUPPORTS_BACKDROP_FILTER =
-  typeof CSS !== 'undefined' &&
-  (CSS.supports('backdrop-filter', 'blur(1px)') ||
-    CSS.supports('-webkit-backdrop-filter', 'blur(1px)'))
-
-/**
  * Mobile bottom sheet with backdrop, drag-to-resize grab handle, and
  * slide-up animation. Locks body scroll while open and closes on Escape.
  *
@@ -75,6 +73,7 @@ export function MobileBottomSheet({
   children,
   variant = 'detail',
   height,
+  onHeightChange,
 }: Props) {
   // Small-phone (e.g. iPhone SE) breakpoint — kept reactive so a rotation
   // re-renders with the tighter default.
@@ -117,6 +116,30 @@ export function MobileBottomSheet({
       document.body.style.overflow = prevOverflow
     }
   }, [open, onClose])
+
+  // Report height upward via ResizeObserver so a parent spacer can
+  // shrink the canvas area to match. Fires on open (slide-up animation
+  // updates offsetHeight every frame), on default-height changes, and
+  // continuously during drag-resize. When the sheet closes we report
+  // 0 explicitly because the JSX returns null before the observer
+  // could see the unmount.
+  useEffect(() => {
+    if (!open) {
+      onHeightChange?.(0)
+      return
+    }
+    const el = sheetRef.current
+    if (!el || !onHeightChange) return
+    // Initial fire so the parent has a value before the first
+    // ResizeObserver tick (otherwise the spacer flashes from 0 to N).
+    onHeightChange(el.offsetHeight)
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) onHeightChange(Math.round(entry.contentRect.height))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open, onHeightChange])
 
   const onHandlePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const sheetEl = sheetRef.current
@@ -169,27 +192,17 @@ export function MobileBottomSheet({
       ? `${manualHeightPx}px`
       : (height ?? defaultHeightFor(variant, smallPhone))
 
-  // Translucent overlay pattern (iOS Music / Reels Editor): the sheet
-  // is frosted glass over the canvas. The "backdrop" scrim is barely
-  // tinted — it exists for click-to-close and aria, NOT to dim the
-  // canvas. With backdrop-filter unsupported we fall back to a more
-  // opaque sheet bg so the contrast stays readable.
-  const sheetBackground = SUPPORTS_BACKDROP_FILTER
-    ? 'rgba(10, 10, 10, 0.72)'
-    : 'rgba(10, 10, 10, 0.95)'
-  const sheetBackdropFilter = SUPPORTS_BACKDROP_FILTER
-    ? 'blur(28px) saturate(180%)'
-    : undefined
-
   return (
     <>
+      {/* Transparent click-catcher — closes the sheet on tap outside.
+          We don't dim the canvas because the canvas is physically
+          shrunk above the sheet (parent spacer handles that), so it's
+          already fully visible and shouldn't be obscured. */}
       <div
         className="fixed inset-0 z-40"
         onClick={onClose}
-        // No dark dim — the canvas should remain visible behind the
-        // sheet. A near-transparent layer still catches taps to close.
         style={{
-          background: 'rgba(0, 0, 0, 0.05)',
+          background: 'rgba(0, 0, 0, 0.001)',
           animation: 'auspec-sheet-fade 200ms ease',
         }}
         aria-hidden="true"
@@ -202,20 +215,18 @@ export function MobileBottomSheet({
         className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl"
         style={{
           height: resolvedHeight,
-          // Hard ceiling — even drag can't push past this so the canvas
-          // is never fully covered.
+          // Hard ceiling — even drag can't push past this so a sliver
+          // of the canvas above remains visible.
           maxHeight: 'min(75vh, 600px)',
-          background: sheetBackground,
-          backdropFilter: sheetBackdropFilter,
-          WebkitBackdropFilter: sheetBackdropFilter,
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.4)',
-          // The slide-up animation runs once on mount; the height
-          // transition runs every time `height` changes — but NOT during
-          // an active drag (would lag behind the pointer).
+          background: '#0a0a0a',
+          borderTop: '1px solid #1f1f1f',
+          boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.5)',
+          // Slide-up runs once on mount; height transition runs on
+          // variant/default changes but NOT during drag (would lag the
+          // pointer).
           transition: dragging
             ? 'none'
-            : 'height 250ms cubic-bezier(0.32, 0.72, 0, 1)',
+            : 'height 240ms cubic-bezier(0.4, 0, 0.2, 1)',
           animation: 'auspec-sheet-slide 250ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
@@ -292,11 +303,6 @@ export function MobileBottomSheet({
         }
         .auspec-mobile-sheet-body input[type='range'].auspec-slider {
           height: 1.25rem;
-        }
-        /* Slider track contrast against the translucent sheet bg —
-           tracks pull from a lighter base than the default white/10. */
-        .auspec-mobile-sheet-body input[type='range'] {
-          background-color: rgba(255, 255, 255, 0.18);
         }
       `}</style>
     </>
