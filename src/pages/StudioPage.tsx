@@ -670,15 +670,54 @@ export function StudioPage() {
   const prevFormat = useRef(activeFormat);
 
   const [mobileTab, setMobileTab] = useState<MobileTabId | null>(null);
-  // Sheet heights are reported up so a flex spacer (rendered last in
-  // the mobile column) can push the canvas-bearing `main` to shrink
-  // and stay fully visible above the open sheet. Two pieces of state
-  // because both MobileBottomSheets stay mounted; only one is `open`
-  // at a time, so the closed one reports 0 and Math.max() picks the
-  // active height.
+  // Sheet heights are reported up so a flex spacer can push the
+  // canvas-bearing `main` to shrink and stay fully visible above the
+  // open sheet. Two pieces of state because both MobileBottomSheets
+  // stay mounted; only one is `open` at a time, so the closed one
+  // reports 0 and Math.max() picks the active height.
   const [presetSheetHeight, setPresetSheetHeight] = useState(0);
   const [toolsSheetHeight, setToolsSheetHeight] = useState(0);
   const mobileSheetHeight = Math.max(presetSheetHeight, toolsSheetHeight);
+
+  // Measure bottom-chrome heights (Tabs + Timeline/AudioPlayerBar)
+  // dynamically. iPhone X+ adds env(safe-area-inset-bottom) to Tabs;
+  // Timeline and AudioPlayerBar have different fixed heights. Hardcoding
+  // would either leave gaps or overlap on certain devices.
+  const mobileTabsRef = useRef<HTMLDivElement>(null);
+  const mobileTimelineRef = useRef<HTMLDivElement>(null);
+  const [mobileTabsHeight, setMobileTabsHeight] = useState(56);
+  const [mobileTimelineHeight, setMobileTimelineHeight] = useState(64);
+
+  useEffect(() => {
+    if (!mobileTabsRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = Math.round(entries[0]?.contentRect.height ?? 56);
+      if (h > 0) setMobileTabsHeight(h);
+    });
+    ro.observe(mobileTabsRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!mobileTimelineRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = Math.round(entries[0]?.contentRect.height ?? 64);
+      if (h > 0) setMobileTimelineHeight(h);
+    });
+    ro.observe(mobileTimelineRef.current);
+    return () => ro.disconnect();
+    // Re-observe on hasAudio swap (Timeline ↔ AudioPlayerBar height differs)
+  }, [hasAudio]);
+
+  // "Floor" = what occupies the very bottom of the viewport: the sheet
+  // when open, otherwise the tabs. Timeline floats just above this.
+  const mobileBottomFloor = Math.max(mobileSheetHeight, mobileTabsHeight);
+  // Spacer reserves enough column height that main's bottom edge sits
+  // exactly at Timeline's top edge. Tabs is still in the flex column
+  // (after the spacer) so subtracting tabsHeight back avoids
+  // double-counting.
+  const mobileSpacerHeight =
+    mobileBottomFloor + mobileTimelineHeight - mobileTabsHeight;
   const activeCategory = useStudioUIStore((s) => s.activeCategory);
   const layersInitialized = useRef(false);
 
@@ -738,25 +777,46 @@ export function StudioPage() {
           </main>
 
           {hasAudio && <AudioElement />}
-          {hasAudio ? <Timeline /> : <AudioPlayerBar />}
 
-          <MobileBottomTabs
-            activeTab={mobileTab}
-            onTabChange={setMobileTab}
-          />
-
-          {/* Layout spacer — consumes flex-column height equal to the
-              currently open sheet, which pushes `main` (flex-1) to
-              shrink and the canvas inside it (sized via cqw/cqh) to
-              fit. Result: canvas stays fully visible above the sheet
-              instead of being covered. Aria-hidden because it's pure
-              layout. No height transition: ResizeObserver on the sheet
-              already animates this in real time via the sheet's own
-              CSS transition. */}
+          {/* Layout spacer — reserves flex-column height for the
+              floating Timeline + the open sheet (or the tabs when
+              closed). Pushes `main` to shrink so its bottom edge
+              touches the floating Timeline's top edge. ResizeObserver
+              on the sheet feeds `mobileSheetHeight` and on the chrome
+              feeds tabs/timeline heights, so this updates in real
+              time as the sheet animates open or the user drags the
+              grab handle. */}
           <div
             aria-hidden="true"
-            style={{ flexShrink: 0, height: mobileSheetHeight }}
+            style={{ flexShrink: 0, height: mobileSpacerHeight }}
           />
+
+          {/* Tabs sit AFTER the spacer so they're pinned at the very
+              bottom of the flex column. The sheet (position: fixed,
+              bottom: 0) covers them when open — that's intentional;
+              the sheet's title bar identifies the active section, so
+              the tabs would be redundant while a sheet is open. */}
+          <div ref={mobileTabsRef}>
+            <MobileBottomTabs
+              activeTab={mobileTab}
+              onTabChange={setMobileTab}
+            />
+          </div>
+
+          {/* Pinned audio chrome. Always visible above the sheet (or
+              above the tabs when closed). z-[55] sits above the sheet
+              backdrop (z-40) so taps reach the play/scrub controls
+              even while a sheet is open. `bottom` follows the sheet's
+              live height via mobileBottomFloor — no CSS transition
+              needed because the sheet's own height drives the value
+              continuously. */}
+          <div
+            ref={mobileTimelineRef}
+            className="fixed left-0 right-0 z-[55]"
+            style={{ bottom: mobileBottomFloor }}
+          >
+            {hasAudio ? <Timeline /> : <AudioPlayerBar />}
+          </div>
 
           <MobileBottomSheet
             open={mobileTab === 'presets'}
