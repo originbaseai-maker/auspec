@@ -18,11 +18,13 @@ export function drawBloom(
   width: number,
   height: number,
 ): void {
-  // `style` lands in commit 2; default to 'classic' here so this
-  // routing-only commit is a no-op behaviour change.
-  const style = (config as BloomConfig & { style?: string }).style ?? 'classic'
+  const style = config.style ?? 'classic'
   switch (style) {
     case 'classic':
+      return drawBloomClassic(ctx, config, data, width, height)
+    // 'organic' / 'aura' / 'echo' / 'star' / 'multiRing' land in
+    // subsequent commits — they currently fall through to classic
+    // so the type is exhaustive without runtime errors.
     default:
       return drawBloomClassic(ctx, config, data, width, height)
   }

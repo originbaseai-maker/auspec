@@ -128,12 +128,44 @@ export interface TextLayer {
 }
 
 /**
+ * The five visual variants Bloom layers can render. 'classic' is the
+ * original radial-spectrum behaviour; the other five are Specterr-
+ * inspired styles that share Bloom's palette / sensitivity / position
+ * controls but draw completely different shapes.
+ */
+export type BloomStyle =
+  | 'classic'
+  | 'organic'
+  | 'aura'
+  | 'echo'
+  | 'star'
+  | 'multiRing'
+
+/**
  * Bloom — organic radial wave visualizer. Frequency spectrum maps to
  * angle (0..360°), amplitude drives the radius from center, adjacent
  * points are connected with quadratic Bezier curves for the "organic"
  * feel. Multiple concentric echo rings layered with palette colors.
  */
 export interface BloomConfig {
+  /**
+   * Visual variant. Defaults to 'classic' — preserves existing
+   * behaviour for user-created layers that predate the variant system.
+   */
+  style?: BloomStyle
+  /** 'star' variant: number of spikes (4–12). */
+  starPoints?: number
+  /** 'echo' variant: number of echo copies (2–6). */
+  mirrorEchoCount?: number
+  /** 'multiRing' variant: number of concentric rings (3–7). */
+  ringCount?: number
+  /** 'star' / 'echo' / 'multiRing' rotation speed in rev/sec (-2 to 2). */
+  variantRotationSpeed?: number
+  /** 'multiRing': rainbow hue spread instead of palette cycle. */
+  rainbow?: boolean
+  /** 'echo': base shape — 'circle' or 'polygon'. */
+  echoShape?: 'circle' | 'polygon'
+
   // Shape
   /** Base radius in px at amplitude 0 (20–300). */
   baseRadius: number
@@ -384,6 +416,7 @@ export const DEFAULT_BACKGROUND_CONFIG: BackgroundLayerConfig = {
 }
 
 export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
+  style: 'classic',
   baseRadius: 80,
   amplitudeScale: 1.5,
   pointCount: 128,
@@ -409,6 +442,13 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   offsetY: 0.5,
   startFrequency: 0,
   endFrequency: 80,
+  // Variant-specific defaults — only the matching variant reads them
+  starPoints: 6,
+  mirrorEchoCount: 4,
+  ringCount: 5,
+  variantRotationSpeed: 0.5,
+  rainbow: false,
+  echoShape: 'circle',
 }
 
 export const DEFAULT_VIDEO_CONFIG: VideoLayerConfig = {
