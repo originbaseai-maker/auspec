@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { PRESET_PALETTES } from '@/lib/colorPalette'
 import { useBrandKitStore } from '@/store/useBrandKitStore'
@@ -39,6 +39,159 @@ export function SectionHeader({
         <span className="text-[9px] tabular-nums text-white/40">{hint}</span>
       )}
     </div>
+  )
+}
+
+/**
+ * Pull the trailing unit out of a hint string ("45%" → "%", "180°" → "°",
+ * "1.50×" → "×"). Returns '' for pure-number hints. Used by the value
+ * modal so the unit shows alongside the input without the user having
+ * to retype it.
+ */
+function parseHintUnit(hint: string | undefined): string {
+  if (!hint) return ''
+  const m = hint.match(/[-\d.,\s]+(.*)$/)
+  return (m?.[1] ?? '').trim()
+}
+
+interface SliderValueModalProps {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  unit: string
+  onApply: (v: number) => void
+  onClose: () => void
+}
+
+/**
+ * Tap-on-value editor. Opens centered over the viewport with the
+ * current value pre-filled in an autofocus input. Enter or "Set"
+ * applies (clamped to [min, max]); "Cancel" or Escape closes without
+ * applying. The unit suffix is shown read-only beside the input.
+ */
+function SliderValueModal({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  onApply,
+  onClose,
+}: SliderValueModalProps) {
+  const [draft, setDraft] = useState<string>(() => String(value))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const apply = (): void => {
+    const parsed = parseFloat(draft.replace(',', '.'))
+    if (!Number.isFinite(parsed)) {
+      onClose()
+      return
+    }
+    const clamped = Math.max(min, Math.min(max, parsed))
+    onApply(clamped)
+    onClose()
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Edit ${label}`}
+        className="fixed left-1/2 top-1/2 z-[71] w-[88vw] max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-[#0a0a0a] p-4 shadow-2xl"
+        style={{ borderColor: '#2a2a2a' }}
+      >
+        <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-wider text-white/60">
+          {label}
+        </p>
+        <div
+          className="mx-auto mb-2 flex items-center gap-2 rounded-lg border px-3 py-2"
+          style={{ borderColor: '#2a2a2a', background: '#111' }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') apply()
+            }}
+            className="w-full bg-transparent text-center text-[18px] font-semibold tabular-nums text-white outline-none"
+            aria-label={`${label} value`}
+          />
+          {unit && (
+            <span className="shrink-0 text-[14px] text-white/40">{unit}</span>
+          )}
+        </div>
+        <p className="mb-3 text-center text-[10px] text-white/30 tabular-nums">
+          {min} – {max}
+          {step !== 1 ? ` · step ${step}` : ''}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-md border px-3 py-2 text-[12px] text-white/70 hover:text-white"
+            style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={apply}
+            className="flex-1 rounded-md px-3 py-2 text-[12px] font-medium text-white"
+            style={{
+              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+              boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+            }}
+          >
+            Set
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/**
+ * Wrap a slider's value hint so it acts as a tap-target opening the
+ * SliderValueModal. Shared by SliderRow + CenterSliderRow.
+ */
+function HintButton({
+  hint,
+  onClick,
+}: {
+  hint: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded text-[10px] tabular-nums text-white/40 transition-colors hover:text-white/80"
+      aria-label={`Edit value (${hint})`}
+    >
+      {hint}
+    </button>
   )
 }
 
@@ -350,6 +503,7 @@ export function SliderRow({
   step,
   onChange,
   ariaLabel,
+  unit,
 }: {
   label: string
   hint?: string
@@ -359,14 +513,20 @@ export function SliderRow({
   step: number
   onChange: (v: number) => void
   ariaLabel: string
+  /** Override the unit shown in the value modal; defaults to the trailing
+   *  non-numeric suffix of `hint` (so `45%` → `%`). */
+  unit?: string
 }) {
+  const [editing, setEditing] = useState(false)
+  const resolvedUnit = unit ?? parseHintUnit(hint)
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[11px] text-white/70">{label}</span>
-        {hint !== undefined && (
-          <span className="text-[10px] tabular-nums text-white/40">{hint}</span>
-        )}
+        {hint !== undefined &&
+          (editing ? null : (
+            <HintButton hint={hint} onClick={() => setEditing(true)} />
+          ))}
       </div>
       <Slider
         value={value}
@@ -376,6 +536,18 @@ export function SliderRow({
         onChange={onChange}
         ariaLabel={ariaLabel}
       />
+      {editing && (
+        <SliderValueModal
+          label={label}
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          unit={resolvedUnit}
+          onApply={onChange}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </div>
   )
 }
@@ -396,6 +568,7 @@ export function CenterSliderRow({
   onChange,
   ariaLabel,
   center,
+  unit,
 }: {
   label: string
   hint?: string
@@ -406,14 +579,18 @@ export function CenterSliderRow({
   onChange: (v: number) => void
   ariaLabel: string
   center?: number
+  unit?: string
 }) {
+  const [editing, setEditing] = useState(false)
+  const resolvedUnit = unit ?? parseHintUnit(hint)
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[11px] text-white/70">{label}</span>
-        {hint !== undefined && (
-          <span className="text-[10px] tabular-nums text-white/40">{hint}</span>
-        )}
+        {hint !== undefined &&
+          (editing ? null : (
+            <HintButton hint={hint} onClick={() => setEditing(true)} />
+          ))}
       </div>
       <CenterSlider
         value={value}
@@ -424,6 +601,18 @@ export function CenterSliderRow({
         ariaLabel={ariaLabel}
         center={center}
       />
+      {editing && (
+        <SliderValueModal
+          label={label}
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          unit={resolvedUnit}
+          onApply={onChange}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </div>
   )
 }
