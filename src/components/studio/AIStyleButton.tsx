@@ -8,6 +8,19 @@ interface Props {
    * spacing; desktop gets 56 px and a touch more breathing room.
    */
   variant?: 'mobile' | 'desktop'
+  /**
+   * Called instead of setActiveCategory('ai_style') when the user
+   * clicks the button while AI is INACTIVE. Lets the parent route
+   * the activation through the dirty-draft confirmation dialog
+   * (same flow tool tiles use). When omitted, the button falls
+   * back to setting activeCategory directly — useful for tests or
+   * any future placement that doesn't need the draft check.
+   *
+   * The deactivate path (clicking while AI is already active) is
+   * NOT routed through this callback — collapsing AI doesn't touch
+   * any draft, so it's a direct setActiveCategory(null).
+   */
+  onRequestActivate?: () => void
 }
 
 /**
@@ -18,16 +31,34 @@ interface Props {
  * the existing .ai-gradient-border utility for the animated purple
  * → pink → orange ring.
  */
-export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
+export function AIStyleButton({
+  variant = 'desktop',
+  onRequestActivate,
+}: Props): JSX.Element {
   const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const isDesktop = variant === 'desktop'
   const isActive = activeCategory === 'ai_style'
 
+  const handleClick = (): void => {
+    if (isActive) {
+      // Collapse — no draft check needed.
+      setActiveCategory(null)
+      return
+    }
+    // Activate — let the parent intercept for a dirty-draft confirm,
+    // or just route directly when no parent handler is wired.
+    if (onRequestActivate) {
+      onRequestActivate()
+    } else {
+      setActiveCategory('ai_style')
+    }
+  }
+
   return (
     <button
       type="button"
-      onClick={() => setActiveCategory(isActive ? null : 'ai_style')}
+      onClick={handleClick}
       aria-pressed={isActive}
       aria-label={isActive ? 'Close AI Style' : 'Open AI Style'}
       className="ai-gradient-border ai-style-button group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl"

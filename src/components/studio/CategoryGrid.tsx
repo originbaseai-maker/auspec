@@ -113,6 +113,24 @@ export function CategoryGrid() {
     setActiveCategory(cat.id)
   }
 
+  // AI Style activation routes through the same draft-dirty check
+  // tool tiles use. The existing DraftConfirmDialog handler already
+  // does the right thing for `targetCategory: 'ai_style'` —
+  // targetLayerType is left undefined so no startDraft fires (AI
+  // doesn't create a draft layer), and setActiveCategory('ai_style')
+  // runs on save/discard.
+  const handleAIActivate = () => {
+    if (hasDraft && draftIsDirty) {
+      setPendingAction({
+        type: 'tile',
+        targetCategory: 'ai_style',
+      })
+      return
+    }
+    if (hasDraft) discardDraft()
+    setActiveCategory('ai_style')
+  }
+
   const handleDialogAction = (action: 'save' | 'discard' | 'cancel') => {
     if (!pendingAction) return
     if (action === 'cancel') {
@@ -220,7 +238,10 @@ export function CategoryGrid() {
           on both mobile and desktop. Variant follows the viewport
           breakpoint (height differs slightly between them). */}
       <div className="pt-1">
-        <AIStyleButton variant={viewport === 'mobile' ? 'mobile' : 'desktop'} />
+        <AIStyleButton
+          variant={viewport === 'mobile' ? 'mobile' : 'desktop'}
+          onRequestActivate={handleAIActivate}
+        />
       </div>
 
       <DraftConfirmDialog
