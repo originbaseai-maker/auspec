@@ -1,6 +1,7 @@
 import { useLayerStore } from '@/store/useLayerStore'
 import type { BloomConfig } from '@/types/layer'
 import {
+  CenterSliderRow,
   LockedLayerBanner,
   PaletteEditor,
   PanelGroup,
@@ -176,23 +177,25 @@ export function BloomPanel({ layerId }: Props) {
       </PanelGroup>
 
       <PanelGroup title="Position">
-        <SliderRow
+        <CenterSliderRow
           label="X"
           hint={`${Math.round(cfg.offsetX * 100)}%`}
           value={cfg.offsetX * 100}
           min={0}
           max={100}
           step={1}
+          center={50}
           onChange={(v) => update({ offsetX: v / 100 })}
           ariaLabel="Horizontal position"
         />
-        <SliderRow
+        <CenterSliderRow
           label="Y"
           hint={`${Math.round(cfg.offsetY * 100)}%`}
           value={cfg.offsetY * 100}
           min={0}
           max={100}
           step={1}
+          center={50}
           onChange={(v) => update({ offsetY: v / 100 })}
           ariaLabel="Vertical position"
         />

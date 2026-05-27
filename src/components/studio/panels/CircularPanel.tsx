@@ -2,6 +2,7 @@ import { useLayerStore } from '@/store/useLayerStore'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import type { CircularSpectrumConfig } from '@/lib/renderers/circularSpectrum'
 import {
+  CenterSliderRow,
   FreqRangeBlock,
   LockedLayerBanner,
   PaletteEditor,
@@ -110,23 +111,25 @@ export function CircularPanel({ layerId }: Props) {
       </PanelGroup>
 
       <PanelGroup title="Position">
-        <SliderRow
+        <CenterSliderRow
           label="X"
           hint={`${Math.round((cfg.offsetX ?? 0.5) * 100)}%`}
           value={(cfg.offsetX ?? 0.5) * 100}
           min={0}
           max={100}
           step={1}
+          center={50}
           onChange={(v) => update({ offsetX: v / 100 })}
           ariaLabel="Horizontal position"
         />
-        <SliderRow
+        <CenterSliderRow
           label="Y"
           hint={`${Math.round((cfg.offsetY ?? 0.5) * 100)}%`}
           value={(cfg.offsetY ?? 0.5) * 100}
           min={0}
           max={100}
           step={1}
+          center={50}
           onChange={(v) => update({ offsetY: v / 100 })}
           ariaLabel="Vertical position"
         />

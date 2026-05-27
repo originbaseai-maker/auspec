@@ -8,11 +8,11 @@ import type { CropMode } from '@/types/coverArt'
 import type { LogoLayerConfig } from '@/types/layer'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
 import {
+  CenterSliderRow,
   LockedLayerBanner,
   PanelGroup,
   SegmentedGroup,
   Slider,
-  SliderRow,
 } from './shared'
 
 const CROP_MODES = [
@@ -173,25 +173,27 @@ export function LogoPanel({ layerId }: Props) {
           </PanelGroup>
 
           <PanelGroup title="Position">
-            <SliderRow
+            <CenterSliderRow
               label="X"
               hint={`${Math.round(cfg.position.x * 100)}%`}
               value={cfg.position.x * 100}
               min={0}
               max={100}
               step={1}
+              center={50}
               onChange={(v) =>
                 update({ position: { x: v / 100, y: cfg.position.y } })
               }
               ariaLabel="Logo horizontal position"
             />
-            <SliderRow
+            <CenterSliderRow
               label="Y"
               hint={`${Math.round(cfg.position.y * 100)}%`}
               value={cfg.position.y * 100}
               min={0}
               max={100}
               step={1}
+              center={50}
               onChange={(v) =>
                 update({ position: { x: cfg.position.x, y: v / 100 } })
               }

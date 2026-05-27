@@ -71,6 +71,101 @@ export function Slider({
   )
 }
 
+/**
+ * Bidirectional slider with a visible center tick. Fill grows FROM
+ * the center toward the thumb position — left of center → fill
+ * leftward, right of center → fill rightward. The native <input
+ * type="range"> sits transparently on top to handle pointer + a11y;
+ * the visual track / fill / tick / thumb are div overlays.
+ *
+ * Use this for values where the midpoint carries meaning (canvas
+ * center, "unchanged" sensitivity, etc.) instead of the default
+ * left-to-right Slider.
+ */
+export function CenterSlider({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  ariaLabel,
+  center,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (v: number) => void
+  ariaLabel: string
+  /** Defaults to (min + max) / 2. */
+  center?: number
+}) {
+  const c = center ?? (min + max) / 2
+  const range = Math.max(max - min, 0.0001)
+  const pct = (v: number) => ((v - min) / range) * 100
+  const valPct = Math.max(0, Math.min(100, pct(value)))
+  const centerPct = Math.max(0, Math.min(100, pct(c)))
+  const fillLeft = Math.min(valPct, centerPct)
+  const fillRight = Math.max(valPct, centerPct)
+
+  return (
+    <div className="relative h-5 w-full">
+      {/* Base track */}
+      <div
+        className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+        style={{ background: '#1a1a1a' }}
+      />
+      {/* Fill from center toward thumb */}
+      <div
+        className="pointer-events-none absolute top-1/2 h-1.5 -translate-y-1/2"
+        style={{
+          left: `${fillLeft}%`,
+          right: `${100 - fillRight}%`,
+          background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+          borderRadius: 999,
+        }}
+      />
+      {/* Center tick */}
+      <div
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+        style={{
+          left: `${centerPct}%`,
+          width: 2,
+          height: 10,
+          marginLeft: -1,
+          background: 'rgba(255,255,255,0.55)',
+          borderRadius: 1,
+        }}
+      />
+      {/* Thumb (visual only) */}
+      <div
+        className="pointer-events-none absolute top-1/2"
+        style={{
+          left: `${valPct}%`,
+          transform: 'translate(-50%, -50%)',
+          width: 14,
+          height: 14,
+          borderRadius: 999,
+          background: '#ffffff',
+          border: '2px solid #8b5cf6',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+        }}
+      />
+      {/* Transparent native input on top for pointer + a11y */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        aria-label={ariaLabel}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </div>
+  )
+}
+
 export function Toggle({
   checked,
   onChange,
@@ -240,6 +335,54 @@ export function SliderRow({
   )
 }
 
+/**
+ * SliderRow variant rendered with a CenterSlider underneath. Use for
+ * values where the midpoint is meaningful (position 50%, sensitivity
+ * 100%, etc.). Same props as SliderRow plus an optional `center`
+ * override; defaults to (min + max) / 2.
+ */
+export function CenterSliderRow({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  ariaLabel,
+  center,
+}: {
+  label: string
+  hint?: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (v: number) => void
+  ariaLabel: string
+  center?: number
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] text-white/70">{label}</span>
+        {hint !== undefined && (
+          <span className="text-[10px] tabular-nums text-white/40">{hint}</span>
+        )}
+      </div>
+      <CenterSlider
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={onChange}
+        ariaLabel={ariaLabel}
+        center={center}
+      />
+    </div>
+  )
+}
+
 export function FreqRangeBlock({
   start,
   end,
@@ -332,33 +475,36 @@ export function SensitivityBlock({
 }) {
   return (
     <div className="space-y-2">
-      <SliderRow
+      <CenterSliderRow
         label="🔉 Bass"
         hint={`${Math.round(bass * 100)}%`}
         value={bass * 100}
         min={0}
         max={200}
         step={5}
+        center={100}
         onChange={(v) => onChange('bass', v / 100)}
         ariaLabel="Bass sensitivity"
       />
-      <SliderRow
+      <CenterSliderRow
         label="🔊 Mid"
         hint={`${Math.round(mid * 100)}%`}
         value={mid * 100}
         min={0}
         max={200}
         step={5}
+        center={100}
         onChange={(v) => onChange('mid', v / 100)}
         ariaLabel="Mid sensitivity"
       />
-      <SliderRow
+      <CenterSliderRow
         label="📢 Treble"
         hint={`${Math.round(treble * 100)}%`}
         value={treble * 100}
         min={0}
         max={200}
         step={5}
+        center={100}
         onChange={(v) => onChange('treble', v / 100)}
         ariaLabel="Treble sensitivity"
       />
