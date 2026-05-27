@@ -153,7 +153,7 @@ export function CategoryGrid() {
         onClick={() => handleClick(cat)}
         aria-pressed={isActive}
         aria-label={cat.label}
-        className="relative flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border p-1.5 transition-all"
+        className="auspec-tool-tile relative flex flex-col items-center justify-center gap-1 rounded-lg border p-2"
         style={{
           borderColor: isActive
             ? 'rgba(59,130,246,0.6)'
@@ -171,9 +171,9 @@ export function CategoryGrid() {
           opacity: hasLayers || isActive || cat.hasAI ? 1 : 0.78,
         }}
       >
-        <CategoryIcon icon={cat.icon} size={22} />
+        <CategoryIcon icon={cat.icon} size={24} />
         <span
-          className="text-[9px] font-medium"
+          className="text-[11px] font-medium md:text-[12px]"
           style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.85)' }}
         >
           {cat.label}
@@ -198,9 +198,6 @@ export function CategoryGrid() {
             {layerCount}
           </div>
         )}
-        {/* Inactive tiles (no layers yet, no AI badge) intentionally
-            render no plus icon — the "tap-to-add" affordance is
-            implicit in the dimmer background. */}
       </button>
     )
   }
@@ -212,20 +209,16 @@ export function CategoryGrid() {
           .map(lookupCat)
           .filter((c): c is CategoryConfig => c !== undefined)
         if (tiles.length === 0) return null
-        // Tile count drives the column count so wider sections
-        // (Assets & Stage = 5) stay single-row.
-        const cols = tiles.length
         return (
           <section key={section.title}>
             <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
               {section.title}
             </p>
-            <div
-              className="grid gap-1.5"
-              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-            >
-              {tiles.map(renderTile)}
-            </div>
+            {/* Fixed-size tiles via auto-fill + justify-content:start.
+                Sections with fewer tiles than the row can hold leave
+                empty space on the right — deliberate signal of "fewer
+                options here", not a layout bug. */}
+            <div className="auspec-tool-grid">{tiles.map(renderTile)}</div>
           </section>
         )
       })}

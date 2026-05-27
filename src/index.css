@@ -261,3 +261,31 @@ select {
           background-clip: text;
   color: transparent;
 }
+
+/* ----- Tools panel tile grid -----
+ *
+ * Fixed-size tiles — 80px on mobile, 88px on the desktop breakpoint.
+ * `auto-fill` + `justify-content: start` leaves the right side of a
+ * row empty when a section has fewer tiles than fit (e.g. Effects
+ * with 2) instead of stretching, which signals "fewer options" at a
+ * glance. */
+.auspec-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 80px);
+  justify-content: start;
+  gap: 10px;
+}
+.auspec-tool-tile {
+  width: 80px;
+  height: 80px;
+}
+@media (min-width: 768px) {
+  .auspec-tool-grid {
+    grid-template-columns: repeat(auto-fill, 88px);
+    gap: 12px;
+  }
+  .auspec-tool-tile {
+    width: 88px;
+    height: 88px;
+  }
+}
