@@ -10,7 +10,7 @@ import {
   type VisualType,
 } from '@/lib/visualizerConfig'
 import type { Preset } from '@/lib/presets'
-import { useFrameStore } from './useFrameStore'
+import { useFrameStore, DEFAULT_FRAME_CONFIG } from './useFrameStore'
 import { useLayerStore } from './useLayerStore'
 import { LAYER_LABELS, type Layer, type LayerType } from '@/types/layer'
 
@@ -159,10 +159,11 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         preset.activeLayerId ?? cloned[cloned.length - 1]?.id ?? null,
       )
     } else {
-      const newId =
+      const makeId = (suffix: string) =>
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()
-          : `preset-${preset.id}-${Date.now()}`
+          : `preset-${preset.id}-${suffix}-${Date.now()}`
+      const newId = makeId('vis')
       const now = Date.now()
       const baseFields = {
         id: newId,
@@ -214,7 +215,38 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
           config: {} as LinearBarsConfig,
         }
       }
-      layerStore.replaceLayers([layer], layer.id)
+
+      // Built-in presets ship the frame as a separate `framePulse`
+      // field rendered outside the layer system. That made the frame
+      // visible on the canvas but invisible in the LAYERS sidebar —
+      // user couldn't tap it to edit. Promote it to a proper Frame
+      // Layer so it appears alongside the visualizer.
+      const fp = preset.config.framePulse
+      const layers: Layer[] = [layer]
+      if (fp?.enabled) {
+        layers.push({
+          id: makeId('frame'),
+          name: 'Frame',
+          enabled: true,
+          locked: false,
+          zOrder: 1,
+          createdAt: now + 1,
+          opacity: 1,
+          type: 'frame',
+          config: {
+            ...DEFAULT_FRAME_CONFIG,
+            enabled: true,
+            color: fp.baseColor,
+            // Legacy thickness is 1–3 (renders +4 outer stroke); the
+            // new Frame layer thickness is 0–40 with no extra outer
+            // stroke. Scale up so the visual weight stays similar.
+            thickness: Math.max(2, Math.round(fp.thickness * 2)),
+            pulseEnabled: fp.intensity > 0,
+            pulseIntensity: Math.round(fp.intensity * 100),
+          },
+        })
+      }
+      layerStore.replaceLayers(layers, layer.id)
     }
 
     set((state) => {
@@ -237,6 +269,11 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
         framePulse: {
           ...state.visualizerConfig.framePulse,
           ...(preset.config.framePulse ?? {}),
+          // The legacy frame is now rendered via the Frame Layer
+          // emitted above (so it's editable in LAYERS). Force-disable
+          // the legacy framePulse renderer to avoid drawing two
+          // frames on top of each other.
+          enabled: false,
         },
         polygon: {
           ...state.visualizerConfig.polygon,
