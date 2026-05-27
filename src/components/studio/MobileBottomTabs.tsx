@@ -17,7 +17,11 @@ const TABS: { id: MobileTabId; label: string; icon: LucideIcon }[] = [
 export function MobileBottomTabs({ activeTab, onTabChange }: Props): JSX.Element {
   return (
     <nav
-      className="flex shrink-0 items-center justify-around border-t bg-[#0a0a0a] px-2 py-2"
+      // Pinned at viewport bottom above the iOS safe-area inset.
+      // z-[60] sits above the sheet's z-50 so the tabs stay tappable
+      // while a sheet is open — letting the user switch sheets without
+      // closing first.
+      className="fixed bottom-0 left-0 right-0 z-[60] flex items-center justify-around border-t bg-[#0a0a0a] px-2 py-2"
       style={{
         borderColor: '#1a1a1a',
         paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',

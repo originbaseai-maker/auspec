@@ -42,6 +42,12 @@ interface Props {
    * canvas above physically resizes to stay fully visible.
    */
   onHeightChange?: (px: number) => void
+  /**
+   * How many CSS px to push the sheet up from the viewport bottom.
+   * Used to clear the pinned bottom-tabs strip — the sheet sits
+   * directly above the tabs instead of overlapping them.
+   */
+  bottomOffsetPx?: number
 }
 
 /** Heights tuned per spec — detail must keep canvas above ~50% visible. */
@@ -74,6 +80,7 @@ export function MobileBottomSheet({
   variant = 'detail',
   height,
   onHeightChange,
+  bottomOffsetPx = 0,
 }: Props) {
   // Small-phone (e.g. iPhone SE) breakpoint — kept reactive so a rotation
   // re-renders with the tighter default.
@@ -212,8 +219,9 @@ export function MobileBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl"
+        className="fixed left-0 right-0 z-50 flex flex-col rounded-t-2xl"
         style={{
+          bottom: bottomOffsetPx,
           height: resolvedHeight,
           // Hard ceiling — even drag can't push past this so a sliver
           // of the canvas above remains visible.

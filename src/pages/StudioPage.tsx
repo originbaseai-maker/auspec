@@ -714,15 +714,13 @@ export function StudioPage() {
     // Re-observe on hasAudio swap (Timeline ↔ AudioPlayerBar height differs)
   }, [hasAudio]);
 
-  // "Floor" = what occupies the very bottom of the viewport: the sheet
-  // when open, otherwise the tabs. Timeline floats just above this.
-  const mobileBottomFloor = Math.max(mobileSheetHeight, mobileTabsHeight);
-  // Spacer reserves enough column height that main's bottom edge sits
-  // exactly at Timeline's top edge. Tabs is still in the flex column
-  // (after the spacer) so subtracting tabsHeight back avoids
-  // double-counting.
-  const mobileSpacerHeight =
-    mobileBottomFloor + mobileTimelineHeight - mobileTabsHeight;
+  // Tabs are pinned (position: fixed) so they always occupy the
+  // bottom strip; the sheet, when open, sits directly above them.
+  // Timeline floats above whichever is the top of that bottom stack.
+  const mobileBottomFloor = mobileTabsHeight + mobileSheetHeight;
+  // Spacer reserves flex-column height for the floating chrome so
+  // `main`'s bottom edge sits at Timeline's top edge.
+  const mobileSpacerHeight = mobileBottomFloor + mobileTimelineHeight;
   const activeCategory = useStudioUIStore((s) => s.activeCategory);
   const layersInitialized = useRef(false);
 
@@ -784,37 +782,21 @@ export function StudioPage() {
           {hasAudio && <AudioElement />}
 
           {/* Layout spacer — reserves flex-column height for the
-              floating Timeline + the open sheet (or the tabs when
-              closed). Pushes `main` to shrink so its bottom edge
-              touches the floating Timeline's top edge. ResizeObserver
-              on the sheet feeds `mobileSheetHeight` and on the chrome
-              feeds tabs/timeline heights, so this updates in real
-              time as the sheet animates open or the user drags the
-              grab handle. */}
+              floating Timeline + Tabs + open sheet. Pushes `main` to
+              shrink so its bottom edge touches the floating Timeline's
+              top edge. Tabs are no longer in the flex column (they're
+              position:fixed, see below) so this includes their
+              measured height too. */}
           <div
             aria-hidden="true"
             style={{ flexShrink: 0, height: mobileSpacerHeight }}
           />
 
-          {/* Tabs sit AFTER the spacer so they're pinned at the very
-              bottom of the flex column. The sheet (position: fixed,
-              bottom: 0) covers them when open — that's intentional;
-              the sheet's title bar identifies the active section, so
-              the tabs would be redundant while a sheet is open. */}
-          <div ref={mobileTabsRef}>
-            <MobileBottomTabs
-              activeTab={mobileTab}
-              onTabChange={setMobileTab}
-            />
-          </div>
-
           {/* Pinned audio chrome. Always visible above the sheet (or
               above the tabs when closed). z-[55] sits above the sheet
               backdrop (z-40) so taps reach the play/scrub controls
               even while a sheet is open. `bottom` follows the sheet's
-              live height via mobileBottomFloor — no CSS transition
-              needed because the sheet's own height drives the value
-              continuously. */}
+              live height via mobileBottomFloor. */}
           <div
             ref={mobileTimelineRef}
             className="fixed left-0 right-0 z-[55]"
@@ -823,12 +805,24 @@ export function StudioPage() {
             {hasAudio ? <Timeline /> : <AudioPlayerBar />}
           </div>
 
+          {/* Pinned tabs (position:fixed inside MobileBottomTabs). The
+              ref-wrapper lets ResizeObserver feed safe-area-aware
+              height into the layout math. z-[60] in the component
+              keeps tabs tappable even while a sheet is open. */}
+          <div ref={mobileTabsRef}>
+            <MobileBottomTabs
+              activeTab={mobileTab}
+              onTabChange={setMobileTab}
+            />
+          </div>
+
           <MobileBottomSheet
             open={mobileTab === 'presets'}
             onClose={() => setMobileTab(null)}
             title="Presets"
             variant="grid"
             onHeightChange={setPresetSheetHeight}
+            bottomOffsetPx={mobileTabsHeight}
           >
             <PresetsSidebar variant="mobile" mobileSection="presetsOnly" />
           </MobileBottomSheet>
@@ -839,6 +833,7 @@ export function StudioPage() {
             title="Layers"
             variant="grid"
             onHeightChange={setLayersSheetHeight}
+            bottomOffsetPx={mobileTabsHeight}
           >
             <PresetsSidebar variant="mobile" mobileSection="layersOnly" />
           </MobileBottomSheet>
@@ -855,6 +850,7 @@ export function StudioPage() {
             // to expand within the clamped range.
             variant={activeCategory ? 'detail' : 'grid'}
             onHeightChange={setToolsSheetHeight}
+            bottomOffsetPx={mobileTabsHeight}
           >
             <div className="pb-4">
               {activeCategory ? (
