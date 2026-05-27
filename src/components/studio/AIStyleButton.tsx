@@ -19,14 +19,17 @@ interface Props {
  * → pink → orange ring.
  */
 export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
+  const activeCategory = useStudioUIStore((s) => s.activeCategory)
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const isDesktop = variant === 'desktop'
+  const isActive = activeCategory === 'ai_style'
 
   return (
     <button
       type="button"
-      onClick={() => setActiveCategory('ai_style')}
-      aria-label="Open AI Style"
+      onClick={() => setActiveCategory(isActive ? null : 'ai_style')}
+      aria-pressed={isActive}
+      aria-label={isActive ? 'Close AI Style' : 'Open AI Style'}
       className="ai-gradient-border ai-style-button group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl"
       // Height is the only variant-dependent value; the rest of the
       // visual styling lives on the .ai-style-button CSS class so
