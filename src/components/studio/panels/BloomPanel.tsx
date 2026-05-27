@@ -245,52 +245,66 @@ export function BloomPanel({ layerId }: Props) {
         </PanelGroup>
       )}
 
-      {/* Classic-only sections below — Echo + Rotation rings are
-          classic's signature, irrelevant for the other variants. */}
-      {(cfg.style ?? 'classic') === 'classic' && (
-      <PanelGroup title="Echo">
-        <SliderRow
-          label="Count"
-          hint={`${cfg.echoCount}`}
-          value={cfg.echoCount}
-          min={1}
-          max={10}
-          step={1}
-          onChange={(v) => update({ echoCount: Math.round(v) })}
-          ariaLabel="Echo count"
-        />
-        <SliderRow
-          label="Spacing"
-          hint={`${Math.round(cfg.echoSpacing)}px`}
-          value={cfg.echoSpacing}
-          min={0}
-          max={80}
-          step={1}
-          onChange={(v) => update({ echoSpacing: v })}
-          ariaLabel="Echo spacing"
-        />
-        <SliderRow
-          label="Falloff"
-          hint={cfg.echoFalloff.toFixed(2)}
-          value={cfg.echoFalloff}
-          min={0.2}
-          max={1}
-          step={0.01}
-          onChange={(v) => update({ echoFalloff: v })}
-          ariaLabel="Echo falloff"
-        />
-        <div className="mt-2">
-          <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
-            Direction
-          </p>
-          <SegmentedGroup
-            options={ECHO_MODES}
-            value={cfg.echoMode}
-            onChange={(v) => update({ echoMode: v })}
-            cols={2}
+      {/* Echo controls — available for every variant EXCEPT the two
+          that already render multi-layer compositions internally
+          ('echo' has its own mirror logic, 'multiRing' IS concentric
+          rings by design — wrapping either would just multiply layers
+          to noise). */}
+      {(cfg.style ?? 'classic') !== 'echo' &&
+        (cfg.style ?? 'classic') !== 'multiRing' && (
+        <PanelGroup title="Echo">
+          <SliderRow
+            label="Count"
+            hint={`${cfg.echoCount}`}
+            value={cfg.echoCount}
+            min={1}
+            max={10}
+            step={1}
+            onChange={(v) => update({ echoCount: Math.round(v) })}
+            ariaLabel="Echo count"
           />
-        </div>
-      </PanelGroup>
+          <SliderRow
+            label="Spacing"
+            hint={`${Math.round(cfg.echoSpacing)}px`}
+            value={cfg.echoSpacing}
+            min={0}
+            max={80}
+            step={1}
+            onChange={(v) => update({ echoSpacing: v })}
+            ariaLabel="Echo spacing"
+          />
+          <SliderRow
+            label="Falloff"
+            hint={cfg.echoFalloff.toFixed(2)}
+            value={cfg.echoFalloff}
+            min={0.2}
+            max={1}
+            step={0.01}
+            onChange={(v) => update({ echoFalloff: v })}
+            ariaLabel="Echo falloff"
+          />
+          <SliderRow
+            label="Rotation offset"
+            hint={`${Math.round(cfg.echoRotationOffset ?? 0)}°/step`}
+            value={cfg.echoRotationOffset ?? 0}
+            min={-30}
+            max={30}
+            step={1}
+            onChange={(v) => update({ echoRotationOffset: v })}
+            ariaLabel="Echo rotation offset"
+          />
+          <div className="mt-2">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Direction
+            </p>
+            <SegmentedGroup
+              options={ECHO_MODES}
+              value={cfg.echoMode}
+              onChange={(v) => update({ echoMode: v })}
+              cols={2}
+            />
+          </div>
+        </PanelGroup>
       )}
 
       {(cfg.style ?? 'classic') === 'classic' && (
