@@ -6,6 +6,7 @@ import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
+import { AIStyleModal } from '../components/studio/AIStyleModal';
 import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
@@ -877,6 +878,7 @@ export function StudioPage() {
             </div>
           </MobileBottomSheet>
         </div>
+        <AIStyleModal />
         {formatFlashStyles}
       </GlobalDropZone>
     );
@@ -921,6 +923,7 @@ export function StudioPage() {
         {hasAudio && <AudioElement />}
         {hasAudio ? <Timeline /> : <AudioPlayerBar />}
       </div>
+      <AIStyleModal />
       {formatFlashStyles}
     </GlobalDropZone>
   );
