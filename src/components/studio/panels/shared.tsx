@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { PRESET_PALETTES } from '@/lib/colorPalette'
 import { useBrandKitStore } from '@/store/useBrandKitStore'
@@ -82,6 +82,27 @@ export function Slider({
  * center, "unchanged" sensitivity, etc.) instead of the default
  * left-to-right Slider.
  */
+/**
+ * Snap zone around the center as a fraction of (max - min). 0.02 = 2%
+ * — matches the spec. Within this zone the slider snaps to the exact
+ * center and fires a 5 ms haptic pulse (graceful no-op on platforms
+ * without navigator.vibrate, e.g. desktop Safari).
+ */
+const CENTER_SNAP_FRACTION = 0.02
+
+function triggerSnapHaptic(): void {
+  // navigator.vibrate is not in the lib.dom types in every TS config —
+  // narrow via typeof check.
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined
+  if (nav && typeof nav.vibrate === 'function') {
+    try {
+      nav.vibrate(5)
+    } catch {
+      /* ignore — some browsers throw if not in a user gesture */
+    }
+  }
+}
+
 export function CenterSlider({
   value,
   min,
@@ -108,6 +129,28 @@ export function CenterSlider({
   const fillLeft = Math.min(valPct, centerPct)
   const fillRight = Math.max(valPct, centerPct)
 
+  // Track the last value we snapped at so we don't re-vibrate every
+  // pointer move while the thumb sits inside the snap zone.
+  const wasSnappedRef = useRef(false)
+
+  const snapThreshold = range * CENTER_SNAP_FRACTION
+
+  const handleChange = (raw: number): void => {
+    if (Math.abs(raw - c) <= snapThreshold) {
+      if (!wasSnappedRef.current) {
+        wasSnappedRef.current = true
+        triggerSnapHaptic()
+      }
+      onChange(c)
+      return
+    }
+    wasSnappedRef.current = false
+    onChange(raw)
+  }
+
+  // ~80 ms ease so the snap-in feels smooth, not jumpy.
+  const snapTransition = 'left 80ms cubic-bezier(0.4, 0, 0.2, 1)'
+
   return (
     <div className="relative h-5 w-full">
       {/* Base track */}
@@ -123,6 +166,7 @@ export function CenterSlider({
           right: `${100 - fillRight}%`,
           background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
           borderRadius: 999,
+          transition: 'left 80ms cubic-bezier(0.4, 0, 0.2, 1), right 80ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       />
       {/* Center tick */}
@@ -149,6 +193,7 @@ export function CenterSlider({
           background: '#ffffff',
           border: '2px solid #8b5cf6',
           boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+          transition: snapTransition,
         }}
       />
       {/* Transparent native input on top for pointer + a11y */}
@@ -158,7 +203,7 @@ export function CenterSlider({
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => handleChange(parseFloat(e.target.value))}
         aria-label={ariaLabel}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
