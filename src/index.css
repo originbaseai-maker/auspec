@@ -264,20 +264,23 @@ select {
 
 /* ----- Tools panel tile grid -----
  *
- * Fixed-size 64×64 tiles with an 8 px gap. Sized so Assets & Stage
- * (4 tiles) fits in a single row inside a 296 px right panel with
- * 8 px outer padding: 4·64 + 3·8 + 2·8 = 296. Sections with fewer
- * tiles leave empty space on the right — deliberate signal of
- * "fewer options here", not a layout bug.
+ * Fixed-size 64×64 tiles with a 6 px gap (down from 8 px). The
+ * previous 8 px math was 4·64 + 3·8 + 2·8 = 296 — exactly the
+ * panel width, leaving zero pixels for sub-pixel rounding or
+ * scrollbar reservation, which triggered a wrap. New math:
+ * 4·64 + 3·6 + 2·8 = 290 → 6 px buffer inside the 296 px panel.
  *
- * Same dimensions on mobile + desktop: the mobile bottom sheet is
- * full-viewport width so it always fits, and using a single size
- * keeps the hover scale + animation timings consistent. */
+ * Sections with fewer tiles leave empty space on the right —
+ * deliberate signal of "fewer options here", not a layout bug.
+ *
+ * Same dimensions on mobile + desktop: the mobile bottom sheet
+ * is full-viewport width so it always fits, and using a single
+ * size keeps the hover scale + animation timings consistent. */
 .auspec-tool-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, 64px);
   justify-content: start;
-  gap: 8px;
+  gap: 6px;
 }
 .auspec-tool-tile {
   width: 64px;
