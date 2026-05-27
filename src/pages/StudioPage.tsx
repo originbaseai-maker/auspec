@@ -6,6 +6,7 @@ import { detectFormat, isValidAudioFile, MAX_FILE_SIZE } from '@/types/audio';
 import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
+import { AIHeroCard } from '../components/studio/AIHeroCard';
 import { Timeline } from '../components/studio/Timeline';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
@@ -856,7 +857,15 @@ export function StudioPage() {
               {activeCategory ? (
                 <CategoryDetailPanel hideHeader />
               ) : (
-                <CategoryGrid />
+                <>
+                  {/* Hero card pinned at the top of the Tools sheet so
+                      AI Style is the first thing a user sees when
+                      they open Tools, not buried under the grid. */}
+                  <div className="px-3 pt-3">
+                    <AIHeroCard variant="mobile" />
+                  </div>
+                  <CategoryGrid />
+                </>
               )}
             </div>
           </MobileBottomSheet>
@@ -897,6 +906,9 @@ export function StudioPage() {
               background: '#0a0a0a',
             }}
           >
+            <div className="p-3">
+              <AIHeroCard variant="desktop" />
+            </div>
             <CategoryGrid />
             <CategoryDetailPanel />
           </aside>
