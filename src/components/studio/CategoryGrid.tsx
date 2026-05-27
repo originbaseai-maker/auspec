@@ -3,6 +3,8 @@ import { useStudioUIStore } from '@/store/useStudioUIStore'
 import { useLayerStore } from '@/store/useLayerStore'
 import { STUDIO_CATEGORIES, type CategoryConfig, type StudioCategory } from '@/types/studio'
 import type { LayerType } from '@/types/layer'
+import { useViewport } from '@/hooks/useViewport'
+import { AIStyleButton } from './AIStyleButton'
 import { CategoryIcon } from './CategoryIcon'
 import { DraftConfirmDialog } from './DraftConfirmDialog'
 
@@ -67,6 +69,7 @@ export function CategoryGrid() {
   const layers = useLayerStore((s) => s.layers)
   const draftLayer = useLayerStore((s) => s.draftLayer)
   const draftIsDirty = useLayerStore((s) => s.draftIsDirty)
+  const viewport = useViewport()
   const startDraft = useLayerStore((s) => s.startDraft)
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
@@ -222,6 +225,14 @@ export function CategoryGrid() {
           </section>
         )
       })}
+
+      {/* Primary CTA — rendered AFTER the four tool sections so AI
+          Style is the visual anchor at the bottom of the Tools panel
+          on both mobile and desktop. Variant follows the viewport
+          breakpoint (height differs slightly between them). */}
+      <div className="pt-1">
+        <AIStyleButton variant={viewport === 'mobile' ? 'mobile' : 'desktop'} />
+      </div>
 
       <DraftConfirmDialog
         open={pendingAction !== null}
