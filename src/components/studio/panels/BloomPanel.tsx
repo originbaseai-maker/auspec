@@ -1,5 +1,5 @@
 import { useLayerStore } from '@/store/useLayerStore'
-import type { BloomConfig } from '@/types/layer'
+import type { BloomConfig, BloomStyle } from '@/types/layer'
 import {
   CenterSliderRow,
   LockedLayerBanner,
@@ -20,6 +20,37 @@ const ECHO_MODES = [
   { id: 'outward' as const, label: 'Outward' },
   { id: 'inward' as const, label: 'Inward' },
 ]
+
+const STYLES: ReadonlyArray<{ id: BloomStyle; label: string }> = [
+  { id: 'classic', label: 'Classic' },
+  { id: 'organic', label: 'Organic' },
+  { id: 'aura', label: 'Aura' },
+  { id: 'echo', label: 'Echo' },
+  { id: 'star', label: 'Star' },
+  { id: 'multiRing', label: 'Rings' },
+]
+
+const ECHO_SHAPES = [
+  { id: 'circle' as const, label: 'Circle' },
+  { id: 'polygon' as const, label: 'Polygon' },
+]
+
+function styleHint(style: BloomStyle): string {
+  switch (style) {
+    case 'classic':
+      return 'Radial spectrum with concentric echo rings'
+    case 'organic':
+      return 'Soft breathing blob, radial gradient fill'
+    case 'aura':
+      return 'Diffuse cloud of overlapping translucent circles'
+    case 'echo':
+      return 'Mirrored copies expanding outward (vertical mirror)'
+    case 'star':
+      return 'Rotating polygon star, spikes ride frequency bins'
+    case 'multiRing':
+      return 'Concentric rings, each on its own band'
+  }
+}
 
 export function BloomPanel({ layerId }: Props) {
   const layer = useLayerStore((s) =>
@@ -49,6 +80,21 @@ export function BloomPanel({ layerId }: Props) {
       }}
     >
       {isLocked && <LockedLayerBanner />}
+
+      <PanelGroup title="Style">
+        {/* 6 options at cols=3 = a 2-row segmented grid. Keeps each
+            chip wide enough to read; dropdown would feel heavier in
+            this narrow panel. */}
+        <SegmentedGroup
+          options={STYLES}
+          value={cfg.style ?? 'classic'}
+          onChange={(v) => update({ style: v })}
+          cols={3}
+        />
+        <p className="mt-1 text-[9px] text-white/30">
+          {styleHint(cfg.style ?? 'classic')}
+        </p>
+      </PanelGroup>
 
       <PanelGroup title="Colors">
         <PaletteEditor
@@ -80,31 +126,128 @@ export function BloomPanel({ layerId }: Props) {
           onChange={(v) => update({ amplitudeScale: v })}
           ariaLabel="Amplitude scale"
         />
-        <SliderRow
-          label="Points"
-          hint={`${cfg.pointCount}`}
-          value={cfg.pointCount}
-          min={32}
-          max={256}
-          step={1}
-          onChange={(v) => update({ pointCount: Math.round(v) })}
-          ariaLabel="Point count"
-        />
-        <SliderRow
-          label="Smoothness"
-          hint={cfg.smoothness.toFixed(2)}
-          value={cfg.smoothness}
-          min={0}
-          max={1}
-          step={0.01}
-          onChange={(v) => update({ smoothness: v })}
-          ariaLabel="Smoothness"
-        />
-        <p className="text-[9px] text-white/30">
-          0 = polygon edges · 1 = organic curves
-        </p>
+        {/* pointCount / smoothness only apply to classic — other
+            variants own their own point counts internally. */}
+        {(cfg.style ?? 'classic') === 'classic' && (
+          <>
+            <SliderRow
+              label="Points"
+              hint={`${cfg.pointCount}`}
+              value={cfg.pointCount}
+              min={32}
+              max={256}
+              step={1}
+              onChange={(v) => update({ pointCount: Math.round(v) })}
+              ariaLabel="Point count"
+            />
+            <SliderRow
+              label="Smoothness"
+              hint={cfg.smoothness.toFixed(2)}
+              value={cfg.smoothness}
+              min={0}
+              max={1}
+              step={0.01}
+              onChange={(v) => update({ smoothness: v })}
+              ariaLabel="Smoothness"
+            />
+            <p className="text-[9px] text-white/30">
+              0 = polygon edges · 1 = organic curves
+            </p>
+          </>
+        )}
       </PanelGroup>
 
+      {/* ───── Variant-specific control groups ───── */}
+
+      {(cfg.style ?? 'classic') === 'star' && (
+        <PanelGroup title="Star">
+          <SliderRow
+            label="Points"
+            hint={`${cfg.starPoints ?? 6}`}
+            value={cfg.starPoints ?? 6}
+            min={4}
+            max={12}
+            step={1}
+            onChange={(v) => update({ starPoints: Math.round(v) })}
+            ariaLabel="Star spike count"
+          />
+        </PanelGroup>
+      )}
+
+      {(cfg.style ?? 'classic') === 'echo' && (
+        <PanelGroup title="Mirror Echo">
+          <SliderRow
+            label="Echo count"
+            hint={`${cfg.mirrorEchoCount ?? 4}`}
+            value={cfg.mirrorEchoCount ?? 4}
+            min={2}
+            max={6}
+            step={1}
+            onChange={(v) =>
+              update({ mirrorEchoCount: Math.round(v) })
+            }
+            ariaLabel="Mirror echo count"
+          />
+          <div className="mt-2">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
+              Base Shape
+            </p>
+            <SegmentedGroup
+              options={ECHO_SHAPES}
+              value={cfg.echoShape ?? 'circle'}
+              onChange={(v) => update({ echoShape: v })}
+              cols={2}
+            />
+          </div>
+        </PanelGroup>
+      )}
+
+      {(cfg.style ?? 'classic') === 'multiRing' && (
+        <PanelGroup title="Multi-Ring">
+          <SliderRow
+            label="Ring count"
+            hint={`${cfg.ringCount ?? 5}`}
+            value={cfg.ringCount ?? 5}
+            min={3}
+            max={7}
+            step={1}
+            onChange={(v) => update({ ringCount: Math.round(v) })}
+            ariaLabel="Ring count"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[11px] text-white/70">Rainbow</span>
+            <Toggle
+              checked={cfg.rainbow ?? false}
+              onChange={(v) => update({ rainbow: v })}
+              ariaLabel="Rainbow hue spread"
+            />
+          </div>
+        </PanelGroup>
+      )}
+
+      {/* Variant-rotation control for star/echo/multiRing only.
+          Classic uses its own legacy rotation block further below. */}
+      {((cfg.style ?? 'classic') === 'star' ||
+        (cfg.style ?? 'classic') === 'echo' ||
+        (cfg.style ?? 'classic') === 'multiRing') && (
+        <PanelGroup title="Variant Rotation">
+          <CenterSliderRow
+            label="Speed"
+            hint={`${(cfg.variantRotationSpeed ?? 0.5).toFixed(2)} r/s`}
+            value={cfg.variantRotationSpeed ?? 0.5}
+            min={-2}
+            max={2}
+            step={0.05}
+            center={0}
+            onChange={(v) => update({ variantRotationSpeed: v })}
+            ariaLabel="Variant rotation speed"
+          />
+        </PanelGroup>
+      )}
+
+      {/* Classic-only sections below — Echo + Rotation rings are
+          classic's signature, irrelevant for the other variants. */}
+      {(cfg.style ?? 'classic') === 'classic' && (
       <PanelGroup title="Echo">
         <SliderRow
           label="Count"
@@ -148,7 +291,9 @@ export function BloomPanel({ layerId }: Props) {
           />
         </div>
       </PanelGroup>
+      )}
 
+      {(cfg.style ?? 'classic') === 'classic' && (
       <PanelGroup title="Rotation">
         <SliderRow
           label="Offset"
@@ -175,6 +320,7 @@ export function BloomPanel({ layerId }: Props) {
           ariaLabel="Rotation speed"
         />
       </PanelGroup>
+      )}
 
       <PanelGroup title="Position">
         <CenterSliderRow
@@ -215,14 +361,20 @@ export function BloomPanel({ layerId }: Props) {
           onChange={(v) => update({ lineWidth: v })}
           ariaLabel="Line width"
         />
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-[11px] text-white/70">Closed shape</span>
-          <Toggle
-            checked={cfg.closedShape}
-            onChange={(v) => update({ closedShape: v })}
-            ariaLabel="Closed shape"
-          />
-        </div>
+        {/* Closed shape only matters for the classic radial-spectrum
+            curve; the other variants either always close (organic,
+            multiRing, echo) or don't have a path to close (aura, star
+            close implicitly via closePath). */}
+        {(cfg.style ?? 'classic') === 'classic' && (
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[11px] text-white/70">Closed shape</span>
+            <Toggle
+              checked={cfg.closedShape}
+              onChange={(v) => update({ closedShape: v })}
+              ariaLabel="Closed shape"
+            />
+          </div>
+        )}
       </PanelGroup>
 
       <PanelGroup title="Glow">
