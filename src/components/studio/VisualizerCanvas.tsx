@@ -372,6 +372,21 @@ export default function VisualizerCanvas(): JSX.Element {
       const nowMs = performance.now()
       const editingTextId = useLayerStore.getState().editingTextLayerId
 
+      // Resolve the topmost enabled Logo's position ONCE per frame so
+      // every Halo layer with lockToLogo=true can read the same live
+      // position. Cheaper than re-scanning per layer; also gives all
+      // halos a coherent target if multiple are stacked.
+      let logoPosition: { x: number; y: number } | null = null
+      for (const l of enabledLayers) {
+        if (l.type === 'logo') {
+          logoPosition = {
+            x: l.config.position.x,
+            y: l.config.position.y,
+          }
+          break
+        }
+      }
+
       for (const layer of enabledLayers) {
         // Universal layer opacity: wrap each draw in save/restore so the
         // outer globalAlpha doesn't bleed into the next layer. Multiplies
@@ -498,30 +513,18 @@ export default function VisualizerCanvas(): JSX.Element {
               beatEnergy,
             )
             break
-          case 'halo': {
-            // Resolve the linked Logo position once per draw — find
-            // the topmost enabled Logo layer's center. Halo's router
-            // applies it when config.lockToLogo is true.
-            let haloLogoPos: { x: number; y: number } | null = null
-            for (const l of enabledLayers) {
-              if (l.type === 'logo') {
-                haloLogoPos = {
-                  x: l.config.position.x,
-                  y: l.config.position.y,
-                }
-                break
-              }
-            }
+          case 'halo':
+            // logoPosition resolved once per frame above. drawHaloLayer's
+            // router applies it when config.lockToLogo is true.
             drawHaloLayer(
               ctx,
               layer.config,
               data ?? ({ raw: new Uint8Array(0), bass: 0, mid: 0, treble: 0, rms: 0, peak: 0, beatEnergy: 0, timeDomain: new Uint8Array(0) } as FrequencyData),
               width,
               height,
-              haloLogoPos,
+              logoPosition,
             )
             break
-          }
           case 'text':
             drawTextLayer(
               ctx,
