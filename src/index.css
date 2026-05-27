@@ -391,6 +391,24 @@ select {
   transform: scale(0.98);
   transition-duration: 120ms;
 }
+/* Active state when AI fine-tune is expanded below. Matches the
+ * visual weight of a selected tool tile so they read as peers. */
+.ai-style-button[data-active='true'] {
+  /* Slight inner gradient wash signals "this is selected" without
+   * fighting the animated outer ring for attention. */
+  background:
+    linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(236, 72, 153, 0.10)),
+    radial-gradient(circle at 50% 50%, #0a0a14 0%, #050507 100%);
+  box-shadow:
+    0 0 0 1px rgba(236, 72, 153, 0.4),
+    0 6px 18px -4px rgba(168, 85, 247, 0.35);
+}
+/* Brighten the animated gradient ring while expanded — same hues,
+ * higher opacity. Targets the ::before pseudo defined in
+ * .ai-gradient-border. */
+.ai-style-button[data-active='true']::before {
+  filter: saturate(1.4) brightness(1.1);
+}
 @media (prefers-reduced-motion: reduce) {
   .ai-style-button,
   .ai-style-button:hover,

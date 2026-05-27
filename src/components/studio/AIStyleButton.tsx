@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, ChevronDown, Sparkles } from 'lucide-react'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 
 interface Props {
@@ -31,6 +31,7 @@ export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
       aria-pressed={isActive}
       aria-label={isActive ? 'Close AI Style' : 'Open AI Style'}
       className="ai-gradient-border ai-style-button group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl"
+      data-active={isActive ? 'true' : undefined}
       // Height is the only variant-dependent value; the rest of the
       // visual styling lives on the .ai-style-button CSS class so
       // :hover can actually override the box-shadow without losing
@@ -53,10 +54,17 @@ export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
       >
         AI Style
       </span>
-      <ArrowRight
-        className="h-4 w-4 text-white/55 transition-transform group-hover:translate-x-0.5"
-        aria-hidden="true"
-      />
+      {isActive ? (
+        // Chevron points DOWN toward the now-expanded fine-tune panel
+        // (which renders directly below this button in the Tools
+        // aside). Signals "content is below, click here to collapse."
+        <ChevronDown className="h-4 w-4 text-white/70" aria-hidden="true" />
+      ) : (
+        <ArrowRight
+          className="h-4 w-4 text-white/55 transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      )}
     </button>
   )
 }
