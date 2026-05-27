@@ -31,17 +31,11 @@ export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
       onClick={openAIModal}
       aria-label="Open AI Style"
       className="ai-gradient-border ai-style-button group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl"
-      style={{
-        height: isDesktop ? 56 : 52,
-        // Solid inner background so the ::before gradient only shows
-        // through in the 2px ring slot (mask-composite trick in the
-        // .ai-gradient-border CSS).
-        background:
-          'radial-gradient(circle at 50% 50%, #0a0a14 0%, #050507 100%)',
-        // Gentle purple drop shadow at rest; the .ai-style-button
-        // hover rule (in index.css) intensifies it.
-        boxShadow: '0 4px 16px -4px rgba(168, 85, 247, 0.25)',
-      }}
+      // Height is the only variant-dependent value; the rest of the
+      // visual styling lives on the .ai-style-button CSS class so
+      // :hover can actually override the box-shadow without losing
+      // specificity to an inline style object.
+      style={{ height: isDesktop ? 56 : 52 }}
     >
       <Sparkles
         className={isDesktop ? 'h-4 w-4' : 'h-4 w-4'}

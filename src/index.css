@@ -388,20 +388,28 @@ select {
   }
 }
 
-/* AIStyleButton — same spring lift as the tool tiles but with a
- * gradient-colour glow (stronger than the tile's purple accent)
- * so it reads as "primary action" within the Tools panel. */
+/* AIStyleButton — same spring lift as the tool tiles, with a
+ * dual-layer pink/purple glow on hover to read as "primary action"
+ * within the Tools panel. Base background + shadow live in CSS
+ * (not inline on the JSX) so the :hover rule can actually override
+ * the box-shadow — same fix as the tool tiles. */
 .ai-style-button {
+  background: radial-gradient(circle at 50% 50%, #0a0a14 0%, #050507 100%);
+  box-shadow: 0 4px 16px -4px rgba(168, 85, 247, 0.25);
+  cursor: pointer;
   transition:
     transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 220ms ease-out;
+  will-change: transform;
 }
 @media (hover: hover) and (pointer: fine) {
   .ai-style-button:hover {
     transform: scale(1.04);
+    /* Outer pink halo + inner purple lift — reads as a primary CTA
+     * even at the smaller wide-button form factor. */
     box-shadow:
-      0 12px 28px -6px rgba(168, 85, 247, 0.5),
-      0 0 0 1px rgba(236, 72, 153, 0.3);
+      0 0 24px rgba(236, 72, 153, 0.4),
+      0 8px 24px rgba(168, 85, 247, 0.25);
   }
 }
 .ai-style-button:active {
@@ -413,6 +421,6 @@ select {
   .ai-style-button:hover,
   .ai-style-button:active {
     transform: none;
-    transition: box-shadow 200ms ease-out;
+    transition: box-shadow 120ms ease-out;
   }
 }
