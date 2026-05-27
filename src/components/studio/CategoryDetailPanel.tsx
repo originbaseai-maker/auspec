@@ -10,6 +10,7 @@ import { BloomPanel } from './panels/BloomPanel'
 import { CustomShapePanel } from './panels/CustomShapePanel'
 import { ParticlesPanel } from './panels/ParticlesPanel'
 import { VideoPanel } from './panels/VideoPanel'
+import { HaloPanel } from './panels/HaloPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
 import { TextPanel } from './panels/TextPanel'
@@ -96,15 +97,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
         case 'video':
           return <VideoPanel layerId={activeLayer.id} />
         case 'halo':
-          // HaloPanel lands in commit 9. For now show a minimal
-          // placeholder so the route resolves and the user sees a
-          // useful message instead of a blank slot.
-          return (
-            <div className="p-4 text-center text-[11px] text-white/50">
-              Halo controls coming up — the layer is rendering at
-              defaults for now.
-            </div>
-          )
+          return <HaloPanel layerId={activeLayer.id} />
         case 'particles':
           return <ParticlesPanel layerId={activeLayer.id} />
         case 'logo':
