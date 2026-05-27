@@ -38,6 +38,7 @@ const LAYER_CATEGORIES = new Set([
   'visualizer_bloom',
   'visualizer_shape',
   'visualizer_video',
+  'visualizer_halo',
   'particles',
   'logo',
   'frame',
@@ -94,6 +95,16 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <CustomShapePanel layerId={activeLayer.id} />
         case 'video':
           return <VideoPanel layerId={activeLayer.id} />
+        case 'halo':
+          // HaloPanel lands in commit 9. For now show a minimal
+          // placeholder so the route resolves and the user sees a
+          // useful message instead of a blank slot.
+          return (
+            <div className="p-4 text-center text-[11px] text-white/50">
+              Halo controls coming up — the layer is rendering at
+              defaults for now.
+            </div>
+          )
         case 'particles':
           return <ParticlesPanel layerId={activeLayer.id} />
         case 'logo':

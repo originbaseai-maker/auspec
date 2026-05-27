@@ -17,6 +17,7 @@ import { drawParticlesForLayer } from '@/lib/renderers/particles'
 import { drawBackgroundLayer } from '@/lib/renderers/background'
 import { drawBloom } from '@/lib/renderers/bloom'
 import { drawCustomShape } from '@/lib/renderers/customShape'
+import { drawHaloLayer } from '@/lib/renderers/halo'
 import { drawVideoLayer } from '@/lib/renderers/video'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import {
@@ -26,6 +27,7 @@ import {
 } from '@/lib/videoPool'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
+import type { FrequencyData } from '@/types/analyzer'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useAudioStore } from '@/store/useAudioStore'
@@ -496,6 +498,30 @@ export default function VisualizerCanvas(): JSX.Element {
               beatEnergy,
             )
             break
+          case 'halo': {
+            // Resolve the linked Logo position once per draw — find
+            // the topmost enabled Logo layer's center. Halo's router
+            // applies it when config.lockToLogo is true.
+            let haloLogoPos: { x: number; y: number } | null = null
+            for (const l of enabledLayers) {
+              if (l.type === 'logo') {
+                haloLogoPos = {
+                  x: l.config.position.x,
+                  y: l.config.position.y,
+                }
+                break
+              }
+            }
+            drawHaloLayer(
+              ctx,
+              layer.config,
+              data ?? ({ raw: new Uint8Array(0), bass: 0, mid: 0, treble: 0, rms: 0, peak: 0, beatEnergy: 0, timeDomain: new Uint8Array(0) } as FrequencyData),
+              width,
+              height,
+              haloLogoPos,
+            )
+            break
+          }
           case 'text':
             drawTextLayer(
               ctx,

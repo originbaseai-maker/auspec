@@ -20,6 +20,7 @@ export type LayerType =
   | 'text'
   | 'shape'
   | 'video'
+  | 'halo'
 
 export type FontFamily =
   | 'Inter'
@@ -344,6 +345,71 @@ export interface VideoLayer {
   config: VideoLayerConfig
 }
 
+/**
+ * Halo — logo-centered, dramatic audio-reactive frame designed to
+ * wrap around a Logo layer. Unlike Bloom, Halo has a "lockToLogo"
+ * mode that auto-syncs position to the active Logo layer in real
+ * time, so dragging the Logo on canvas drags the Halo with it.
+ * Five visual styles (radial burst, spectrum crown, pulse frame,
+ * flame, orbit) all share Halo's palette + sensitivity controls.
+ */
+export type HaloStyle =
+  | 'radialBurst'
+  | 'spectrumCrown'
+  | 'pulseFrame'
+  | 'flame'
+  | 'orbit'
+
+export type HaloFrameShape = 'circle' | 'roundedRect' | 'square'
+export type HaloFlameDirection = 'up' | 'all'
+
+export interface HaloLayerConfig {
+  style: HaloStyle
+  /** Center position 0–1 (used when lockToLogo is false). */
+  offsetX: number
+  offsetY: number
+  /** When true, draw-frame reads the Logo layer position instead of
+   *  offsetX/Y. Falls back to offsetX/Y when no Logo exists. */
+  lockToLogo: boolean
+  /** Base radius in px from the center. */
+  baseRadius: number
+  /** Colour palette. Resolved through colorStart/colorEnd if unset. */
+  palette?: string[]
+  colorStart: string
+  colorEnd: string
+  /** Per-band sensitivity multipliers, 0–2 (slider shows 0–200%). */
+  bassSensitivity: number
+  midSensitivity: number
+  trebleSensitivity: number
+  /** Static rotation offset in degrees. */
+  rotation: number
+  /** Outer shadow blur in px, 0–100. */
+  glowEnabled: boolean
+  glowIntensity: number
+  // Style-specific (only the matching style's renderer reads each):
+  /** 'radialBurst' — number of rays, 12–48. */
+  rayCount?: number
+  /** 'spectrumCrown' — number of spectrum bars, 32–128. */
+  barCount?: number
+  /** 'pulseFrame' — stroke width baseline px, 2–30. */
+  frameThickness?: number
+  /** 'pulseFrame' — geometry of the frame. */
+  frameShape?: HaloFrameShape
+  /** 'flame' — number of flame tongues, 6–24. */
+  flameCount?: number
+  /** 'flame' — tongues all radiate outward or all point up. */
+  flameDirection?: HaloFlameDirection
+  /** 'orbit' — particles on the orbital path, 6–30. */
+  orbitCount?: number
+  /** 'orbit' — orbit speed in rev/sec, -2..2. */
+  orbitSpeed?: number
+}
+
+export interface HaloLayer {
+  type: 'halo'
+  config: HaloLayerConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -357,6 +423,7 @@ export type LayerData =
   | TextLayer
   | ShapeLayer
   | VideoLayer
+  | HaloLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -393,6 +460,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   text: 'Text',
   shape: 'Shape',
   video: 'Video',
+  halo: 'Halo',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -408,6 +476,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'logo',
   'text',
   'frame',
+  'halo',
 ] as const
 
 export const DEFAULT_LOGO_LAYER_CONFIG: LogoLayerConfig = {
@@ -463,6 +532,31 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   variantRotationSpeed: 0.5,
   rainbow: false,
   echoShape: 'circle',
+}
+
+export const DEFAULT_HALO_CONFIG: HaloLayerConfig = {
+  style: 'radialBurst',
+  offsetX: 0.5,
+  offsetY: 0.5,
+  lockToLogo: true,
+  baseRadius: 140,
+  palette: ['#a855f7', '#ec4899', '#f97316'],
+  colorStart: '#a855f7',
+  colorEnd: '#f97316',
+  bassSensitivity: 1,
+  midSensitivity: 1,
+  trebleSensitivity: 1,
+  rotation: 0,
+  glowEnabled: true,
+  glowIntensity: 40,
+  rayCount: 24,
+  barCount: 64,
+  frameThickness: 8,
+  frameShape: 'circle',
+  flameCount: 12,
+  flameDirection: 'all',
+  orbitCount: 16,
+  orbitSpeed: 0.4,
 }
 
 export const DEFAULT_VIDEO_CONFIG: VideoLayerConfig = {

@@ -19,6 +19,7 @@ import {
   Plus,
   RotateCcw,
   Sparkles,
+  Sun,
   Square,
   Trash2,
   Type as TypeIcon,
@@ -49,6 +50,7 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   text: TypeIcon,
   shape: PenTool,
   video: Film,
+  halo: Sun,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -64,6 +66,7 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   text: 'text',
   shape: 'visualizer_shape',
   video: 'visualizer_video',
+  halo: 'visualizer_halo',
 }
 
 interface ContextMenuState {

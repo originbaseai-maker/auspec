@@ -10,6 +10,7 @@ import { DEFAULT_FRAME_CONFIG } from '@/store/useFrameStore'
 import {
   DEFAULT_BACKGROUND_CONFIG,
   DEFAULT_BLOOM_CONFIG,
+  DEFAULT_HALO_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
   DEFAULT_SHAPE_CONFIG,
   DEFAULT_TEXT_CONFIG,
@@ -65,6 +66,16 @@ function defaultData(type: LayerType): LayerData {
       }
     case 'video':
       return { type: 'video', config: { ...DEFAULT_VIDEO_CONFIG } }
+    case 'halo':
+      return {
+        type: 'halo',
+        config: {
+          ...DEFAULT_HALO_CONFIG,
+          palette: DEFAULT_HALO_CONFIG.palette
+            ? [...DEFAULT_HALO_CONFIG.palette]
+            : undefined,
+        },
+      }
   }
 }
 
@@ -156,6 +167,17 @@ function createLayer(
         ...base,
         type: 'video',
         config: { ...DEFAULT_VIDEO_CONFIG },
+      }
+    case 'halo':
+      return {
+        ...base,
+        type: 'halo',
+        config: {
+          ...DEFAULT_HALO_CONFIG,
+          palette: DEFAULT_HALO_CONFIG.palette
+            ? [...DEFAULT_HALO_CONFIG.palette]
+            : undefined,
+        },
       }
   }
 }
@@ -659,6 +681,18 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         case 'video':
           dup = { ...base, type: 'video', config: { ...source.config } }
           break
+        case 'halo':
+          dup = {
+            ...base,
+            type: 'halo',
+            config: {
+              ...source.config,
+              palette: source.config.palette
+                ? [...source.config.palette]
+                : undefined,
+            },
+          }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -742,6 +776,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           case 'video':
             newDraft = { ...draft, type: 'video',
               config: { ...(fresh as { type: 'video'; config: object }).config } } as Layer
+            break
+          case 'halo':
+            newDraft = { ...draft, type: 'halo',
+              config: { ...(fresh as { type: 'halo'; config: object }).config } } as Layer
             break
         }
         return { draftLayer: newDraft, draftIsDirty: true }
@@ -835,6 +873,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'video',
               config: { ...(fresh as { type: 'video'; config: object })
+                .config },
+            } as Layer
+          case 'halo':
+            return {
+              ...l,
+              type: 'halo',
+              config: { ...(fresh as { type: 'halo'; config: object })
                 .config },
             } as Layer
         }
@@ -1035,6 +1080,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'video',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'halo':
+          layer = {
+            ...base,
+            type: 'halo',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break

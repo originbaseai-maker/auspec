@@ -6,6 +6,7 @@ export type StudioCategory =
   | 'visualizer_bloom'
   | 'visualizer_shape'
   | 'visualizer_video'
+  | 'visualizer_halo'
   | 'particles'
   | 'background'
   | 'logo'
@@ -24,6 +25,7 @@ export interface CategoryConfig {
     | 'bloom'
     | 'shape'
     | 'video'
+    | 'halo'
     | 'particles'
     | 'background'
     | 'logo'
@@ -62,4 +64,5 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
   { id: 'text', label: 'Text', icon: 'text', hasAI: false },
   { id: 'ai_style', label: 'AI Style', icon: 'ai_style', hasAI: true },
   { id: 'frame', label: 'Frame', icon: 'frame', hasAI: false },
+  { id: 'visualizer_halo', label: 'Halo', icon: 'halo', hasAI: false },
 ]

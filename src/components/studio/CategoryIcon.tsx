@@ -244,6 +244,39 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           />
         </svg>
       )
+    case 'halo':
+      return (
+        <svg {...props}>
+          {/* Radial sunburst — 12 spokes around a centred dot */}
+          {Array.from({ length: 12 }, (_, i) => {
+            const angle = (i / 12) * Math.PI * 2
+            const x1 = 20 + Math.cos(angle) * 8
+            const y1 = 20 + Math.sin(angle) * 8
+            const x2 = 20 + Math.cos(angle) * 16
+            const y2 = 20 + Math.sin(angle) * 16
+            return (
+              <line
+                key={i}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="rgba(255,255,255,0.85)"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            )
+          })}
+          <circle
+            cx="20"
+            cy="20"
+            r="5"
+            fill="rgba(168,85,247,0.25)"
+            stroke="rgba(168,85,247,0.85)"
+            strokeWidth="1.5"
+          />
+        </svg>
+      )
     default:
       return null
   }
