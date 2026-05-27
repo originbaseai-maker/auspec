@@ -1,7 +1,6 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { ArrowRight, ChevronUp, Music, Sparkles, Upload } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
-import { useAIStore } from '@/store/useAIStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
 import type { AudioFile } from '@/types/audio';
 import { DemoSongsLibrary } from '@/components/audio/DemoSongsLibrary';
@@ -38,17 +37,14 @@ export function AudioPlayerBar() {
   // useState (not persisted) is intentional — a fresh tab gets the
   // discovery prompt again.
   const [hintDismissed, setHintDismissed] = useState(false);
-  const requestAIFocus = useAIStore((s) => s.requestFocus);
-  const requestOpenTools = useStudioUIStore((s) => s.requestOpenTools);
+  const openAIModal = useStudioUIStore((s) => s.openAIModal);
 
   const handleHintClick = () => {
     setHintDismissed(true);
-    // Order matters: open Tools first so the AIHeroCard mounts (on
-    // mobile) before the focus token fires. On desktop the card is
-    // already mounted; requestOpenTools is a cheap no-op observed
-    // only by the mobile branch.
-    requestOpenTools();
-    requestAIFocus();
+    // AIStyleModal lives at the StudioPage root and handles its own
+    // focus management — opening it moves focus to the textarea on
+    // the next animation frame.
+    openAIModal();
   };
 
   const openPicker = () => {
