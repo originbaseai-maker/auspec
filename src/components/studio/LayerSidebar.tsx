@@ -121,6 +121,7 @@ export function LayerSidebar(): JSX.Element {
   const setActiveLayer = useLayerStore((s) => s.setActiveLayer)
   const moveLayerToIndex = useLayerStore((s) => s.moveLayerToIndex)
   const addLayer = useLayerStore((s) => s.addLayer)
+  const placeDraftBelowLogo = useLayerStore((s) => s.placeDraftBelowLogo)
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
   const removeLayer = useLayerStore((s) => s.removeLayer)
@@ -181,6 +182,9 @@ export function LayerSidebar(): JSX.Element {
     }
     if (hasDraft) discardDraft()
     addLayer(type) // wraps startDraft internally now
+    // Same halo-below-logo placement rule as CategoryGrid — the
+    // sidebar "+ Add Layer" path lands here too.
+    if (type === 'halo') placeDraftBelowLogo()
     setActiveCategory(CATEGORY_MAP[type])
     setShowAddMenu(false)
   }
@@ -211,6 +215,7 @@ export function LayerSidebar(): JSX.Element {
     if (action === 'save') commitDraft()
     else discardDraft()
     addLayer(pendingAdd) // starts a fresh draft of the requested type
+    if (pendingAdd === 'halo') placeDraftBelowLogo()
     setActiveCategory(CATEGORY_MAP[pendingAdd])
     setPendingAdd(null)
   }

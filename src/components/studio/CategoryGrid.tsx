@@ -74,6 +74,7 @@ export function CategoryGrid() {
   const startDraft = useLayerStore((s) => s.startDraft)
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
+  const placeDraftBelowLogo = useLayerStore((s) => s.placeDraftBelowLogo)
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
@@ -110,6 +111,12 @@ export function CategoryGrid() {
     if (hasDraft) discardDraft()
     if (layerType) {
       startDraft(layerType)
+      // Halo is a logo-centred frame — slot it below the topmost
+      // Logo on creation so the Logo stays the focal point. No-op
+      // when no Logo exists.
+      if (layerType === 'halo') {
+        placeDraftBelowLogo()
+      }
     }
     setActiveCategory(cat.id)
   }
@@ -146,6 +153,10 @@ export function CategoryGrid() {
     } else {
       if (pendingAction.targetLayerType) {
         startDraft(pendingAction.targetLayerType)
+        // Same Halo-below-Logo positioning rule as the direct path.
+        if (pendingAction.targetLayerType === 'halo') {
+          placeDraftBelowLogo()
+        }
       }
       if (pendingAction.targetCategory) {
         setActiveCategory(pendingAction.targetCategory)

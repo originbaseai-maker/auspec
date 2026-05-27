@@ -275,6 +275,15 @@ export interface LayerStore {
 
   moveLayerToIndex: (id: string, targetIndex: number) => void
 
+  /**
+   * Place the current draft layer's zOrder one below the topmost
+   * Logo layer. Existing committed layers with zOrder ≥ logo's
+   * zOrder shift up by 1 to make room. No-op when no draft, no Logo,
+   * or the draft is itself a Logo. Used by the Halo creation flow so
+   * a new Halo lands BEHIND the Logo it's meant to wrap around.
+   */
+  placeDraftBelowLogo: () => void
+
   /** Replace the entire layer stack (preset apply / project load). */
   replaceLayers: (layers: Layer[], activeId?: string | null) => void
 
@@ -929,6 +938,30 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
         (l, idx) => ({ ...l, zOrder: idx }) as Layer,
       )
       return { layers: newLayers }
+    }),
+
+  placeDraftBelowLogo: () =>
+    set((s) => {
+      const draft = s.draftLayer
+      if (!draft) return s
+      // Self-targeting nonsense — don't reorder a Logo to be below itself.
+      if (draft.type === 'logo') return s
+      // Topmost Logo by zOrder (ties broken by createdAt for stability).
+      const logos = s.layers.filter((l) => l.type === 'logo')
+      if (logos.length === 0) return s
+      const topLogo = logos.reduce((a, b) =>
+        a.zOrder > b.zOrder || (a.zOrder === b.zOrder && a.createdAt > b.createdAt)
+          ? a
+          : b,
+      )
+      const targetZ = topLogo.zOrder
+      // Shift every committed layer at-or-above the Logo's zOrder UP by
+      // one to free the Logo's old slot for the draft.
+      const shiftedLayers: Layer[] = s.layers.map((l) =>
+        l.zOrder >= targetZ ? ({ ...l, zOrder: l.zOrder + 1 } as Layer) : l,
+      )
+      const newDraft: Layer = { ...draft, zOrder: targetZ } as Layer
+      return { layers: shiftedLayers, draftLayer: newDraft }
     }),
 
   replaceLayers: (layers, activeId) =>
