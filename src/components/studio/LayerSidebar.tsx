@@ -127,6 +127,12 @@ export function LayerSidebar(): JSX.Element {
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
 
   const [showAddMenu, setShowAddMenu] = useState(false)
+  // Whether the Add-layer dropdown should render ABOVE the trigger
+  // (bottom-full) instead of below (top-full). Decided on open by
+  // measuring trigger position vs viewport — flips up only when
+  // there isn't enough room below.
+  const [addMenuDropUp, setAddMenuDropUp] = useState(false)
+  const addMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -478,8 +484,33 @@ export function LayerSidebar(): JSX.Element {
         </h2>
         <div className="relative">
           <button
+            ref={addMenuTriggerRef}
             type="button"
-            onClick={() => setShowAddMenu(!showAddMenu)}
+            onClick={() => {
+              if (showAddMenu) {
+                setShowAddMenu(false)
+                return
+              }
+              // Estimate the dropdown's natural height (header + N items)
+              // and flip to bottom-full when the trigger doesn't have
+              // enough room below. 16 px safety buffer keeps the menu
+              // off the viewport edge. The dropdown's own max-h fallback
+              // (below) handles cases where neither direction fits.
+              const trigger = addMenuTriggerRef.current
+              if (trigger) {
+                const rect = trigger.getBoundingClientRect()
+                const itemHeight = 32 // ~py-1.5 + line-height
+                const headerHeight = 24
+                const estimatedHeight = headerHeight + LAYER_TYPES.length * itemHeight + 8 // +padding
+                const spaceBelow = window.innerHeight - rect.bottom
+                const spaceAbove = rect.top
+                // Flip up if below is too tight AND above has more room.
+                setAddMenuDropUp(
+                  spaceBelow < estimatedHeight + 16 && spaceAbove > spaceBelow,
+                )
+              }
+              setShowAddMenu(true)
+            }}
             aria-label="Add layer"
             aria-haspopup="menu"
             aria-expanded={showAddMenu}
@@ -498,8 +529,18 @@ export function LayerSidebar(): JSX.Element {
               />
               <div
                 role="menu"
-                className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border p-1 shadow-2xl"
-                style={{ borderColor: '#2a2a2a', background: '#131313' }}
+                className={
+                  'absolute right-0 z-50 w-40 rounded-lg border p-1 shadow-2xl overflow-y-auto overscroll-contain ' +
+                  (addMenuDropUp ? 'bottom-full mb-1' : 'top-full mt-1')
+                }
+                style={{
+                  borderColor: '#2a2a2a',
+                  background: '#131313',
+                  // Cap at 60vh so even at extreme viewport sizes (e.g.
+                  // landscape phone) the dropdown stays inside the
+                  // viewport. Internal scroll picks up the rest.
+                  maxHeight: 'min(60vh, 420px)',
+                }}
               >
                 <p className="px-2 py-1 text-[9px] uppercase tracking-wider text-white/40">
                   Add layer
