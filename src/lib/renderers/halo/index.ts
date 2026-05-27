@@ -2,6 +2,7 @@ import type { HaloLayerConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { drawHaloRadialBurst } from './drawHaloRadialBurst'
 import { drawHaloSpectrumCrown } from './drawHaloSpectrumCrown'
+import { drawHaloPulseFrame } from './drawHaloPulseFrame'
 
 /**
  * Router for the 5 Halo styles. Each style ships in its own file
@@ -32,8 +33,9 @@ export function drawHaloLayer(
       return drawHaloRadialBurst(ctx, effective, data, width, height)
     case 'spectrumCrown':
       return drawHaloSpectrumCrown(ctx, effective, data, width, height)
-    // 'pulseFrame' / 'flame' / 'orbit' land in subsequent commits —
-    // fall through to radialBurst until then.
+    case 'pulseFrame':
+      return drawHaloPulseFrame(ctx, effective, data, width, height)
+    // 'flame' / 'orbit' land next — fall through to radialBurst.
     default:
       return drawHaloRadialBurst(ctx, effective, data, width, height)
   }
