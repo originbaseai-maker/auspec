@@ -264,36 +264,34 @@ select {
 
 /* ----- Tools panel tile grid -----
  *
- * Fixed-size tiles — 80px on mobile, 88px on the desktop breakpoint.
- * `auto-fill` + `justify-content: start` leaves the right side of a
- * row empty when a section has fewer tiles than fit (e.g. Effects
- * with 2) instead of stretching, which signals "fewer options" at a
- * glance. */
+ * Fixed-size 64×64 tiles with an 8 px gap. Sized so Assets & Stage
+ * (4 tiles) fits in a single row inside a 296 px right panel with
+ * 8 px outer padding: 4·64 + 3·8 + 2·8 = 296. Sections with fewer
+ * tiles leave empty space on the right — deliberate signal of
+ * "fewer options here", not a layout bug.
+ *
+ * Same dimensions on mobile + desktop: the mobile bottom sheet is
+ * full-viewport width so it always fits, and using a single size
+ * keeps the hover scale + animation timings consistent. */
 .auspec-tool-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 80px);
+  grid-template-columns: repeat(auto-fill, 64px);
   justify-content: start;
-  gap: 10px;
+  gap: 8px;
 }
 .auspec-tool-tile {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
+  cursor: pointer;
   /* Spring easing on hover-in (slight overshoot at 1.56), eased
-   * shadow/border on the same beat so they feel like one motion. */
+   * shadow/border on the same beat so they feel like one motion.
+   * Declared BEFORE :hover so the exit transition (un-hover) gets
+   * the same curve, not an instant snap-back. */
   transition:
     transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 220ms ease-out,
     border-color 200ms ease-out;
-}
-@media (min-width: 768px) {
-  .auspec-tool-grid {
-    grid-template-columns: repeat(auto-fill, 88px);
-    gap: 12px;
-  }
-  .auspec-tool-tile {
-    width: 88px;
-    height: 88px;
-  }
+  will-change: transform;
 }
 /* Hover only on devices with a real pointer — phones don't get a
  * sticky "hovered" state from the touch that initiated the tap. */

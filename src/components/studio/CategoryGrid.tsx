@@ -156,7 +156,7 @@ export function CategoryGrid() {
         onClick={() => handleClick(cat)}
         aria-pressed={isActive}
         aria-label={cat.label}
-        className="auspec-tool-tile relative flex flex-col items-center justify-center gap-1 rounded-lg border p-2"
+        className="auspec-tool-tile relative flex flex-col items-center justify-center gap-1 rounded-lg border p-1"
         style={{
           borderColor: isActive
             ? 'rgba(59,130,246,0.6)'
@@ -174,16 +174,16 @@ export function CategoryGrid() {
           opacity: hasLayers || isActive || cat.hasAI ? 1 : 0.78,
         }}
       >
-        <CategoryIcon icon={cat.icon} size={24} />
+        <CategoryIcon icon={cat.icon} size={20} />
         <span
-          className="text-[11px] font-medium md:text-[12px]"
+          className="text-[10px] font-medium leading-tight"
           style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.85)' }}
         >
           {cat.label}
         </span>
         {cat.hasAI && (
           <div
-            className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-md text-[7px] font-bold text-white"
+            className="absolute right-0.5 top-0.5 flex h-3 w-3 items-center justify-center rounded text-[6px] font-bold text-white"
             style={{
               background: 'linear-gradient(135deg, #f59e0b, #ec4899)',
             }}
@@ -194,7 +194,7 @@ export function CategoryGrid() {
         )}
         {hasLayers && !cat.hasAI && (
           <div
-            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[8px] font-bold text-black"
+            className="absolute right-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-400 px-1 text-[8px] font-bold leading-none text-black"
             aria-label={`${layerCount} active layer${layerCount === 1 ? '' : 's'}`}
             title={`${layerCount} active layer${layerCount === 1 ? '' : 's'} — tap to add another`}
           >
@@ -206,7 +206,7 @@ export function CategoryGrid() {
   }
 
   return (
-    <div className="space-y-4 p-3">
+    <div className="space-y-3 p-2">
       {TOOL_SECTIONS.map((section) => {
         const tiles = section.ids
           .map(lookupCat)
