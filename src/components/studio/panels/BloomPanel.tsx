@@ -52,6 +52,23 @@ function styleHint(style: BloomStyle): string {
   }
 }
 
+/**
+ * Recommended echoCount per variant. Tuned so the variant looks
+ * coherent out of the box — classic stays at its legacy default of
+ * 4, organic needs few echoes (its breathing blob is already busy),
+ * aura barely needs any (it self-layers), star looks great with a
+ * handful of rotated copies. echo and multiRing aren't wrapped, so
+ * their entries here are vestigial.
+ */
+const RECOMMENDED_ECHO_COUNT: Record<BloomStyle, number> = {
+  classic: 4,
+  organic: 3,
+  aura: 2,
+  echo: 1,
+  star: 4,
+  multiRing: 1,
+}
+
 export function BloomPanel({ layerId }: Props) {
   const layer = useLayerStore((s) =>
     s.layers.find((l) => l.id === layerId && l.type === 'bloom'),
@@ -88,7 +105,19 @@ export function BloomPanel({ layerId }: Props) {
         <SegmentedGroup
           options={STYLES}
           value={cfg.style ?? 'classic'}
-          onChange={(v) => update({ style: v })}
+          onChange={(v) => {
+            // Smart default: if the user hasn't manually tuned
+            // echoCount for the variant they're switching INTO,
+            // seed it with that variant's recommended value. Avoids
+            // carrying over a busy "10" from classic into organic.
+            const touched = cfg.echoCountTouchedFor ?? []
+            const hasTouched = touched.includes(v)
+            const patch: Partial<BloomConfig> = { style: v }
+            if (!hasTouched) {
+              patch.echoCount = RECOMMENDED_ECHO_COUNT[v]
+            }
+            update(patch)
+          }}
           cols={3}
         />
         <p className="mt-1 text-[9px] text-white/30">
@@ -260,7 +289,20 @@ export function BloomPanel({ layerId }: Props) {
             min={1}
             max={10}
             step={1}
-            onChange={(v) => update({ echoCount: Math.round(v) })}
+            onChange={(v) => {
+              // Mark this variant as "user has explicitly tuned
+              // echoCount" so the style-switch smart default no
+              // longer applies for it on subsequent switches.
+              const style = cfg.style ?? 'classic'
+              const touched = cfg.echoCountTouchedFor ?? []
+              const next = touched.includes(style)
+                ? touched
+                : [...touched, style]
+              update({
+                echoCount: Math.round(v),
+                echoCountTouchedFor: next,
+              })
+            }}
             ariaLabel="Echo count"
           />
           <SliderRow

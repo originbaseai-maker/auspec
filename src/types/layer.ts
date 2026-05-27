@@ -165,6 +165,13 @@ export interface BloomConfig {
   rainbow?: boolean
   /** 'echo': base shape — 'circle' or 'polygon'. */
   echoShape?: 'circle' | 'polygon'
+  /**
+   * Set of BloomStyle values the user has manually tuned `echoCount`
+   * for, so the panel's per-variant smart default only applies once
+   * per (layer, style) pair. Serialised as a string array for
+   * Zustand-friendliness; runtime treats it as a set.
+   */
+  echoCountTouchedFor?: BloomStyle[]
 
   // Shape
   /** Base radius in px at amplitude 0 (20–300). */
