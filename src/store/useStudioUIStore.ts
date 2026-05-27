@@ -13,15 +13,6 @@ export interface StudioUIStore {
    */
   openToolsToken: number
   requestOpenTools: () => void
-  /**
-   * Drives the AIStyleModal — opened from the AIStyleButton at the
-   * bottom of the Tools panel and from the discovery hint under the
-   * audio upload bar. Boolean (not a token) because the modal is a
-   * proper open/closed UI affordance, not a one-shot signal.
-   */
-  aiModalOpen: boolean
-  openAIModal: () => void
-  closeAIModal: () => void
 }
 
 export const useStudioUIStore = create<StudioUIStore>((set) => ({
@@ -30,7 +21,4 @@ export const useStudioUIStore = create<StudioUIStore>((set) => ({
   openToolsToken: 0,
   requestOpenTools: () =>
     set((s) => ({ openToolsToken: s.openToolsToken + 1 })),
-  aiModalOpen: false,
-  openAIModal: () => set({ aiModalOpen: true }),
-  closeAIModal: () => set({ aiModalOpen: false }),
 }))

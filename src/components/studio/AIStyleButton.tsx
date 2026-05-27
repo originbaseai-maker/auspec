@@ -12,23 +12,20 @@ interface Props {
 
 /**
  * Wide horizontal call-to-action rendered AFTER the four tool
- * sections in the Tools panel. Opens AIStyleModal on click. Uses the
- * existing .ai-gradient-border utility for the animated purple →
- * pink → orange ring, and .ai-gradient-text for the title glyph
- * fill.
- *
- * The button itself is a host for the gradient ring — its inner
- * background is opaque dark so the ring sits in a slot around it,
- * not behind it.
+ * sections in the Tools panel. Clicking sets the studio's
+ * activeCategory to 'ai_style', which expands AIStylePanel inline
+ * in the fine-tune slot below — same pattern as tool tiles. Uses
+ * the existing .ai-gradient-border utility for the animated purple
+ * → pink → orange ring.
  */
 export function AIStyleButton({ variant = 'desktop' }: Props): JSX.Element {
-  const openAIModal = useStudioUIStore((s) => s.openAIModal)
+  const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory)
   const isDesktop = variant === 'desktop'
 
   return (
     <button
       type="button"
-      onClick={openAIModal}
+      onClick={() => setActiveCategory('ai_style')}
       aria-label="Open AI Style"
       className="ai-gradient-border ai-style-button group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl"
       // Height is the only variant-dependent value; the rest of the

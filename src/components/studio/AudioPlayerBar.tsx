@@ -37,14 +37,14 @@ export function AudioPlayerBar() {
   // useState (not persisted) is intentional — a fresh tab gets the
   // discovery prompt again.
   const [hintDismissed, setHintDismissed] = useState(false);
-  const openAIModal = useStudioUIStore((s) => s.openAIModal);
+  const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory);
 
   const handleHintClick = () => {
     setHintDismissed(true);
-    // AIStyleModal lives at the StudioPage root and handles its own
-    // focus management — opening it moves focus to the textarea on
-    // the next animation frame.
-    openAIModal();
+    // Inline expansion pattern — same as clicking a tool tile.
+    // CategoryDetailPanel observes activeCategory and renders
+    // AIStylePanel below the tool grid.
+    setActiveCategory('ai_style');
   };
 
   const openPicker = () => {
