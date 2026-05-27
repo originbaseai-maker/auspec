@@ -32,7 +32,7 @@ const TOOL_SECTIONS: ToolSection[] = [
   },
   {
     title: 'Effects',
-    ids: ['particles', 'frame'],
+    ids: ['particles', 'frame', 'visualizer_halo'],
   },
   {
     title: 'Assets & Stage',
