@@ -5,6 +5,7 @@ import { drawBloomOrganic } from './drawBloomOrganic'
 import { drawBloomAura } from './drawBloomAura'
 import { drawBloomEcho } from './drawBloomEcho'
 import { drawBloomStar } from './drawBloomStar'
+import { drawBloomMultiRing } from './drawBloomMultiRing'
 
 /**
  * Router for Bloom variants. Switches on `config.style` (defaults to
@@ -34,7 +35,8 @@ export function drawBloom(
       return drawBloomEcho(ctx, config, data, width, height)
     case 'star':
       return drawBloomStar(ctx, config, data, width, height)
-    // 'multiRing' lands next — currently falls through to classic.
+    case 'multiRing':
+      return drawBloomMultiRing(ctx, config, data, width, height)
     default:
       return drawBloomClassic(ctx, config, data, width, height)
   }
