@@ -14,10 +14,18 @@ export interface AIStore {
   prompt: string
   isLoading: boolean
   history: AIHistoryEntry[]
+  /**
+   * Monotonically-incrementing counter. AIHeroCard subscribes and
+   * focuses its textarea whenever the value changes — lets callers
+   * elsewhere (e.g. the "Or generate with AI" hint in the upload bar)
+   * imperatively focus the hero input without a DOM ref.
+   */
+  focusToken: number
   setPrompt: (p: string) => void
   setLoading: (b: boolean) => void
   addHistoryEntry: (entry: { prompt: string; result: string | null }) => void
   clearHistory: () => void
+  requestFocus: () => void
 }
 
 function loadHistory(): AIHistoryEntry[] {
@@ -43,9 +51,11 @@ export const useAIStore = create<AIStore>((set, get) => ({
   prompt: '',
   isLoading: false,
   history: loadHistory(),
+  focusToken: 0,
 
   setPrompt: (prompt) => set({ prompt }),
   setLoading: (isLoading) => set({ isLoading }),
+  requestFocus: () => set((s) => ({ focusToken: s.focusToken + 1 })),
 
   addHistoryEntry: ({ prompt, result }) => {
     const entry: AIHistoryEntry = {
