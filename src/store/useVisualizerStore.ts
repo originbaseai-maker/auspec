@@ -243,6 +243,16 @@ export const useVisualizerStore = create<VisualizerStore>((set) => ({
             thickness: Math.max(2, Math.round(fp.thickness * 2)),
             pulseEnabled: fp.intensity > 0,
             pulseIntensity: Math.round(fp.intensity * 100),
+            // Restore the beat colour-lerp + shadow blur the legacy
+            // renderFramePulse path produced. drawFrame reads these
+            // when present and lerps stroke colour + blur as
+            // beatEnergy crosses beatThreshold.
+            beatColor: fp.beatColor,
+            beatThreshold: fp.beatThreshold,
+            // Legacy renderer added a 20-px extra shadow blur on
+            // beats. Scale by `intensity` so a preset with high
+            // intensity gets a punchier hit.
+            beatBlur: Math.round(20 * fp.intensity),
           },
         })
       }

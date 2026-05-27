@@ -21,6 +21,21 @@ export interface FrameConfig {
 
   pulseEnabled: boolean
   pulseIntensity: number // 0–100
+
+  /**
+   * Optional accent color flashed on beats. When set, drawFrame lerps
+   * the stroke colour from `color` → `beatColor` as beatEnergy crosses
+   * `beatThreshold`. Restores the legacy renderFramePulse look for
+   * presets that ship a separate beat colour (Cyberpunk, Dark Neon, …).
+   */
+  beatColor?: string
+  /** 0–1; below this, no colour shift / no beat blur. Default ~0.6. */
+  beatThreshold?: number
+  /**
+   * 0–100 px shadow-blur applied to the stroke at peak beat. Scales
+   * linearly with the same lerp amount as the colour. 0 disables.
+   */
+  beatBlur?: number
 }
 
 export const DEFAULT_FRAME_CONFIG: FrameConfig = {
@@ -41,6 +56,10 @@ export const DEFAULT_FRAME_CONFIG: FrameConfig = {
 
   pulseEnabled: false,
   pulseIntensity: 50,
+
+  // Beat fields stay undefined by default — only legacy presets and
+  // manual config opt in. drawFrame treats undefined as "no lerp,
+  // render plain `color` at constant blur".
 }
 
 export interface FrameStore extends FrameConfig {

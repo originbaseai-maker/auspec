@@ -1,5 +1,29 @@
 import type { FrameConfig } from '@/store/useFrameStore'
 
+interface Rgb {
+  r: number
+  g: number
+  b: number
+}
+
+function hexToRgb(hex: string): Rgb {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return m
+    ? {
+        r: parseInt(m[1], 16),
+        g: parseInt(m[2], 16),
+        b: parseInt(m[3], 16),
+      }
+    : { r: 59, g: 130, b: 246 }
+}
+
+function lerpColor(a: Rgb, b: Rgb, t: number): string {
+  const r = Math.round(a.r + (b.r - a.r) * t)
+  const g = Math.round(a.g + (b.g - a.g) * t)
+  const bl = Math.round(a.b + (b.b - a.b) * t)
+  return `rgb(${r},${g},${bl})`
+}
+
 /**
  * Draws the border + reflection onto the visualizer canvas, so those
  * effects are part of `canvas.captureStream()` output and show up in
@@ -27,8 +51,9 @@ export function drawFrameLayer(
   width: number,
   height: number,
   bassEnergy: number,
+  beatEnergy = 0,
 ): void {
-  drawFrame(ctx, width, height, config, bassEnergy)
+  drawFrame(ctx, width, height, config, bassEnergy, beatEnergy)
 }
 
 export function drawFrame(
@@ -37,6 +62,7 @@ export function drawFrame(
   height: number,
   config: FrameConfig,
   bassEnergy: number, // 0–1
+  beatEnergy = 0, // raw, typically 0–1
 ): void {
   if (!config.enabled) return
 
@@ -48,6 +74,9 @@ export function drawFrame(
     reflectionIntensity,
     pulseEnabled,
     pulseIntensity,
+    beatColor,
+    beatThreshold = 0.6,
+    beatBlur = 0,
   } = config
 
   const pulseScale = pulseEnabled
@@ -57,14 +86,34 @@ export function drawFrame(
   const r = smoothness
   const supportsRoundRect = typeof ctx.roundRect === 'function'
 
+  // Lerp the stroke colour and shadow blur from `color` → `beatColor`
+  // as beatEnergy crosses beatThreshold. lerpAmount is 0 below the
+  // threshold and ramps to 1 at peak — preserves a calm rest state
+  // and a punchy on-beat hit. Both beatColor and beatBlur are
+  // optional; if neither is set, this whole block is a no-op.
+  const lerpAmount = beatColor
+    ? Math.max(
+        0,
+        Math.min(1, (beatEnergy - beatThreshold) / Math.max(0.0001, 1 - beatThreshold)),
+      )
+    : 0
+  const renderColor = beatColor
+    ? lerpColor(hexToRgb(color), hexToRgb(beatColor), lerpAmount)
+    : color
+  const renderBlur = beatBlur > 0 ? beatBlur * lerpAmount : 0
+
   if (finalThickness > 0) {
     const inset = finalThickness / 2
     const w = width - finalThickness
     const h = height - finalThickness
 
     ctx.save()
-    ctx.strokeStyle = color
+    ctx.strokeStyle = renderColor
     ctx.lineWidth = finalThickness
+    if (renderBlur > 0) {
+      ctx.shadowColor = renderColor
+      ctx.shadowBlur = renderBlur
+    }
     ctx.beginPath()
     if (r > 0 && supportsRoundRect) {
       ctx.roundRect(inset, inset, w, h, r)

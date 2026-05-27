@@ -363,6 +363,10 @@ export default function VisualizerCanvas(): JSX.Element {
         }
       }
       const bassEnergy = data ? data.bass / 255 : 0
+      // beatEnergy is the analyzer's beat-detection signal (already
+      // normalised ~0–1). drawFrameLayer uses it for the optional
+      // colour-lerp / shadow-blur on beats.
+      const beatEnergy = data?.beatEnergy ?? 0
       const nowMs = performance.now()
       const editingTextId = useLayerStore.getState().editingTextLayerId
 
@@ -483,7 +487,14 @@ export default function VisualizerCanvas(): JSX.Element {
             )
             break
           case 'frame':
-            drawFrameLayer(ctx, layer.config, width, height, bassEnergy)
+            drawFrameLayer(
+              ctx,
+              layer.config,
+              width,
+              height,
+              bassEnergy,
+              beatEnergy,
+            )
             break
           case 'text':
             drawTextLayer(
