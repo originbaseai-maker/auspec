@@ -6,6 +6,7 @@ import { drawBloomAura } from './drawBloomAura'
 import { drawBloomEcho } from './drawBloomEcho'
 import { drawBloomStar } from './drawBloomStar'
 import { drawBloomMultiRing } from './drawBloomMultiRing'
+import { withEcho } from './withEcho'
 
 /**
  * Router for Bloom variants. Switches on `config.style` (defaults to
@@ -26,19 +27,24 @@ export function drawBloom(
   const style = config.style ?? 'classic'
   switch (style) {
     case 'classic':
-      return drawBloomClassic(ctx, config, data, width, height)
+      // Classic now renders a SINGLE ring; the echo wrapper multiplies
+      // it into N concentric copies. Preserves the original visual.
+      return withEcho(drawBloomClassic, ctx, config, data, width, height)
     case 'organic':
-      return drawBloomOrganic(ctx, config, data, width, height)
+      return withEcho(drawBloomOrganic, ctx, config, data, width, height)
     case 'aura':
-      return drawBloomAura(ctx, config, data, width, height)
+      return withEcho(drawBloomAura, ctx, config, data, width, height)
     case 'echo':
+      // 'echo' variant has its own multi-pass mirroring; wrapping in
+      // withEcho would multiply the count exponentially and look noisy.
       return drawBloomEcho(ctx, config, data, width, height)
     case 'star':
-      return drawBloomStar(ctx, config, data, width, height)
+      return withEcho(drawBloomStar, ctx, config, data, width, height)
     case 'multiRing':
+      // Already a concentric-ring composition by design.
       return drawBloomMultiRing(ctx, config, data, width, height)
     default:
-      return drawBloomClassic(ctx, config, data, width, height)
+      return withEcho(drawBloomClassic, ctx, config, data, width, height)
   }
 }
 

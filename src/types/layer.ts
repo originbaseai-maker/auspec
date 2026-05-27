@@ -185,6 +185,12 @@ export interface BloomConfig {
   echoFalloff: number
   /** Rings grow outward or stack inward. */
   echoMode: 'outward' | 'inward'
+  /**
+   * Degrees of rotation added per echo step. 0 = stacked; non-zero
+   * twists the echoes around so each ring is angularly offset from
+   * the previous — gives the "fan" / "shutter" effect.
+   */
+  echoRotationOffset?: number
 
   // Rotation
   /** Static offset (deg, 0–360). */
@@ -425,6 +431,7 @@ export const DEFAULT_BLOOM_CONFIG: BloomConfig = {
   echoSpacing: 25,
   echoFalloff: 0.7,
   echoMode: 'outward',
+  echoRotationOffset: 0,
   rotation: 0,
   rotationSpeed: 0,
   lineWidth: 2,

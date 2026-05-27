@@ -1,10 +1,6 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
-import {
-  colorFromPalette,
-  firstColor,
-  resolvePalette,
-} from '@/lib/colorPalette'
+import { firstColor } from '@/lib/colorPalette'
 import { applyBandSensitivity } from '@/lib/frequencyUtils'
 
 /**
@@ -83,12 +79,6 @@ export function drawBloomClassic(
   const totalRotationRad =
     ((config.rotation + rotState.rotation) * Math.PI) / 180
 
-  const palette = resolvePalette(
-    config.palette,
-    config.colorStart,
-    config.colorEnd,
-  )
-
   ctx.save()
   ctx.translate(cx, cy)
   ctx.rotate(totalRotationRad)
@@ -98,71 +88,51 @@ export function drawBloomClassic(
 
   const xs = new Float32Array(pointCount)
   const ys = new Float32Array(pointCount)
-
-  const echoCount = Math.max(1, Math.floor(config.echoCount))
   const smoothness = Math.max(0, Math.min(1, config.smoothness))
 
-  for (let e = echoCount - 1; e >= 0; e--) {
-    const echoProgress = echoCount > 1 ? e / (echoCount - 1) : 0
-    const radiusOffset =
-      config.echoMode === 'outward'
-        ? e * config.echoSpacing
-        : -e * config.echoSpacing
-    const alpha = Math.pow(config.echoFalloff, e)
-
-    const color =
-      palette.length >= 2
-        ? colorFromPalette(
-            config.palette,
-            config.colorStart,
-            config.colorEnd,
-            echoProgress,
-          )
-        : firstColor(config.palette, config.colorStart)
-
-    ctx.globalAlpha = alpha
-    ctx.strokeStyle = color
-    if (config.glowEnabled && config.glowIntensity > 0) {
-      ctx.shadowColor = color
-      ctx.shadowBlur = config.glowIntensity
-    } else {
-      ctx.shadowBlur = 0
-    }
-
-    for (let i = 0; i < pointCount; i++) {
-      const angle = (i / pointCount) * Math.PI * 2
-      const amp = samples[i]
-      const r =
-        (config.baseRadius + amp * config.amplitudeScale * 100 + radiusOffset) *
-        pulseScale
-      xs[i] = Math.cos(angle) * r
-      ys[i] = Math.sin(angle) * r
-    }
-
-    ctx.beginPath()
-    if (smoothness <= 0.001) {
-      ctx.moveTo(xs[0], ys[0])
-      for (let i = 1; i < pointCount; i++) {
-        ctx.lineTo(xs[i], ys[i])
-      }
-    } else {
-      ctx.moveTo(
-        (xs[0] + xs[pointCount - 1]) / 2,
-        (ys[0] + ys[pointCount - 1]) / 2,
-      )
-      for (let i = 0; i < pointCount; i++) {
-        const next = (i + 1) % pointCount
-        const midX = (xs[i] + xs[next]) / 2
-        const midY = (ys[i] + ys[next]) / 2
-        const ctrlX = midX + (xs[i] - midX) * smoothness
-        const ctrlY = midY + (ys[i] - midY) * smoothness
-        ctx.quadraticCurveTo(ctrlX, ctrlY, midX, midY)
-      }
-    }
-
-    if (config.closedShape) ctx.closePath()
-    ctx.stroke()
+  // Single-ring render. The withEcho wrapper in index.ts multiplies
+  // this into N concentric echoes when echoCount > 1; here we draw
+  // exactly one pass at the original size. Colour pulls from the
+  // first palette stop so wrapper-scaled echoes stay coherent.
+  const color = firstColor(config.palette, config.colorStart)
+  ctx.strokeStyle = color
+  if (config.glowEnabled && config.glowIntensity > 0) {
+    ctx.shadowColor = color
+    ctx.shadowBlur = config.glowIntensity
   }
+
+  for (let i = 0; i < pointCount; i++) {
+    const angle = (i / pointCount) * Math.PI * 2
+    const amp = samples[i]
+    const r =
+      (config.baseRadius + amp * config.amplitudeScale * 100) * pulseScale
+    xs[i] = Math.cos(angle) * r
+    ys[i] = Math.sin(angle) * r
+  }
+
+  ctx.beginPath()
+  if (smoothness <= 0.001) {
+    ctx.moveTo(xs[0], ys[0])
+    for (let i = 1; i < pointCount; i++) {
+      ctx.lineTo(xs[i], ys[i])
+    }
+  } else {
+    ctx.moveTo(
+      (xs[0] + xs[pointCount - 1]) / 2,
+      (ys[0] + ys[pointCount - 1]) / 2,
+    )
+    for (let i = 0; i < pointCount; i++) {
+      const next = (i + 1) % pointCount
+      const midX = (xs[i] + xs[next]) / 2
+      const midY = (ys[i] + ys[next]) / 2
+      const ctrlX = midX + (xs[i] - midX) * smoothness
+      const ctrlY = midY + (ys[i] - midY) * smoothness
+      ctx.quadraticCurveTo(ctrlX, ctrlY, midX, midY)
+    }
+  }
+
+  if (config.closedShape) ctx.closePath()
+  ctx.stroke()
 
   ctx.restore()
 }
