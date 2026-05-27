@@ -886,7 +886,9 @@ export function StudioPage() {
 
   // Tablet and desktop share the same DOM shape; only sidebar widths differ.
   const presetsWidth = isTablet ? 180 : 220;
-  const toolsWidth = isTablet ? 260 : 320;
+  // Sized to fit 4 Assets & Stage tiles in one row: 4·64 + 3·8 + 2·8 = 296.
+  // Tablet variant is the same since the tile grid is fixed-size.
+  const toolsWidth = isTablet ? 260 : 296;
 
   return (
     <GlobalDropZone>
