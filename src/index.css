@@ -201,3 +201,63 @@ select {
 .auspec-slider:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35);
 }
+
+/* ----- AI Style brand utilities ----- */
+
+/* Animated gradient ring around the AIHeroCard. The ::before pseudo
+ * extends 2px past the host (negative inset), drawn with a wide
+ * background-position offset so the same 200%-wide gradient slowly
+ * scrolls horizontally — gives the ring a "shimmer" without a heavy
+ * background-image animation.
+ *
+ * The host element's own background sits ON TOP of the ::before via
+ * an inner-rounded card; the pseudo only shows in the 2px ring. */
+@keyframes ai-border-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.ai-gradient-border {
+  position: relative;
+  isolation: isolate; /* keep z-index stacking local to the card */
+}
+.ai-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    90deg,
+    #a855f7,
+    #ec4899,
+    #f97316,
+    #ec4899,
+    #a855f7
+  );
+  background-size: 200% 100%;
+  animation: ai-border-shimmer 4s linear infinite;
+  /* mask trick: paint only the ring (outer minus inner) so the
+   * gradient sits in the border slot, not behind the card body. */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-gradient-border::before {
+    animation: none;
+  }
+}
+
+/* Gradient text fill — the title in AIHeroCard and the
+ * "Or generate with AI" discovery hint. background-clip:text drops
+ * the color through the glyph shapes. */
+.ai-gradient-text {
+  background: linear-gradient(90deg, #a855f7, #ec4899, #f97316);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
