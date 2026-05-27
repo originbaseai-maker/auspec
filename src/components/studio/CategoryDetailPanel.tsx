@@ -13,7 +13,7 @@ import { VideoPanel } from './panels/VideoPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
 import { TextPanel } from './panels/TextPanel'
-import { AIPanel } from './panels/AIPanel'
+import { AIStylePanel } from './AIStylePanel'
 import { FramePanel } from './panels/FramePanel'
 
 interface Props {
@@ -110,7 +110,7 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
     // Only AI Style remains as a non-layer singleton (preset generator).
     switch (activeCategory) {
       case 'ai_style':
-        return <AIPanel />
+        return <AIStylePanel />
       default:
         return null
     }
@@ -236,8 +236,23 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: '#1f1f1f' }}
       >
-        <h3 className="text-xs font-semibold text-white/90">
-          {headerLabel} — Fine Tune
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-white/90">
+          {/* AI Style gets gradient-text on its title and a "Generate"
+              suffix — different verb because AI synthesises a whole
+              look instead of fine-tuning a single layer. */}
+          {isAIStyle ? (
+            <>
+              <Sparkles
+                className="h-3.5 w-3.5"
+                aria-hidden="true"
+                style={{ color: '#ec4899' }}
+              />
+              <span className="ai-gradient-text">AI Style</span>
+              <span className="text-white/70">— Generate</span>
+            </>
+          ) : (
+            <>{headerLabel} — Fine Tune</>
+          )}
         </h3>
         <button
           type="button"
