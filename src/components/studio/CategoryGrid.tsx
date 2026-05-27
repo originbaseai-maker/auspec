@@ -6,6 +6,39 @@ import type { LayerType } from '@/types/layer'
 import { CategoryIcon } from './CategoryIcon'
 import { DraftConfirmDialog } from './DraftConfirmDialog'
 
+interface ToolSection {
+  title: string
+  ids: StudioCategory[]
+}
+
+/**
+ * Group all 13 categories into three thematic sections for the mobile
+ * Tools sheet. Tiles render in this order, with section headers above
+ * each row. Any category present in STUDIO_CATEGORIES but missing
+ * here would be silently dropped from the grid, so keep this in sync
+ * when a new category lands.
+ */
+const TOOL_SECTIONS: ToolSection[] = [
+  {
+    title: 'Audio Reactive',
+    ids: [
+      'visualizer_bars',
+      'visualizer_circular',
+      'visualizer_wave',
+      'visualizer_bloom',
+      'ai_style',
+    ],
+  },
+  {
+    title: 'Shapes & Particles',
+    ids: ['visualizer_polygon', 'visualizer_shape', 'particles'],
+  },
+  {
+    title: 'Assets & Stage',
+    ids: ['background', 'logo', 'visualizer_video', 'frame', 'text'],
+  },
+]
+
 function categoryToLayerType(id: string): LayerType | null {
   if (id === 'visualizer_bars') return 'bars'
   if (id === 'visualizer_circular') return 'circular'
@@ -100,80 +133,103 @@ export function CategoryGrid() {
     setPendingAction(null)
   }
 
+  // Look up the live CategoryConfig for a given id; if a section
+  // references an id that's been removed, skip the tile silently.
+  const lookupCat = (id: StudioCategory): CategoryConfig | undefined =>
+    STUDIO_CATEGORIES.find((c) => c.id === id)
+
+  const renderTile = (cat: CategoryConfig) => {
+    const isActive = activeCategory === cat.id
+    const layerType = categoryToLayerType(cat.id)
+    const layerCount = layerType
+      ? layers.filter((l) => l.type === layerType).length
+      : null
+    // "Has layers" → highlight border in accent color (per spec).
+    const hasLayers = layerCount !== null && layerCount > 0
+
+    return (
+      <button
+        key={cat.id}
+        type="button"
+        onClick={() => handleClick(cat)}
+        aria-pressed={isActive}
+        aria-label={cat.label}
+        className="relative flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border p-1.5 transition-all"
+        style={{
+          borderColor: isActive
+            ? 'rgba(59,130,246,0.6)'
+            : hasLayers
+              ? 'rgba(16,185,129,0.45)'
+              : '#1f1f1f',
+          background: isActive
+            ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.05))'
+            : hasLayers
+              ? '#131313'
+              : '#0f0f0f',
+          boxShadow: isActive
+            ? '0 0 0 1px rgba(59,130,246,0.3), 0 6px 16px rgba(59,130,246,0.15)'
+            : 'none',
+          opacity: hasLayers || isActive || cat.hasAI ? 1 : 0.78,
+        }}
+      >
+        <CategoryIcon icon={cat.icon} size={22} />
+        <span
+          className="text-[9px] font-medium"
+          style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.85)' }}
+        >
+          {cat.label}
+        </span>
+        {cat.hasAI && (
+          <div
+            className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-md text-[7px] font-bold text-white"
+            style={{
+              background: 'linear-gradient(135deg, #f59e0b, #ec4899)',
+            }}
+            aria-label="AI-assisted"
+          >
+            AI
+          </div>
+        )}
+        {hasLayers && !cat.hasAI && (
+          <div
+            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[8px] font-bold text-black"
+            aria-label={`${layerCount} active layer${layerCount === 1 ? '' : 's'}`}
+            title={`${layerCount} active layer${layerCount === 1 ? '' : 's'} — tap to add another`}
+          >
+            {layerCount}
+          </div>
+        )}
+        {/* Inactive tiles (no layers yet, no AI badge) intentionally
+            render no plus icon — the "tap-to-add" affordance is
+            implicit in the dimmer background. */}
+      </button>
+    )
+  }
+
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-3 gap-2">
-        {STUDIO_CATEGORIES.map((cat) => {
-          const isActive = activeCategory === cat.id
-          const layerType = categoryToLayerType(cat.id)
-          // Count committed layers of this type. The draft is intentionally
-          // excluded so the badge reflects what's actually in the stack.
-          const layerCount = layerType
-            ? layers.filter((l) => l.type === layerType).length
-            : null
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => handleClick(cat)}
-              aria-pressed={isActive}
-              aria-label={cat.label}
-              className="relative flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border p-2 transition-all"
-              style={{
-                borderColor: isActive
-                  ? 'rgba(59,130,246,0.5)'
-                  : '#1f1f1f',
-                background: isActive
-                  ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.05))'
-                  : '#131313',
-                boxShadow: isActive
-                  ? '0 0 0 1px rgba(59,130,246,0.3), 0 8px 20px rgba(59,130,246,0.15)'
-                  : 'none',
-              }}
+    <div className="space-y-4 p-3">
+      {TOOL_SECTIONS.map((section) => {
+        const tiles = section.ids
+          .map(lookupCat)
+          .filter((c): c is CategoryConfig => c !== undefined)
+        if (tiles.length === 0) return null
+        // Tile count drives the column count so wider sections
+        // (Assets & Stage = 5) stay single-row.
+        const cols = tiles.length
+        return (
+          <section key={section.title}>
+            <p className="mb-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+              {section.title}
+            </p>
+            <div
+              className="grid gap-1.5"
+              style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
             >
-              <CategoryIcon icon={cat.icon} size={30} />
-              <span
-                className="text-[10px] font-medium"
-                style={{
-                  color: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
-                }}
-              >
-                {cat.label}
-              </span>
-              {cat.hasAI && (
-                <div
-                  className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-md text-[7px] font-bold text-white"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, #f59e0b, #ec4899)',
-                  }}
-                  aria-label="AI-assisted"
-                >
-                  AI
-                </div>
-              )}
-              {layerCount === 0 && !cat.hasAI && (
-                <div
-                  className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#3b82f6] text-[8px] font-bold text-white"
-                  aria-label="Click to add layer"
-                  title="Click to add this layer"
-                >
-                  +
-                </div>
-              )}
-              {layerCount !== null && layerCount > 0 && !cat.hasAI && (
-                <div
-                  className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-400 px-1 text-[8px] font-bold text-black"
-                  aria-label={`${layerCount} active layer${layerCount === 1 ? '' : 's'}`}
-                  title={`${layerCount} active layer${layerCount === 1 ? '' : 's'} — click to add another`}
-                >
-                  {layerCount}
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
+              {tiles.map(renderTile)}
+            </div>
+          </section>
+        )
+      })}
 
       <DraftConfirmDialog
         open={pendingAction !== null}
