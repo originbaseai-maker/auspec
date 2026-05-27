@@ -279,15 +279,24 @@ function SavePresetModal({ onSave, onCancel }: SavePresetModalProps): JSX.Elemen
  * uses `hidden md:flex`; rendering is fully controlled by the parent.
  */
 export type PresetsSidebarVariant = 'desktop' | 'mobile'
+/**
+ * Which sections of the sidebar to render. Desktop always shows
+ * `'both'` (presets list + Layers panel pinned at the bottom). Mobile
+ * splits them into two separate bottom-sheet tabs and passes
+ * `'presetsOnly'` or `'layersOnly'`.
+ */
+export type PresetsSidebarSection = 'both' | 'presetsOnly' | 'layersOnly'
 
 interface PresetsSidebarProps {
   variant?: PresetsSidebarVariant
   widthPx?: number
+  mobileSection?: PresetsSidebarSection
 }
 
 export function PresetsSidebar({
   variant = 'desktop',
   widthPx = 220,
+  mobileSection = 'both',
 }: PresetsSidebarProps = {}): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [allOpen, setAllOpen] = useState(false)
@@ -378,6 +387,28 @@ export function PresetsSidebar({
     setDragOverIndex(null)
   }
 
+  // Mobile-only "layers-only" tab renders just the LayerSidebar with no
+  // surrounding presets chrome. Keeps the bottom sheet focused on a
+  // single concept per tab.
+  if (variant === 'mobile' && mobileSection === 'layersOnly') {
+    return (
+      <aside
+        className="flex h-full w-full flex-col bg-[#0a0a0a] overflow-hidden"
+        aria-label="Layers"
+      >
+        <div className="flex-1 overflow-y-auto">
+          <LayerSidebar />
+        </div>
+      </aside>
+    )
+  }
+
+  // 'presetsOnly' (mobile) and 'both' (desktop default) share the
+  // preset-list rendering below; mobile presets-only just suppresses
+  // the trailing <LayerSidebar />.
+  const showLayers = mobileSection !== 'presetsOnly'
+  const showPresets = mobileSection !== 'layersOnly'
+
   return (
     <>
       {showSaveModal && (
@@ -399,6 +430,7 @@ export function PresetsSidebar({
         }
         aria-label="Presets, projects, and layers"
       >
+        {showPresets && (
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: '#2a2a2a' }}
@@ -417,7 +449,9 @@ export function PresetsSidebar({
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
+        )}
 
+        {showPresets && (
         <div className="flex-1 overflow-y-auto">
           {/* FAVORITES */}
           <section
@@ -641,9 +675,14 @@ export function PresetsSidebar({
             )}
           </section>
         </div>
-        {/* Layers section pinned at the bottom of the sidebar so the
-            scrollable presets list above can grow to fill remaining space. */}
-        <LayerSidebar />
+        )}
+        {showLayers && (
+          /* Layers section pinned at the bottom of the sidebar so the
+             scrollable presets list above can grow to fill remaining
+             space. On mobile this branch is skipped (Layers lives in
+             its own bottom-sheet tab). */
+          <LayerSidebar />
+        )}
       </aside>
     </>
   )

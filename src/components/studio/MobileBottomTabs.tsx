@@ -1,7 +1,7 @@
-import { LayoutGrid, Music, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, Layers as LayersIcon, Music, type LucideIcon } from 'lucide-react'
 import type { JSX } from 'react'
 
-export type MobileTabId = 'presets' | 'tools'
+export type MobileTabId = 'presets' | 'layers' | 'tools'
 
 interface Props {
   activeTab: MobileTabId | null
@@ -10,6 +10,7 @@ interface Props {
 
 const TABS: { id: MobileTabId; label: string; icon: LucideIcon }[] = [
   { id: 'presets', label: 'Presets', icon: Music },
+  { id: 'layers', label: 'Layers', icon: LayersIcon },
   { id: 'tools', label: 'Tools', icon: LayoutGrid },
 ]
 

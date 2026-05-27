@@ -676,8 +676,13 @@ export function StudioPage() {
   // stay mounted; only one is `open` at a time, so the closed one
   // reports 0 and Math.max() picks the active height.
   const [presetSheetHeight, setPresetSheetHeight] = useState(0);
+  const [layersSheetHeight, setLayersSheetHeight] = useState(0);
   const [toolsSheetHeight, setToolsSheetHeight] = useState(0);
-  const mobileSheetHeight = Math.max(presetSheetHeight, toolsSheetHeight);
+  const mobileSheetHeight = Math.max(
+    presetSheetHeight,
+    layersSheetHeight,
+    toolsSheetHeight,
+  );
 
   // Measure bottom-chrome heights (Tabs + Timeline/AudioPlayerBar)
   // dynamically. iPhone X+ adds env(safe-area-inset-bottom) to Tabs;
@@ -825,7 +830,17 @@ export function StudioPage() {
             variant="grid"
             onHeightChange={setPresetSheetHeight}
           >
-            <PresetsSidebar variant="mobile" />
+            <PresetsSidebar variant="mobile" mobileSection="presetsOnly" />
+          </MobileBottomSheet>
+
+          <MobileBottomSheet
+            open={mobileTab === 'layers'}
+            onClose={() => setMobileTab(null)}
+            title="Layers"
+            variant="grid"
+            onHeightChange={setLayersSheetHeight}
+          >
+            <PresetsSidebar variant="mobile" mobileSection="layersOnly" />
           </MobileBottomSheet>
 
           <MobileBottomSheet
