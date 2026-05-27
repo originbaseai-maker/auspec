@@ -4,6 +4,7 @@ import { drawHaloRadialBurst } from './drawHaloRadialBurst'
 import { drawHaloSpectrumCrown } from './drawHaloSpectrumCrown'
 import { drawHaloPulseFrame } from './drawHaloPulseFrame'
 import { drawHaloFlame } from './drawHaloFlame'
+import { drawHaloOrbit } from './drawHaloOrbit'
 
 /**
  * Router for the 5 Halo styles. Each style ships in its own file
@@ -38,7 +39,8 @@ export function drawHaloLayer(
       return drawHaloPulseFrame(ctx, effective, data, width, height)
     case 'flame':
       return drawHaloFlame(ctx, effective, data, width, height)
-    // 'orbit' lands next — falls through to radialBurst.
+    case 'orbit':
+      return drawHaloOrbit(ctx, effective, data, width, height)
     default:
       return drawHaloRadialBurst(ctx, effective, data, width, height)
   }
