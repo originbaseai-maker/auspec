@@ -12,30 +12,29 @@ interface ToolSection {
 }
 
 /**
- * Group all 13 categories into three thematic sections for the mobile
- * Tools sheet. Tiles render in this order, with section headers above
- * each row. Any category present in STUDIO_CATEGORIES but missing
- * here would be silently dropped from the grid, so keep this in sync
- * when a new category lands.
+ * Group the layer-creating categories into four thematic sections for
+ * the Tools sheet. AI Style is intentionally absent — it has been
+ * promoted to a hero card rendered ABOVE the grid (see AIHeroCard).
+ * Any category present in STUDIO_CATEGORIES but missing here is
+ * silently dropped from the grid, so keep this in sync when a new
+ * category lands.
  */
 const TOOL_SECTIONS: ToolSection[] = [
   {
-    title: 'Audio Reactive',
-    ids: [
-      'visualizer_bars',
-      'visualizer_circular',
-      'visualizer_wave',
-      'visualizer_bloom',
-      'ai_style',
-    ],
+    title: 'Waveform',
+    ids: ['visualizer_bars', 'visualizer_wave', 'visualizer_bloom'],
   },
   {
-    title: 'Shapes & Particles',
-    ids: ['visualizer_polygon', 'visualizer_shape', 'particles'],
+    title: 'Geometric',
+    ids: ['visualizer_circular', 'visualizer_polygon', 'visualizer_shape'],
+  },
+  {
+    title: 'Effects',
+    ids: ['particles', 'frame'],
   },
   {
     title: 'Assets & Stage',
-    ids: ['background', 'logo', 'visualizer_video', 'frame', 'text'],
+    ids: ['background', 'logo', 'visualizer_video', 'text'],
   },
 ]
 
