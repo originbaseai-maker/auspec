@@ -694,6 +694,10 @@ export function StudioPage() {
   const [mobileTabsHeight, setMobileTabsHeight] = useState(56);
   const [mobileTimelineHeight, setMobileTimelineHeight] = useState(64);
 
+  // openToolsToken is wired below, after setActiveCategory is bound.
+  const openToolsToken = useStudioUIStore((s) => s.openToolsToken);
+  const lastOpenToolsTokenRef = useRef(openToolsToken);
+
   useEffect(() => {
     if (!mobileTabsRef.current) return;
     const ro = new ResizeObserver((entries) => {
@@ -738,6 +742,18 @@ export function StudioPage() {
   const activeCategoryLabel = activeCategory
     ? STUDIO_CATEGORIES.find((c) => c.id === activeCategory)?.label ?? 'Tools'
     : 'Tools';
+
+  // External "open Tools and focus AI" trigger (used by the audio-
+  // upload discovery hint). When the token increments we close any
+  // detail panel and flip the mobile tab to 'tools' so the AIHeroCard
+  // becomes visible; the hero card itself watches useAIStore.focusToken
+  // to focus the textarea once the sheet has mounted.
+  useEffect(() => {
+    if (openToolsToken === lastOpenToolsTokenRef.current) return;
+    lastOpenToolsTokenRef.current = openToolsToken;
+    setActiveCategory(null);
+    setMobileTab('tools');
+  }, [openToolsToken, setActiveCategory]);
 
   useEffect(() => {
     if (prevFormat.current === activeFormat) return;

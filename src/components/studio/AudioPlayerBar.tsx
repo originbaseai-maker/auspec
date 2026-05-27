@@ -1,6 +1,8 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { ChevronUp, Music, Upload } from 'lucide-react';
+import { ArrowRight, ChevronUp, Music, Sparkles, Upload } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
+import { useAIStore } from '@/store/useAIStore';
+import { useStudioUIStore } from '@/store/useStudioUIStore';
 import type { AudioFile } from '@/types/audio';
 import { DemoSongsLibrary } from '@/components/audio/DemoSongsLibrary';
 
@@ -31,6 +33,23 @@ export function AudioPlayerBar() {
   const setAudioFile = useAudioStore((s) => s.setAudioFile);
   const [error, setError] = useState<string | null>(null);
   const [showDemos, setShowDemos] = useState(false);
+  // One-shot dismiss: once the user has interacted with the "Or
+  // generate with AI" hint we hide it for the rest of the session.
+  // useState (not persisted) is intentional — a fresh tab gets the
+  // discovery prompt again.
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const requestAIFocus = useAIStore((s) => s.requestFocus);
+  const requestOpenTools = useStudioUIStore((s) => s.requestOpenTools);
+
+  const handleHintClick = () => {
+    setHintDismissed(true);
+    // Order matters: open Tools first so the AIHeroCard mounts (on
+    // mobile) before the focus token fires. On desktop the card is
+    // already mounted; requestOpenTools is a cheap no-op observed
+    // only by the mobile branch.
+    requestOpenTools();
+    requestAIFocus();
+  };
 
   const openPicker = () => {
     setError(null);
@@ -72,13 +91,15 @@ export function AudioPlayerBar() {
     });
   };
 
+  const showHint = !hintDismissed;
+
   return (
     <footer
-      className="h-[72px] shrink-0 border-t bg-[#111111]"
+      className="shrink-0 border-t bg-[#111111]"
       style={{ borderColor: '#2a2a2a' }}
       aria-label="Audio player"
     >
-      <div className="flex h-full items-center gap-4 px-4">
+      <div className="flex h-[72px] items-center gap-4 px-4">
         <input
           ref={inputRef}
           type="file"
@@ -166,6 +187,27 @@ export function AudioPlayerBar() {
           )}
         </div>
       </div>
+      {showHint && (
+        <div
+          className="flex justify-center border-t px-4 py-2"
+          style={{ borderColor: '#1a1a1a' }}
+        >
+          <button
+            type="button"
+            onClick={handleHintClick}
+            aria-label="Open AI Style and focus prompt"
+            className="ai-gradient-text inline-flex items-center gap-1.5 text-[12px] font-medium transition-opacity hover:opacity-80"
+            // Fallback color in case ai-gradient-text utility isn't
+            // loaded; bg-clip:text drops `color: transparent` cleanly
+            // on top.
+            style={{ color: '#ec4899' }}
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            Or generate a vibe with AI
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
     </footer>
   );
 }
