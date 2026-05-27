@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { ArrowRight, ChevronUp, Music, Sparkles, Upload } from 'lucide-react';
 import { useAudioStore } from '@/store/useAudioStore';
+import { useAIStore } from '@/store/useAIStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
 import type { AudioFile } from '@/types/audio';
 import { DemoSongsLibrary } from '@/components/audio/DemoSongsLibrary';
@@ -38,13 +39,23 @@ export function AudioPlayerBar() {
   // discovery prompt again.
   const [hintDismissed, setHintDismissed] = useState(false);
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory);
+  const requestOpenTools = useStudioUIStore((s) => s.requestOpenTools);
+  const requestAIFocus = useAIStore((s) => s.requestFocus);
 
   const handleHintClick = () => {
     setHintDismissed(true);
     // Inline expansion pattern — same as clicking a tool tile.
-    // CategoryDetailPanel observes activeCategory and renders
-    // AIStylePanel below the tool grid.
+    // 1. setActiveCategory drives CategoryDetailPanel to mount
+    //    <AIStylePanel /> in the fine-tune slot
+    // 2. requestOpenTools flips the mobile tab to 'tools' so the
+    //    sheet is visible (no-op on desktop where the Tools panel
+    //    is always mounted)
+    // 3. requestFocus bumps useAIStore.focusToken; AIStylePanel's
+    //    useEffect runs on the next rAF, focuses the textarea, and
+    //    scrolls it into view smoothly — works on both viewports
     setActiveCategory('ai_style');
+    requestOpenTools();
+    requestAIFocus();
   };
 
   const openPicker = () => {
