@@ -149,6 +149,12 @@ export function CategoryGrid() {
     // "Has layers" → highlight border in accent color (per spec).
     const hasLayers = layerCount !== null && layerCount > 0
 
+    // Tile state moves to data-* attributes so :hover CSS rules can
+    // override border-color / box-shadow / background without losing
+    // specificity to inline `style={{ ... }}` (inline always wins
+    // unless we used !important — gross). The previous-batch hover
+    // effect was silently broken for exactly this reason.
+    const tileState = isActive ? 'active' : hasLayers ? 'has-layers' : 'idle'
     return (
       <button
         key={cat.id}
@@ -156,29 +162,12 @@ export function CategoryGrid() {
         onClick={() => handleClick(cat)}
         aria-pressed={isActive}
         aria-label={cat.label}
+        data-state={tileState}
+        data-dimmed={!hasLayers && !isActive && !cat.hasAI ? 'true' : undefined}
         className="auspec-tool-tile relative flex flex-col items-center justify-center gap-1 rounded-lg border p-1"
-        style={{
-          borderColor: isActive
-            ? 'rgba(59,130,246,0.6)'
-            : hasLayers
-              ? 'rgba(16,185,129,0.45)'
-              : '#1f1f1f',
-          background: isActive
-            ? 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.05))'
-            : hasLayers
-              ? '#131313'
-              : '#0f0f0f',
-          boxShadow: isActive
-            ? '0 0 0 1px rgba(59,130,246,0.3), 0 6px 16px rgba(59,130,246,0.15)'
-            : 'none',
-          opacity: hasLayers || isActive || cat.hasAI ? 1 : 0.78,
-        }}
       >
         <CategoryIcon icon={cat.icon} size={20} />
-        <span
-          className="text-[10px] font-medium leading-tight"
-          style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.85)' }}
-        >
+        <span className="auspec-tool-tile-label text-[10px] font-medium leading-tight">
           {cat.label}
         </span>
         {cat.hasAI && (

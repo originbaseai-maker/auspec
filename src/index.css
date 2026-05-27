@@ -283,44 +283,80 @@ select {
   width: 64px;
   height: 64px;
   cursor: pointer;
+  /* Base state — `idle` (no layers of this type yet). */
+  background: #0f0f0f;
+  border-color: #1f1f1f;
+  box-shadow: none;
   /* Spring easing on hover-in (slight overshoot at 1.56), eased
-   * shadow/border on the same beat so they feel like one motion.
-   * Declared BEFORE :hover so the exit transition (un-hover) gets
-   * the same curve, not an instant snap-back. */
+   * shadow/border on the same beat. Declared BEFORE :hover so the
+   * exit transition (un-hover) gets the same curve, not an instant
+   * snap. */
   transition:
     transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 220ms ease-out,
-    border-color 200ms ease-out;
+    border-color 200ms ease-out,
+    background 200ms ease-out;
   will-change: transform;
 }
-/* Hover only on devices with a real pointer — phones don't get a
- * sticky "hovered" state from the touch that initiated the tap. */
+.auspec-tool-tile[data-state='has-layers'] {
+  background: #131313;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+.auspec-tool-tile[data-state='active'] {
+  background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.05));
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.3),
+    0 6px 16px rgba(59, 130, 246, 0.15);
+}
+.auspec-tool-tile[data-dimmed='true'] {
+  opacity: 0.78;
+}
+.auspec-tool-tile[data-state='active'] .auspec-tool-tile-label {
+  color: #ffffff;
+}
+.auspec-tool-tile-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+/* Hover only on devices with a real pointer (rejects hybrid
+ * touchscreen-laptop "touch mode" via pointer: fine). */
 @media (hover: hover) and (pointer: fine) {
   .auspec-tool-tile:hover {
-    transform: scale(1.08);
-    /* Purple accent glow on hover signals the tile is interactive
-     * without competing with the active-state blue border. */
-    box-shadow: 0 8px 24px rgba(168, 85, 247, 0.25);
-    border-color: rgba(168, 85, 247, 0.5);
+    transform: scale(1.12);
+    /* Purple accent glow + border. Now that state styles live in
+     * CSS (not inline), :hover wins cleanly without !important. */
+    box-shadow: 0 12px 32px rgba(168, 85, 247, 0.35);
+    border-color: rgba(168, 85, 247, 0.6);
     /* z-index lift so the scaled tile isn't clipped by sibling
      * stacking contexts in the grid. */
     z-index: 10;
   }
+  /* Active tile keeps its blue accent on hover instead of swapping
+   * to the generic purple — the selection state matters more than
+   * the affordance hint here. */
+  .auspec-tool-tile[data-state='active']:hover {
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.4),
+      0 12px 32px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.8);
+  }
 }
 .auspec-tool-tile:active {
-  transform: scale(0.96);
+  transform: scale(0.94);
   transition-duration: 120ms;
 }
 /* Respect the OS-level motion preference: drop scale + overshoot,
- * keep the colour-change transitions for affordance feedback. */
+ * shorten remaining transitions to 120 ms so colour-change feedback
+ * stays present but quick (no slow-build animation either). */
 @media (prefers-reduced-motion: reduce) {
   .auspec-tool-tile,
   .auspec-tool-tile:hover,
   .auspec-tool-tile:active {
     transform: none;
     transition:
-      box-shadow 200ms ease-out,
-      border-color 200ms ease-out;
+      box-shadow 120ms ease-out,
+      border-color 120ms ease-out,
+      background 120ms ease-out;
   }
 }
 
