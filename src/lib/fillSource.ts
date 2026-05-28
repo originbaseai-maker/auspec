@@ -1,12 +1,39 @@
 import type {
+  BloomLayer,
   CircularLayer,
   FillFit,
   FillSource,
+  HaloLayer,
   Layer,
   LogoLayerConfig,
   PolygonLayer,
   ShapeLayer,
 } from '@/types/layer'
+
+/**
+ * Per-style fillability for the variant-driven container types.
+ * Only closed-path styles are fillable; open shapes (rays, rings,
+ * particles, etc.) return false and the renderer + panel UI gate on
+ * this. New variants must be added here or fill silently no-ops.
+ */
+const BLOOM_FILLABLE_STYLES = new Set([
+  'classic',
+  'organic',
+  'aura',
+  'star',
+])
+
+const HALO_FILLABLE_STYLES = new Set(['pulseFrame'])
+
+export function isBloomStyleFillable(style: string | undefined): boolean {
+  if (!style) return true // legacy configs without `style` use Classic
+  return BLOOM_FILLABLE_STYLES.has(style)
+}
+
+export function isHaloStyleFillable(style: string | undefined): boolean {
+  if (!style) return false
+  return HALO_FILLABLE_STYLES.has(style)
+}
 
 /**
  * Unified read-side view over each container layer's fill fields.
@@ -34,6 +61,12 @@ export function getFillSource(layer: Layer): FillSource | null {
   }
   if (layer.type === 'polygon') {
     return polygonFillSource(layer)
+  }
+  if (layer.type === 'bloom') {
+    return bloomFillSource(layer)
+  }
+  if (layer.type === 'halo') {
+    return haloFillSource(layer)
   }
   return null
 }
@@ -83,6 +116,60 @@ function circularFillSource(layer: CircularLayer & Layer): FillSource {
   // Video wins over image when both flags are accidentally on — the
   // panel UI prevents this, but a defensive priority keeps the
   // renderer's output deterministic even with bad data.
+  if (cfg.videoFillEnabled && cfg.videoFillAssetId) {
+    return {
+      kind: 'video',
+      assetId: cfg.videoFillAssetId,
+      fit: (cfg.videoFillFit ?? 'cover') as FillFit,
+      opacity: 1,
+    }
+  }
+  if (cfg.imageFillEnabled) {
+    return {
+      kind: 'image',
+      imageSrc: cfg.imageFillSrc ?? null,
+      logoLayerId: cfg.imageFillLogoLayerId ?? null,
+      fit: (cfg.imageFillFit ?? 'cover') as FillFit,
+      opacity: 1,
+    }
+  }
+  return { kind: 'none' }
+}
+
+function bloomFillSource(layer: BloomLayer & Layer): FillSource {
+  const cfg = layer.config
+  // Only fillable variants register a fill source. Style-hopping
+  // preserves the config but the connection lookup hides it on
+  // non-fillable styles so the bidirectional UI doesn't claim a
+  // connection the renderer is silently dropping.
+  if (!isBloomStyleFillable(cfg.style)) {
+    return { kind: 'none' }
+  }
+  if (cfg.videoFillEnabled && cfg.videoFillAssetId) {
+    return {
+      kind: 'video',
+      assetId: cfg.videoFillAssetId,
+      fit: (cfg.videoFillFit ?? 'cover') as FillFit,
+      opacity: 1,
+    }
+  }
+  if (cfg.imageFillEnabled) {
+    return {
+      kind: 'image',
+      imageSrc: cfg.imageFillSrc ?? null,
+      logoLayerId: cfg.imageFillLogoLayerId ?? null,
+      fit: (cfg.imageFillFit ?? 'cover') as FillFit,
+      opacity: 1,
+    }
+  }
+  return { kind: 'none' }
+}
+
+function haloFillSource(layer: HaloLayer & Layer): FillSource {
+  const cfg = layer.config
+  if (!isHaloStyleFillable(cfg.style)) {
+    return { kind: 'none' }
+  }
   if (cfg.videoFillEnabled && cfg.videoFillAssetId) {
     return {
       kind: 'video',

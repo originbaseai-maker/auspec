@@ -24,6 +24,7 @@ export function drawHaloLayer(
   width: number,
   height: number,
   logoPos: { x: number; y: number } | null,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const effective: HaloLayerConfig = {
     ...config,
@@ -32,11 +33,20 @@ export function drawHaloLayer(
   }
   switch (effective.style) {
     case 'radialBurst':
+      // Open shape — no fill support; ignore the asset arg.
       return drawHaloRadialBurst(ctx, effective, data, width, height)
     case 'spectrumCrown':
       return drawHaloSpectrumCrown(ctx, effective, data, width, height)
     case 'pulseFrame':
-      return drawHaloPulseFrame(ctx, effective, data, width, height)
+      // Closed frame — threads the resolved image fill src through.
+      return drawHaloPulseFrame(
+        ctx,
+        effective,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
     case 'flame':
       return drawHaloFlame(ctx, effective, data, width, height)
     case 'orbit':

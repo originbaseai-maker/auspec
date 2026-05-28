@@ -533,7 +533,17 @@ export default function VisualizerCanvas(): JSX.Element {
           }
           case 'bloom':
             if (!data) break
-            drawBloom(ctx, layer.config, data, width, height)
+            drawBloom(
+              ctx,
+              layer.config,
+              data,
+              width,
+              height,
+              resolveLogoImageSrc(
+                layer.config.imageFillLogoLayerId,
+                layersRef.current,
+              ),
+            )
             break
           case 'shape':
             drawCustomShape(ctx, layer.config, data, width, height)
@@ -599,6 +609,10 @@ export default function VisualizerCanvas(): JSX.Element {
               width,
               height,
               logoPosition,
+              resolveLogoImageSrc(
+                layer.config.imageFillLogoLayerId,
+                layersRef.current,
+              ),
             )
             break
           case 'text':

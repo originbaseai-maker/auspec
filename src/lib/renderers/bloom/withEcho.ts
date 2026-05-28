@@ -11,6 +11,12 @@ export type BloomVariantFn = (
   data: FrequencyData,
   width: number,
   height: number,
+  /**
+   * Resolved image source for the `image` fill kind. Threaded from
+   * VisualizerCanvas which resolves a Logo-layer reference to the
+   * Logo's current imageSrc. Non-fillable variants ignore it.
+   */
+  resolvedImageFillSrc?: string | null,
 ) => void
 
 /**
@@ -37,6 +43,7 @@ export function withEcho(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const count = Math.max(1, Math.floor(config.echoCount ?? 1))
   const spacing = config.echoSpacing ?? 30
@@ -48,7 +55,7 @@ export function withEcho(
   // wrap in save/restore so accidental state changes in the variant
   // don't leak; the variants do this themselves but belt-and-suspenders.
   if (count <= 1) {
-    drawFn(ctx, config, data, width, height)
+    drawFn(ctx, config, data, width, height, resolvedImageFillSrc)
     return
   }
 
@@ -88,7 +95,19 @@ export function withEcho(
     ctx.rotate(rotRad)
     ctx.scale(scale, scale)
     ctx.translate(-cx, -cy)
-    drawFn(ctx, config, data, width, height)
+    // Only the FIRST (i === 0, original-size) echo carries the
+    // resolved fill src. Echo copies are scaled/rotated versions
+    // and applying a stationary image fill to each would render
+    // the asset multiple times at different scales — visually
+    // chaotic and almost certainly not what the user wants.
+    drawFn(
+      ctx,
+      config,
+      data,
+      width,
+      height,
+      i === 0 ? resolvedImageFillSrc : null,
+    )
     ctx.restore()
   }
 }

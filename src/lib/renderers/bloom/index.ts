@@ -23,28 +23,71 @@ export function drawBloom(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const style = config.style ?? 'classic'
   switch (style) {
     case 'classic':
       // Classic now renders a SINGLE ring; the echo wrapper multiplies
       // it into N concentric copies. Preserves the original visual.
-      return withEcho(drawBloomClassic, ctx, config, data, width, height)
+      return withEcho(
+        drawBloomClassic,
+        ctx,
+        config,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
     case 'organic':
-      return withEcho(drawBloomOrganic, ctx, config, data, width, height)
+      return withEcho(
+        drawBloomOrganic,
+        ctx,
+        config,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
     case 'aura':
-      return withEcho(drawBloomAura, ctx, config, data, width, height)
+      return withEcho(
+        drawBloomAura,
+        ctx,
+        config,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
     case 'echo':
       // 'echo' variant has its own multi-pass mirroring; wrapping in
       // withEcho would multiply the count exponentially and look noisy.
+      // Echo is also OPEN — no fill possible — so we skip the
+      // resolvedImageFillSrc arg entirely.
       return drawBloomEcho(ctx, config, data, width, height)
     case 'star':
-      return withEcho(drawBloomStar, ctx, config, data, width, height)
+      return withEcho(
+        drawBloomStar,
+        ctx,
+        config,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
     case 'multiRing':
-      // Already a concentric-ring composition by design.
+      // Already a concentric-ring composition by design — OPEN, no fill.
       return drawBloomMultiRing(ctx, config, data, width, height)
     default:
-      return withEcho(drawBloomClassic, ctx, config, data, width, height)
+      return withEcho(
+        drawBloomClassic,
+        ctx,
+        config,
+        data,
+        width,
+        height,
+        resolvedImageFillSrc,
+      )
   }
 }
 

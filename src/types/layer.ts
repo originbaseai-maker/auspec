@@ -275,6 +275,23 @@ export interface BloomConfig {
   /** Start/end as % of full spectrum (0–100). */
   startFrequency: number
   endFrequency: number
+
+  /**
+   * Inner fill — only honoured on closed-area styles (Classic,
+   * Organic, Aura, Star). Echo and MultiRing have no enclosed area
+   * and the renderer skips fill regardless of these flags. Fields
+   * are kept on the config across style switches so the user's fill
+   * setup isn't lost when they hop to a non-fillable variant and
+   * back. Mirrors the Circular/Polygon naming exactly.
+   */
+  videoFillEnabled?: boolean
+  videoFillAssetId?: string | null
+  videoFillSyncMode?: VideoSyncMode
+  videoFillFit?: VideoFit
+  imageFillEnabled?: boolean
+  imageFillSrc?: string | null
+  imageFillLogoLayerId?: string | null
+  imageFillFit?: VideoFit
 }
 
 export interface BloomLayer {
@@ -484,6 +501,22 @@ export interface HaloLayerConfig {
   orbitCount?: number
   /** 'orbit' — orbit speed in rev/sec, -2..2. */
   orbitSpeed?: number
+
+  /**
+   * Inner fill — only honoured on closed-area styles (PulseFrame).
+   * The other styles (RadialBurst, SpectrumCrown, Flame, Orbit) are
+   * open shapes — rays / bars / particles — and the renderer skips
+   * fill regardless of these flags. Fields persist across style
+   * switches so the user's fill setup survives style hopping.
+   */
+  videoFillEnabled?: boolean
+  videoFillAssetId?: string | null
+  videoFillSyncMode?: VideoSyncMode
+  videoFillFit?: VideoFit
+  imageFillEnabled?: boolean
+  imageFillSrc?: string | null
+  imageFillLogoLayerId?: string | null
+  imageFillFit?: VideoFit
 }
 
 export interface HaloLayer {
