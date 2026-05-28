@@ -162,6 +162,7 @@ export function getLayerBounds(
     case 'particles':
     case 'background':
     case 'frame':
+    case 'cinematic':
       return null
   }
 }
@@ -258,6 +259,7 @@ export function setLayerBoundsPatch(
     case 'particles':
     case 'background':
     case 'frame':
+    case 'cinematic':
       return null
   }
 }

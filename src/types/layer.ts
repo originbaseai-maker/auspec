@@ -21,6 +21,7 @@ export type LayerType =
   | 'shape'
   | 'video'
   | 'halo'
+  | 'cinematic'
 
 export type FontFamily =
   | 'Inter'
@@ -410,6 +411,42 @@ export interface HaloLayer {
   config: HaloLayerConfig
 }
 
+/**
+ * Cinematic — post-processing overlay applied LAST in the layer
+ * loop. Two effects combine to break the "flat digital" look:
+ *   - Vignette: radial-gradient darkening at the edges
+ *   - Film grain: animated noise via pre-rendered tiles
+ *
+ * Sensible defaults are intentionally subtle so a one-tap add reads
+ * as "cinematic depth," not "broken TV." Tuning is in CinematicPanel.
+ */
+export interface CinematicConfig {
+  // Vignette
+  vignetteEnabled: boolean
+  /** 0..1; alpha of the gradient's outer stop (how dark the corners go). */
+  vignetteIntensity: number
+  /** 0..1; how far the clear centre extends, as fraction of half-min-dim. */
+  vignetteSize: number
+  /** 0..1; feather between clear centre and full darkness. */
+  vignetteSoftness: number
+  /** Tint colour for the vignette darkening (default '#000000'). */
+  vignetteColor: string
+
+  // Film Grain
+  grainEnabled: boolean
+  /** 0..0.3 typical; alpha at which the grain tile composites. */
+  grainIntensity: number
+  /** 0..1; fine ↔ coarse (drives pixel block size in the noise tiles). */
+  grainSize: number
+  /** 0..1; how often the active tile rotates (still ↔ fast shimmer). */
+  grainSpeed: number
+}
+
+export interface CinematicLayer {
+  type: 'cinematic'
+  config: CinematicConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -424,6 +461,7 @@ export type LayerData =
   | ShapeLayer
   | VideoLayer
   | HaloLayer
+  | CinematicLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -461,6 +499,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   shape: 'Shape',
   video: 'Video',
   halo: 'Halo',
+  cinematic: 'Cinematic',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -477,6 +516,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'text',
   'frame',
   'halo',
+  'cinematic',
 ] as const
 
 export const DEFAULT_LOGO_LAYER_CONFIG: LogoLayerConfig = {
@@ -594,6 +634,23 @@ export const DEFAULT_SHAPE_CONFIG: ShapeLayerConfig = {
   glowIntensity: 40,
   bassPulse: 0.15,
   strokePulse: 0,
+}
+
+/**
+ * Defaults aim for "instant cinematic depth on a flat scene." Vignette
+ * is moderate-but-visible; grain is deliberately barely-there so the
+ * one-tap addition reads as filmic, not as TV static.
+ */
+export const DEFAULT_CINEMATIC_CONFIG: CinematicConfig = {
+  vignetteEnabled: true,
+  vignetteIntensity: 0.5,
+  vignetteSize: 0.6,
+  vignetteSoftness: 0.7,
+  vignetteColor: '#000000',
+  grainEnabled: true,
+  grainIntensity: 0.08,
+  grainSize: 0.5,
+  grainSpeed: 0.5,
 }
 
 export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {

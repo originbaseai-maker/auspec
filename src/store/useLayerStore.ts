@@ -10,6 +10,7 @@ import { DEFAULT_FRAME_CONFIG } from '@/store/useFrameStore'
 import {
   DEFAULT_BACKGROUND_CONFIG,
   DEFAULT_BLOOM_CONFIG,
+  DEFAULT_CINEMATIC_CONFIG,
   DEFAULT_HALO_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
   DEFAULT_SHAPE_CONFIG,
@@ -76,6 +77,8 @@ function defaultData(type: LayerType): LayerData {
             : undefined,
         },
       }
+    case 'cinematic':
+      return { type: 'cinematic', config: { ...DEFAULT_CINEMATIC_CONFIG } }
   }
 }
 
@@ -178,6 +181,12 @@ function createLayer(
             ? [...DEFAULT_HALO_CONFIG.palette]
             : undefined,
         },
+      }
+    case 'cinematic':
+      return {
+        ...base,
+        type: 'cinematic',
+        config: { ...DEFAULT_CINEMATIC_CONFIG },
       }
   }
 }
@@ -283,6 +292,14 @@ export interface LayerStore {
    * a new Halo lands BEHIND the Logo it's meant to wrap around.
    */
   placeDraftBelowLogo: () => void
+  /**
+   * Force the current draft's zOrder above every committed layer so
+   * it renders LAST in the layer loop. Used by the Cinematic creation
+   * flow — a post-processing layer below other layers would be
+   * pointless (vignette under a background draws nothing). No-op when
+   * no draft.
+   */
+  placeDraftOnTop: () => void
 
   /** Replace the entire layer stack (preset apply / project load). */
   replaceLayers: (layers: Layer[], activeId?: string | null) => void
@@ -702,6 +719,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             },
           }
           break
+        case 'cinematic':
+          dup = {
+            ...base,
+            type: 'cinematic',
+            config: { ...source.config },
+          }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -789,6 +813,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           case 'halo':
             newDraft = { ...draft, type: 'halo',
               config: { ...(fresh as { type: 'halo'; config: object }).config } } as Layer
+            break
+          case 'cinematic':
+            newDraft = { ...draft, type: 'cinematic',
+              config: { ...(fresh as { type: 'cinematic'; config: object }).config } } as Layer
             break
         }
         return { draftLayer: newDraft, draftIsDirty: true }
@@ -891,6 +919,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               config: { ...(fresh as { type: 'halo'; config: object })
                 .config },
             } as Layer
+          case 'cinematic':
+            return {
+              ...l,
+              type: 'cinematic',
+              config: { ...(fresh as { type: 'cinematic'; config: object })
+                .config },
+            } as Layer
         }
       }),
       }
@@ -962,6 +997,21 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       )
       const newDraft: Layer = { ...draft, zOrder: targetZ } as Layer
       return { layers: shiftedLayers, draftLayer: newDraft }
+    }),
+
+  placeDraftOnTop: () =>
+    set((s) => {
+      const draft = s.draftLayer
+      if (!draft) return s
+      const maxCommittedZ = s.layers.reduce(
+        (m, l) => Math.max(m, l.zOrder),
+        -1,
+      )
+      // Already on top → leave alone (avoids needless re-render and
+      // preserves identity for the auto-save subscriber).
+      if (draft.zOrder > maxCommittedZ) return s
+      const newDraft: Layer = { ...draft, zOrder: maxCommittedZ + 1 } as Layer
+      return { draftLayer: newDraft }
     }),
 
   replaceLayers: (layers, activeId) =>
@@ -1120,6 +1170,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'halo',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'cinematic':
+          layer = {
+            ...base,
+            type: 'cinematic',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break
