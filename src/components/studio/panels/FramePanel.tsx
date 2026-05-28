@@ -48,6 +48,26 @@ export function FramePanel({ layerId }: Props) {
   const reflectionIntensity = cfg.reflectionIntensity
   const pulseEnabled = cfg.pulseEnabled
   const pulseIntensity = cfg.pulseIntensity
+  // Beat colour reads with defaults so legacy presets without these
+  // fields render with the same look they always did.
+  const beatColorEnabled = cfg.beatColorEnabled ?? true
+  const beatColor = cfg.beatColor ?? '#a855f7'
+  const beatColorIntensity = cfg.beatColorIntensity ?? 1
+  const beatThreshold = cfg.beatThreshold ?? 0.6
+  const beatColorDecay = cfg.beatColorDecay ?? 0.08
+  // UI presents a "Smoothness" slider that maps INVERSELY to decay
+  // (higher smoothness = slower colour return = less flicker). Decay
+  // 0.02 → smoothness 100%, decay 0.30 → smoothness 0%.
+  const DECAY_MIN = 0.02
+  const DECAY_MAX = 0.3
+  const beatSmoothnessPct = Math.round(
+    (1 - (beatColorDecay - DECAY_MIN) / (DECAY_MAX - DECAY_MIN)) * 100,
+  )
+  const setBeatSmoothness = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct))
+    const decay = DECAY_MAX - (clamped / 100) * (DECAY_MAX - DECAY_MIN)
+    update({ beatColorDecay: decay })
+  }
 
   const setEnabled = (v: boolean) => update({ enabled: v })
   const setColor = (v: string) => update({ color: v })
@@ -200,6 +220,69 @@ export function FramePanel({ layerId }: Props) {
               onChange={setReflectionIntensity}
               ariaLabel="Reflection intensity"
             />
+          </div>
+        </PanelGroup>
+
+        <PanelGroup title="🎯 Beat Color">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] text-white/70">
+              Shift colour on beats
+            </span>
+            <Toggle
+              checked={beatColorEnabled}
+              onChange={(v) => update({ beatColorEnabled: v })}
+              ariaLabel="Beat colour"
+            />
+          </div>
+          <div
+            style={{ opacity: beatColorEnabled ? 1 : 0.4 }}
+            className="space-y-2"
+          >
+            <div>
+              <p className="mb-1 text-[11px] text-white/70">Colour on beat</p>
+              <ColorRow
+                value={beatColor}
+                onChange={(v) => update({ beatColor: v })}
+                ariaLabel="beat colour"
+              />
+            </div>
+            <SliderRow
+              label="Intensity"
+              hint={`${Math.round(beatColorIntensity * 100)}%`}
+              value={Math.round(beatColorIntensity * 100)}
+              min={0}
+              max={100}
+              step={1}
+              onChange={(v) =>
+                update({ beatColorIntensity: clamp(v, 0, 100) / 100 })
+              }
+              ariaLabel="Beat colour intensity"
+            />
+            <SliderRow
+              label="Threshold"
+              hint={`${Math.round(beatThreshold * 100)}%`}
+              value={Math.round(beatThreshold * 100)}
+              min={0}
+              max={100}
+              step={1}
+              onChange={(v) =>
+                update({ beatThreshold: clamp(v, 0, 100) / 100 })
+              }
+              ariaLabel="Beat trigger threshold"
+            />
+            <SliderRow
+              label="Smoothness"
+              hint={`${beatSmoothnessPct}%`}
+              value={beatSmoothnessPct}
+              min={0}
+              max={100}
+              step={1}
+              onChange={setBeatSmoothness}
+              ariaLabel="Beat colour smoothness"
+            />
+            <p className="text-[9px] text-white/30">
+              Higher smoothness → slower return to base colour (calmer).
+            </p>
           </div>
         </PanelGroup>
 
