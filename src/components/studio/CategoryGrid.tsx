@@ -32,7 +32,7 @@ const TOOL_SECTIONS: ToolSection[] = [
   },
   {
     title: 'Effects',
-    ids: ['particles', 'frame', 'visualizer_halo'],
+    ids: ['particles', 'frame', 'visualizer_halo', 'cinematic'],
   },
   {
     title: 'Assets & Stage',
@@ -54,6 +54,7 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'frame') return 'frame'
   if (id === 'background') return 'background'
   if (id === 'text') return 'text'
+  if (id === 'cinematic') return 'cinematic'
   // ai_style — never (preset generator).
   return null
 }
@@ -75,6 +76,7 @@ export function CategoryGrid() {
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
   const placeDraftBelowLogo = useLayerStore((s) => s.placeDraftBelowLogo)
+  const placeDraftOnTop = useLayerStore((s) => s.placeDraftOnTop)
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
@@ -117,6 +119,12 @@ export function CategoryGrid() {
       if (layerType === 'halo') {
         placeDraftBelowLogo()
       }
+      // Cinematic is post-processing — must render LAST. Force its
+      // zOrder above every committed layer so a vignette/grain on
+      // top of a freshly-added background isn't rendered behind it.
+      if (layerType === 'cinematic') {
+        placeDraftOnTop()
+      }
     }
     setActiveCategory(cat.id)
   }
@@ -156,6 +164,9 @@ export function CategoryGrid() {
         // Same Halo-below-Logo positioning rule as the direct path.
         if (pendingAction.targetLayerType === 'halo') {
           placeDraftBelowLogo()
+        }
+        if (pendingAction.targetLayerType === 'cinematic') {
+          placeDraftOnTop()
         }
       }
       if (pendingAction.targetCategory) {

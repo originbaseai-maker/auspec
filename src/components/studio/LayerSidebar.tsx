@@ -1,5 +1,6 @@
 import { useRef, useState, type JSX } from 'react'
 import {
+  Aperture,
   AudioWaveform,
   BarChart3,
   ChevronDown,
@@ -51,6 +52,7 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   shape: PenTool,
   video: Film,
   halo: Sun,
+  cinematic: Aperture,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -67,6 +69,7 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   shape: 'visualizer_shape',
   video: 'visualizer_video',
   halo: 'visualizer_halo',
+  cinematic: 'cinematic',
 }
 
 interface ContextMenuState {
@@ -122,6 +125,7 @@ export function LayerSidebar(): JSX.Element {
   const moveLayerToIndex = useLayerStore((s) => s.moveLayerToIndex)
   const addLayer = useLayerStore((s) => s.addLayer)
   const placeDraftBelowLogo = useLayerStore((s) => s.placeDraftBelowLogo)
+  const placeDraftOnTop = useLayerStore((s) => s.placeDraftOnTop)
   const commitDraft = useLayerStore((s) => s.commitDraft)
   const discardDraft = useLayerStore((s) => s.discardDraft)
   const removeLayer = useLayerStore((s) => s.removeLayer)
@@ -185,6 +189,10 @@ export function LayerSidebar(): JSX.Element {
     // Same halo-below-logo placement rule as CategoryGrid — the
     // sidebar "+ Add Layer" path lands here too.
     if (type === 'halo') placeDraftBelowLogo()
+    // Cinematic forces top-of-stack: a post-FX layer rendered
+    // under other layers would be invisible (vignette behind the
+    // background draws nothing).
+    if (type === 'cinematic') placeDraftOnTop()
     setActiveCategory(CATEGORY_MAP[type])
     setShowAddMenu(false)
   }
@@ -216,6 +224,7 @@ export function LayerSidebar(): JSX.Element {
     else discardDraft()
     addLayer(pendingAdd) // starts a fresh draft of the requested type
     if (pendingAdd === 'halo') placeDraftBelowLogo()
+    if (pendingAdd === 'cinematic') placeDraftOnTop()
     setActiveCategory(CATEGORY_MAP[pendingAdd])
     setPendingAdd(null)
   }

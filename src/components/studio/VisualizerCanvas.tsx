@@ -18,6 +18,7 @@ import { drawBackgroundLayer } from '@/lib/renderers/background'
 import { drawBloom } from '@/lib/renderers/bloom'
 import { drawCustomShape } from '@/lib/renderers/customShape'
 import { drawHaloLayer } from '@/lib/renderers/halo'
+import { drawCinematic } from '@/lib/renderers/cinematic'
 import { drawVideoLayer } from '@/lib/renderers/video'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import {
@@ -544,6 +545,13 @@ export default function VisualizerCanvas(): JSX.Element {
               height,
               editingTextId === layer.id,
             )
+            break
+          case 'cinematic':
+            // Post-processing — read no audio, write over everything
+            // beneath. Renderer caches its vignette gradient + noise
+            // tiles internally so per-frame cost is one fillRect + a
+            // handful of drawImage calls.
+            drawCinematic(ctx, layer.config, width, height)
             break
         }
         ctx.restore()
