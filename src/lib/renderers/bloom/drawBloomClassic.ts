@@ -5,6 +5,7 @@ import {
   applyBandSensitivityByFreq,
   spectrumIdxToFreq,
 } from '@/lib/audio/logScaleBins'
+import { bboxOfPoints, drawBloomFill } from './fillHelpers'
 
 /**
  * Per-config rotation accumulator. Keyed by the live config object via
@@ -34,6 +35,7 @@ export function drawBloomClassic(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const cx = width * (config.offsetX ?? 0.5)
   const cy = height * (config.offsetY ?? 0.5)
@@ -118,14 +120,18 @@ export function drawBloomClassic(
     ys[i] = Math.sin(angle) * r
   }
 
-  ctx.beginPath()
+  // Build the path on a Path2D so we can use it for both clip()
+  // (fill phase) and stroke() (existing decorative pass). ctx.clip
+  // without a Path2D arg consumes the current path, but ctx.clip(path)
+  // doesn't — the path remains valid for ctx.stroke(path) right after.
+  const path = new Path2D()
   if (smoothness <= 0.001) {
-    ctx.moveTo(xs[0], ys[0])
+    path.moveTo(xs[0], ys[0])
     for (let i = 1; i < pointCount; i++) {
-      ctx.lineTo(xs[i], ys[i])
+      path.lineTo(xs[i], ys[i])
     }
   } else {
-    ctx.moveTo(
+    path.moveTo(
       (xs[0] + xs[pointCount - 1]) / 2,
       (ys[0] + ys[pointCount - 1]) / 2,
     )
@@ -135,12 +141,22 @@ export function drawBloomClassic(
       const midY = (ys[i] + ys[next]) / 2
       const ctrlX = midX + (xs[i] - midX) * smoothness
       const ctrlY = midY + (ys[i] - midY) * smoothness
-      ctx.quadraticCurveTo(ctrlX, ctrlY, midX, midY)
+      path.quadraticCurveTo(ctrlX, ctrlY, midX, midY)
     }
   }
+  if (config.closedShape) path.closePath()
 
-  if (config.closedShape) ctx.closePath()
-  ctx.stroke()
+  // FILL — drawn BEFORE the stroke so the glowing edge survives on
+  // top. Only fires on the original (i === 0) echo pass via withEcho's
+  // gating; copies skip the fill to avoid stacked drawImage calls at
+  // different scales.
+  if (config.closedShape) {
+    const bbox = bboxOfPoints(xs, ys, pointCount)
+    drawBloomFill(ctx, config, path, bbox, resolvedImageFillSrc)
+  }
+
+  // STROKE — unchanged. ctx.stroke takes the Path2D directly.
+  ctx.stroke(path)
 
   ctx.restore()
 }

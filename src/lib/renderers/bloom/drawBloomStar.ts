@@ -5,6 +5,7 @@ import {
   applyBandSensitivityByFreq,
   spectrumIdxToFreq,
 } from '@/lib/audio/logScaleBins'
+import { drawBloomFill } from './fillHelpers'
 
 const rotationByConfig = new WeakMap<
   BloomConfig,
@@ -27,6 +28,7 @@ export function drawBloomStar(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const cx = width * (config.offsetX ?? 0.5)
   const cy = height * (config.offsetY ?? 0.5)
@@ -82,9 +84,14 @@ export function drawBloomStar(
     ctx.shadowBlur = config.glowIntensity * (0.5 + beat * 0.5)
   }
 
-  ctx.beginPath()
-  // Star path: 2 vertices per spike (outer, inner) traced counter-clockwise.
+  // Build the star path on a Path2D once + track bbox in the same
+  // pass — used for both the fill clip and the existing stroke.
+  const path = new Path2D()
   const totalVerts = spikes * 2
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
   for (let v = 0; v < totalVerts; v++) {
     const isOuter = v % 2 === 0
     const spikeIdx = v >> 1
@@ -107,11 +114,26 @@ export function drawBloomStar(
     }
     const x = Math.cos(angle) * r
     const y = Math.sin(angle) * r
-    if (v === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+    if (v === 0) path.moveTo(x, y)
+    else path.lineTo(x, y)
   }
-  ctx.closePath()
-  ctx.stroke()
+  path.closePath()
+
+  // FILL — drawn before the stroke so the glowing edge survives.
+  drawBloomFill(
+    ctx,
+    config,
+    path,
+    { minX, minY, maxX, maxY },
+    resolvedImageFillSrc,
+  )
+
+  // STROKE — unchanged behaviour, takes the Path2D directly.
+  ctx.stroke(path)
 
   ctx.restore()
 }

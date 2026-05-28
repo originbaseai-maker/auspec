@@ -1,6 +1,7 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { resolvePalette } from '@/lib/colorPalette'
+import { drawBloomFill } from './fillHelpers'
 
 const CIRCLE_COUNT = 6
 
@@ -55,6 +56,7 @@ export function drawBloomAura(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const cx = width * (config.offsetX ?? 0.5)
   const cy = height * (config.offsetY ?? 0.5)
@@ -75,22 +77,23 @@ export function drawBloomAura(
 
   const baseR = config.baseRadius
 
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.globalCompositeOperation = 'lighter'
-
+  // Pre-compute every circle's geometry in one pass so we can build
+  // a union Path2D for the asset clip, then re-iterate to draw with
+  // additive composition. The two loops cost negligibly more than
+  // the one — six circles — and the rewrite lets the asset fill
+  // honour the cloud's exact form (union of arcs) instead of a
+  // bounding box.
+  interface CircleParams { dx: number; dy: number; r: number; energy: number; color: string }
+  const circles: CircleParams[] = []
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
   for (let i = 0; i < CIRCLE_COUNT; i++) {
-    // Bass for inner two (0,1), mid for middle (2,3), treble for
-    // outer (4,5). Adds a beat-driven punch to all so loud hits
-    // bloom the whole cloud.
     const band = i < 2 ? bassEnergy : i < 4 ? midEnergy : trebleEnergy
     const energy = band + beatPunch
-
-    // Radius cycles between ~70% and ~130% of base, plus energy lift.
     const breath = 0.85 + 0.15 * Math.sin(tSec * 0.5 + i)
     const r = baseR * (breath + energy * 0.45)
-
-    // Drift position around the seeded base offset.
     const driftAmp = baseR * 0.15
     const dx =
       seeds.offsets[i * 2] * baseR +
@@ -100,21 +103,52 @@ export function drawBloomAura(
       seeds.offsets[i * 2 + 1] * baseR +
       Math.sin(tSec * seeds.driftFreqs[i] * Math.PI + seeds.driftPhases[i]) *
         driftAmp
-
-    // Cycle through palette so each circle gets a different colour.
     const color = palette[i % palette.length]
-    ctx.fillStyle = color
-    // Per-circle alpha kept low (≤ 0.3) so additive blending stays
-    // legible — too high and overlaps blow out to white.
-    ctx.globalAlpha = Math.min(0.3, 0.18 + energy * 0.12)
+    circles.push({ dx, dy, r, energy, color })
+    // Bbox tracks the union — used by drawBloomFill for the
+    // cover/contain fit math.
+    if (dx - r < minX) minX = dx - r
+    if (dx + r > maxX) maxX = dx + r
+    if (dy - r < minY) minY = dy - r
+    if (dy + r > maxY) maxY = dy + r
+  }
 
-    if (config.glowEnabled && config.glowIntensity > 0) {
-      ctx.shadowColor = color
-      ctx.shadowBlur = config.glowIntensity * (0.6 + energy * 0.4)
+  ctx.save()
+  ctx.translate(cx, cy)
+
+  // Asset fill — clipped to the union of all six arcs (the cloud's
+  // exact silhouette). Drawn WITHOUT additive composition so the
+  // video shows its real colours; the additive circles then layer
+  // on top with 'lighter' to add the aura glow.
+  if (resolvedImageFillSrc || config.videoFillEnabled || config.imageFillEnabled) {
+    const unionPath = new Path2D()
+    for (const c of circles) {
+      // Each arc on a fresh sub-path — Path2D's default winding rule
+      // unions them by treating them all as fills.
+      unionPath.moveTo(c.dx + c.r, c.dy)
+      unionPath.arc(c.dx, c.dy, Math.max(2, c.r), 0, Math.PI * 2)
     }
+    drawBloomFill(
+      ctx,
+      config,
+      unionPath,
+      { minX, minY, maxX, maxY },
+      resolvedImageFillSrc,
+    )
+  }
 
+  // Additive aura pass — unchanged from the original render. Layers
+  // the coloured glow over whatever is below (asset fill or empty).
+  ctx.globalCompositeOperation = 'lighter'
+  for (const c of circles) {
+    ctx.fillStyle = c.color
+    ctx.globalAlpha = Math.min(0.3, 0.18 + c.energy * 0.12)
+    if (config.glowEnabled && config.glowIntensity > 0) {
+      ctx.shadowColor = c.color
+      ctx.shadowBlur = config.glowIntensity * (0.6 + c.energy * 0.4)
+    }
     ctx.beginPath()
-    ctx.arc(dx, dy, Math.max(2, r), 0, Math.PI * 2)
+    ctx.arc(c.dx, c.dy, Math.max(2, c.r), 0, Math.PI * 2)
     ctx.fill()
   }
 

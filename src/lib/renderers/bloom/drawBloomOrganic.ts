@@ -1,6 +1,7 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { firstColor, lastColor } from '@/lib/colorPalette'
+import { bboxOfPoints, drawBloomFill } from './fillHelpers'
 
 /**
  * Per-config phase + frequency seeds for the breathing offsets. Seeded
@@ -45,6 +46,7 @@ export function drawBloomOrganic(
   data: FrequencyData,
   width: number,
   height: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const cx = width * (config.offsetX ?? 0.5)
   const cy = height * (config.offsetY ?? 0.5)
@@ -98,12 +100,11 @@ export function drawBloomOrganic(
     ctx.shadowBlur = config.glowIntensity * (0.5 + avgEnergy * 0.5)
   }
 
-  ctx.fillStyle = grad
-  ctx.beginPath()
-  // Closed bezier-through-midpoints — same algorithm as classic with
-  // smoothness fixed at 1 (always smooth, never polygonal). Start at
-  // midpoint of last→first edge so the wrap is seamless.
-  ctx.moveTo(
+  // Build path on a Path2D so we can clip+fill from the asset AND
+  // re-use the same shape for the gradient fill / glow stroke
+  // afterwards without rebuilding.
+  const path = new Path2D()
+  path.moveTo(
     (xs[0] + xs[POINT_COUNT - 1]) / 2,
     (ys[0] + ys[POINT_COUNT - 1]) / 2,
   )
@@ -111,10 +112,26 @@ export function drawBloomOrganic(
     const next = (i + 1) % POINT_COUNT
     const midX = (xs[i] + xs[next]) / 2
     const midY = (ys[i] + ys[next]) / 2
-    ctx.quadraticCurveTo(xs[i], ys[i], midX, midY)
+    path.quadraticCurveTo(xs[i], ys[i], midX, midY)
   }
-  ctx.closePath()
-  ctx.fill()
+  path.closePath()
+
+  // Asset fill takes over when configured — it replaces the radial
+  // gradient (rather than compositing on top, which would tint the
+  // whole video purple). The glow shadow stays so the edge keeps
+  // its bloom.
+  const bbox = bboxOfPoints(xs, ys, POINT_COUNT)
+  const assetFilled = drawBloomFill(
+    ctx,
+    config,
+    path,
+    bbox,
+    resolvedImageFillSrc,
+  )
+  if (!assetFilled) {
+    ctx.fillStyle = grad
+    ctx.fill(path)
+  }
 
   ctx.restore()
 }
