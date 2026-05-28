@@ -5,122 +5,157 @@ import { getVideoElement } from '@/lib/videoPool'
 import type { VideoLayerConfig } from '@/types/layer'
 
 /**
- * Single source of truth for "which media element drives the
- * transport." Priority:
- *   1. The uploaded audio element when an audio file is loaded —
- *      audio always wins, so adding an audio file mid-session takes
- *      over cleanly.
- *   2. The active audio-source video's pooled element when no audio
- *      file is present but the user has at least one Video layer
- *      with an audio track. The video's own audio drives both the
- *      analyser AND the timeline clock.
- *   3. Null — neither path is available, no transport surface is
- *      shown.
+ * The user's chosen audio source IS the transport clock — both the
+ * AnalyserNode AND the play/pause/seek surface read from the same
+ * resolved element. The "three modes" mental model:
  *
- * Read this with `getMasterClock()` from imperative handlers (event
- * callbacks) and `useMasterClock()` from React render code.
+ *   Music only         → only candidate is 'music'; auto-picked
+ *   Video only         → only candidate is the video; auto-picked
+ *   Music + Video      → user chooses via AudioSourceToggle
+ *
+ * The chosen source is stored in `useAudioStore.audioSource`. When
+ * the chosen source isn't available (vanished, never existed), the
+ * resolver falls back to the single available candidate — never
+ * crashes, never returns null while a candidate exists.
  */
-export type MasterClockKind = 'audio' | 'video' | null
+export interface AudioCandidate {
+  /** 'music' for the uploaded audio file, or the asset id for a video. */
+  id: 'music' | string
+  /** User-facing label (file name, layer name). */
+  label: string
+  /** Live media element to play / sample / mute. */
+  element: HTMLMediaElement
+  /** Discriminator for downstream branching (mute discipline, icon). */
+  kind: 'music' | 'video'
+}
+
+export type MasterClockKind = 'music' | 'video' | null
 
 export interface MasterClockResolution {
   element: HTMLMediaElement | null
   kind: MasterClockKind
-  /**
-   * When kind === 'video', the asset id whose element is the clock.
-   * Surfaced so consumers (e.g. the timeline) can read the asset's
-   * duration without re-resolving.
-   */
+  /** When kind === 'video', the asset id whose element is the clock. */
   videoAssetId: string | null
 }
 
 /**
- * Imperative resolver. Reads the live stores. Safe to call from
- * event listeners — does not subscribe.
+ * List every playable audio source available right now. The
+ * AudioSourceToggle decides its own visibility from `length`:
+ *   0 → hidden, no transport
+ *   1 → hidden, auto-picked
+ *   2+ → visible, user picks
  */
-export function getMasterClock(): MasterClockResolution {
-  const audio = useAudioStore.getState()
-  if (audio.audioFile && audio.audioElement) {
-    return { element: audio.audioElement, kind: 'audio', videoAssetId: null }
-  }
-  const videoEl = resolveAudioSourceVideo()
-  if (videoEl) {
-    return {
-      element: videoEl.element,
-      kind: 'video',
-      videoAssetId: videoEl.assetId,
-    }
-  }
-  return { element: null, kind: null, videoAssetId: null }
-}
-
-interface ResolvedVideo {
-  element: HTMLVideoElement
-  assetId: string
-}
-
-/**
- * Find the video that's eligible to be the audio-source clock.
- * Respects an explicit selection in `audioStore.videoAudioAssetId`
- * when it still maps to a live video; otherwise picks the topmost
- * enabled Video layer (highest zOrder) whose asset is in the pool
- * and (best-effort) has an audio track.
- */
-function resolveAudioSourceVideo(): ResolvedVideo | null {
+export function getAudioCandidates(): AudioCandidate[] {
   const audio = useAudioStore.getState()
   const layers = useLayerStore.getState().layers
   const assets = useVideoAssetStore.getState().assets
+  const out: AudioCandidate[] = []
 
-  // Build the candidate list: enabled Video layers referencing a
-  // registered asset whose pooled element is live.
-  const candidates: ResolvedVideo[] = []
-  const sorted = [...layers].sort((a, b) => b.zOrder - a.zOrder)
-  for (const layer of sorted) {
+  if (audio.audioFile && audio.audioElement) {
+    out.push({
+      id: 'music',
+      label: audio.audioFile.name,
+      element: audio.audioElement,
+      kind: 'music',
+    })
+  }
+
+  // Top-down by zOrder so the visually-foremost video is the default
+  // pick when the toggle auto-resolves. The pool entry must exist
+  // (filters out layers whose asset upload is still pending).
+  const sortedLayers = [...layers].sort((a, b) => b.zOrder - a.zOrder)
+  for (const layer of sortedLayers) {
     if (layer.type !== 'video' || !layer.enabled) continue
     const cfg = layer.config as VideoLayerConfig
     if (!cfg.videoAssetId) continue
-    if (!assets.find((a) => a.id === cfg.videoAssetId)) continue
+    const asset = assets.find((a) => a.id === cfg.videoAssetId)
+    if (!asset) continue
     const el = getVideoElement(cfg.videoAssetId)
     if (!el) continue
-    candidates.push({ element: el, assetId: cfg.videoAssetId })
+    out.push({
+      id: cfg.videoAssetId,
+      label: layer.name,
+      element: el,
+      kind: 'video',
+    })
   }
-  if (candidates.length === 0) return null
+  return out
+}
 
-  // Honour an explicit pick if it's still valid.
-  if (audio.videoAudioAssetId) {
-    const explicit = candidates.find(
-      (c) => c.assetId === audio.videoAudioAssetId,
-    )
-    if (explicit) return explicit
+/**
+ * Pick the candidate that should be active right now. The user's
+ * stored choice wins when it maps to a live candidate; otherwise the
+ * first candidate (top-of-stack video, or the music file) is used.
+ *
+ * Single-candidate mode: returns that candidate regardless of the
+ * stored `audioSource`. This lets the user adjust the toggle in a
+ * music+video session, then remove the video, and have the music
+ * pick up the playback cleanly without needing the toggle to flip.
+ */
+export function resolveActiveCandidate(): AudioCandidate | null {
+  const audio = useAudioStore.getState()
+  const candidates = getAudioCandidates()
+  if (candidates.length === 0) return null
+  if (candidates.length === 1) return candidates[0]
+
+  if (audio.audioSource === 'music') {
+    const music = candidates.find((c) => c.kind === 'music')
+    if (music) return music
+  } else {
+    const wantId = audio.videoAudioAssetId
+    if (wantId) {
+      const explicit = candidates.find(
+        (c) => c.kind === 'video' && c.id === wantId,
+      )
+      if (explicit) return explicit
+    }
+    const anyVideo = candidates.find((c) => c.kind === 'video')
+    if (anyVideo) return anyVideo
   }
+
+  // Stored choice doesn't map to a live candidate — fall back to
+  // first available so the user is never stuck with a dead pick.
   return candidates[0]
+}
+
+export function getMasterClock(): MasterClockResolution {
+  const active = resolveActiveCandidate()
+  if (!active) return { element: null, kind: null, videoAssetId: null }
+  return {
+    element: active.element,
+    kind: active.kind,
+    videoAssetId: active.kind === 'video' ? active.id : null,
+  }
 }
 
 /**
  * React-friendly version of getMasterClock that re-renders on the
- * relevant store fields. Returns the same resolution shape so
- * consumers can swap between imperative and reactive use without
- * branching.
+ * relevant store fields. Returns the same shape so consumers can
+ * swap between imperative and reactive use without branching.
  */
 export function useMasterClock(): MasterClockResolution {
-  // Subscribing to each input field forces a re-resolve when any of
-  // them changes. The returned values aren't read directly — the
-  // resolver re-reads the live store — but the subscriptions are
-  // what give this hook its reactivity.
+  // Subscribe to every input that resolveActiveCandidate consults.
   useAudioStore((s) => s.audioElement)
   useAudioStore((s) => s.audioFile)
+  useAudioStore((s) => s.audioSource)
   useAudioStore((s) => s.videoAudioAssetId)
   useLayerStore((s) => s.layers)
   useVideoAssetStore((s) => s.assets)
   return getMasterClock()
 }
 
-/**
- * True when at least ONE valid clock source exists. Used by the
- * StudioPage render condition to decide whether to mount the
- * Timeline (vs the no-source AudioPlayerBar upload prompt).
- */
+/** True when at least one candidate exists. */
 export function useHasMasterClock(): boolean {
   return useMasterClock().element !== null
+}
+
+/** Reactive list of available candidates. */
+export function useAudioCandidates(): AudioCandidate[] {
+  useAudioStore((s) => s.audioElement)
+  useAudioStore((s) => s.audioFile)
+  useLayerStore((s) => s.layers)
+  useVideoAssetStore((s) => s.assets)
+  return getAudioCandidates()
 }
 
 export interface AnalyserSourceResolution {
@@ -132,36 +167,17 @@ export interface AnalyserSourceResolution {
 }
 
 /**
- * Which element should the visualiser AnalyserNode sample?
- *
- * 1. Explicit `audioSource === 'video'` with a valid asset → that
- *    video (even if an audio file is also loaded; this is the
- *    "play music video, analyse its audio" path).
- * 2. The uploaded audio element if one is loaded.
- * 3. Fallback to the master-clock video — kicks in when the user
- *    removed an audio file mid-session, or never uploaded one and
- *    just dropped a video. Without this fallback the analyser would
- *    starve and visualisers would freeze even though a video clock
- *    is happily playing.
+ * Same single-source-of-truth shape as the master clock — the
+ * analyser routing and the transport clock are deliberately the
+ * same element. Kept as a separate function so callers (mute logic,
+ * useAudioAnalyzer) can branch on `isVideo` without re-deriving it.
  */
 export function resolveAnalyserSource(): AnalyserSourceResolution {
-  const s = useAudioStore.getState()
-  if (s.audioSource === 'video' && s.videoAudioAssetId) {
-    const el = getVideoElement(s.videoAudioAssetId)
-    if (el) {
-      return { element: el, isVideo: true, videoAssetId: s.videoAudioAssetId }
-    }
+  const active = resolveActiveCandidate()
+  if (!active) return { element: null, isVideo: false, videoAssetId: null }
+  return {
+    element: active.element,
+    isVideo: active.kind === 'video',
+    videoAssetId: active.kind === 'video' ? active.id : null,
   }
-  if (s.audioElement) {
-    return { element: s.audioElement, isVideo: false, videoAssetId: null }
-  }
-  const fallback = resolveAudioSourceVideo()
-  if (fallback) {
-    return {
-      element: fallback.element,
-      isVideo: true,
-      videoAssetId: fallback.assetId,
-    }
-  }
-  return { element: null, isVideo: false, videoAssetId: null }
 }
