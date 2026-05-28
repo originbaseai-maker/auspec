@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioStore } from '@/store/useAudioStore'
+import { useLayerStore } from '@/store/useLayerStore'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import { AnalyzerEngine } from '@/lib/analyzerEngine'
 import { connectMediaElement, resumeAudioContext } from '@/lib/audioContext'
-import { getVideoElement } from '@/lib/videoPool'
+import { resolveAnalyserSource } from '@/lib/masterClock'
 import {
   DEFAULT_ANALYZER_CONFIG,
   type AnalyzerConfig,
@@ -17,10 +19,16 @@ export interface UseAudioAnalyzerResult {
 }
 
 export function useAudioAnalyzer(): UseAudioAnalyzerResult {
+  // Subscribe to every store field that resolveAnalyserSource reads,
+  // so the effect re-runs when ANY of them change. The hook itself
+  // resolves the source via the shared helper to keep the logic
+  // identical to other consumers (e.g. VisualizerCanvas mute logic).
   const audioElement = useAudioStore((s) => s.audioElement)
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const audioSource = useAudioStore((s) => s.audioSource)
   const videoAudioAssetId = useAudioStore((s) => s.videoAudioAssetId)
+  const layers = useLayerStore((s) => s.layers)
+  const assets = useVideoAssetStore((s) => s.assets)
   const [frequencyData, setFrequencyData] = useState<FrequencyData | null>(null)
   const [analyzerConfig, setAnalyzerConfig] = useState<AnalyzerConfig>(
     DEFAULT_ANALYZER_CONFIG,
@@ -28,17 +36,13 @@ export function useAudioAnalyzer(): UseAudioAnalyzerResult {
   const engineRef = useRef<AnalyzerEngine | null>(null)
 
   useEffect(() => {
-    // Resolve the live media element the analyser should sample:
-    //   'video' source AND a registered assetId → the pooled video
-    //   anything else → the uploaded audio element
-    // The audio element keeps playing silently as the master clock
-    // (so trim handles, play/pause, scrubbing all behave the same)
-    // — only the analyser routing changes.
-    const videoEl =
-      audioSource === 'video' && videoAudioAssetId
-        ? getVideoElement(videoAudioAssetId)
-        : null
-    const element: HTMLMediaElement | null = videoEl ?? audioElement
+    // Source priority — see resolveAnalyserSource:
+    //   1. Explicit 'video' source with valid asset.
+    //   2. Uploaded audio element (the common case).
+    //   3. Master-clock video fallback — kicks in when the user has
+    //      no audio file but a Video layer is the clock, so the
+    //      analyser keeps feeding visualisers instead of starving.
+    const { element } = resolveAnalyserSource()
 
     if (!element || !isPlaying) {
       engineRef.current?.stop()
@@ -67,7 +71,14 @@ export function useAudioAnalyzer(): UseAudioAnalyzerResult {
     return () => {
       engineRef.current?.stop()
     }
-  }, [audioElement, isPlaying, audioSource, videoAudioAssetId])
+  }, [
+    audioElement,
+    isPlaying,
+    audioSource,
+    videoAudioAssetId,
+    layers,
+    assets,
+  ])
 
   const updateConfig = useCallback((config: Partial<AnalyzerConfig>) => {
     setAnalyzerConfig((prev) => {

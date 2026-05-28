@@ -28,6 +28,7 @@ import {
 } from '@/lib/videoPool'
 import { canvasRegistry } from '@/lib/canvasRegistry'
 import { generateMockFrequencyData } from '@/lib/mockSpectrum'
+import { resolveAnalyserSource } from '@/lib/masterClock'
 import type { FrequencyData } from '@/types/analyzer'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
@@ -296,15 +297,20 @@ export default function VisualizerCanvas(): JSX.Element {
         }
       }
 
-      // Audio routing: the asset that's the visualisation's audio
+      // Audio routing: the asset that's the visualiser's analyser
       // source gets unmuted so the user hears it AND the analyser's
       // createMediaElementSource has signal to read. All other pool
       // videos stay muted (default) so we don't get layered audio.
-      // Audio is gated by audioSource — when 'uploaded', every video
-      // is muted regardless of videoAudioAssetId, preserving the
-      // "silent video layer over uploaded track" default.
+      // resolveAnalyserSource collapses three cases into one rule:
+      //   - explicit 'video' source → THAT video unmuted
+      //   - audio file loaded ('uploaded') → all videos muted
+      //   - no audio file, video clock fallback → the clock video
+      //     gets unmuted automatically so visualisers + audio align
+      //     even when the user never touched the source toggle.
+      const analyserSource = resolveAnalyserSource()
       const shouldUnmute =
-        audioSource === 'video' && assetId === videoAudioAssetId
+        analyserSource.isVideo &&
+        analyserSource.videoAssetId === assetId
       if (video.muted !== !shouldUnmute) {
         video.muted = !shouldUnmute
       }
