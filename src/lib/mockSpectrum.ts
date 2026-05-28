@@ -1,4 +1,10 @@
 import type { FrequencyData } from '@/types/analyzer'
+import { toLogScaleBins } from '@/lib/audio/logScaleBins'
+import {
+  SPECTRUM_ATTACK,
+  SPECTRUM_BINS,
+  SPECTRUM_RELEASE,
+} from '@/lib/audio/constants'
 
 /**
  * Generates synthetic frequency + time-domain data for the visualizer
@@ -17,6 +23,12 @@ const TIME_DOMAIN_SIZE = 2048
 // Pre-allocated buffers — reused every frame, zero per-frame allocations.
 const mockRaw = new Uint8Array(RAW_SIZE)
 const mockTimeDomain = new Uint8Array(TIME_DOMAIN_SIZE)
+const mockSpectrumTarget = new Float32Array(SPECTRUM_BINS)
+const mockSmoothedSpectrum = new Float32Array(SPECTRUM_BINS)
+// Preview spectrum uses the same sample rate the real engine usually
+// runs at — 48 kHz is the modern default; 44.1k is close enough that
+// the log-bin distribution barely shifts.
+const MOCK_SAMPLE_RATE = 48000
 
 export function generateMockFrequencyData(time: number): FrequencyData {
   // Beat at 120 BPM = 2 Hz (Math.PI * 4 over t in seconds).
@@ -91,6 +103,23 @@ export function generateMockFrequencyData(time: number): FrequencyData {
   const rms = Math.sqrt(sumSquares / TIME_DOMAIN_SIZE)
   const beatEnergy = Math.pow(beat, 3)
 
+  // Mirror the real engine: log-bin then asymmetric-lerp. Preview mode
+  // visualisers go through the same spectrum pipeline as live audio,
+  // so the look is identical when designers toggle preview on/off.
+  toLogScaleBins(
+    mockRaw,
+    MOCK_SAMPLE_RATE,
+    SPECTRUM_BINS,
+    mockSpectrumTarget,
+    'average',
+  )
+  for (let i = 0; i < SPECTRUM_BINS; i++) {
+    const t = mockSpectrumTarget[i]
+    const cur = mockSmoothedSpectrum[i]
+    const factor = t > cur ? SPECTRUM_ATTACK : SPECTRUM_RELEASE
+    mockSmoothedSpectrum[i] = cur + (t - cur) * factor
+  }
+
   return {
     raw: mockRaw,
     bass,
@@ -100,5 +129,7 @@ export function generateMockFrequencyData(time: number): FrequencyData {
     peak,
     beatEnergy,
     timeDomain: mockTimeDomain,
+    spectrum: mockSmoothedSpectrum,
+    spectrumBins: SPECTRUM_BINS,
   }
 }

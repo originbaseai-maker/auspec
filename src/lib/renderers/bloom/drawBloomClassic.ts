@@ -1,7 +1,10 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { firstColor } from '@/lib/colorPalette'
-import { applyBandSensitivity } from '@/lib/frequencyUtils'
+import {
+  applyBandSensitivityByFreq,
+  spectrumIdxToFreq,
+} from '@/lib/audio/logScaleBins'
 
 /**
  * Per-config rotation accumulator. Keyed by the live config object via
@@ -35,14 +38,21 @@ export function drawBloomClassic(
   const cx = width * (config.offsetX ?? 0.5)
   const cy = height * (config.offsetY ?? 0.5)
 
-  const raw = data.raw
+  const spectrum = data.spectrum
+  const spectrumBins = data.spectrumBins
+  // BloomConfig.startFrequency/endFrequency are on a 0..100 scale —
+  // the legacy semantic mapped them onto the linear FFT's bin range.
+  // We preserve the same percentage-of-spectrum reading, which on the
+  // log-scaled array gives bass slightly more relative weight than
+  // before. The Bloom "Hz window" sliders already lean bass-heavy by
+  // default (0–80%), so this lines up with how users tune it.
   const startBin = Math.max(
     0,
-    Math.floor((config.startFrequency / 100) * raw.length),
+    Math.floor((config.startFrequency / 100) * spectrumBins),
   )
   const endBin = Math.min(
-    raw.length,
-    Math.floor((config.endFrequency / 100) * raw.length),
+    spectrumBins,
+    Math.floor((config.endFrequency / 100) * spectrumBins),
   )
   const usableBins = Math.max(1, endBin - startBin)
 
@@ -51,17 +61,15 @@ export function drawBloomClassic(
 
   for (let i = 0; i < pointCount; i++) {
     const t = i / pointCount
-    const binIdx = startBin + Math.floor(t * usableBins)
-    const rawValue = raw[binIdx] ?? 0
-    const adjusted = applyBandSensitivity(
-      rawValue,
-      binIdx,
-      raw.length,
+    const sIdx = Math.min(spectrumBins - 1, startBin + Math.floor(t * usableBins))
+    const freq = spectrumIdxToFreq(sIdx, spectrumBins)
+    samples[i] = applyBandSensitivityByFreq(
+      spectrum[sIdx] ?? 0,
+      freq,
       config.bassSensitivity ?? 1,
       config.midSensitivity ?? 1,
       config.trebleSensitivity ?? 1,
     )
-    samples[i] = adjusted / 255
   }
 
   const bassEnergy = data.bass / 255

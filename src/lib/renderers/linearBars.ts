@@ -1,8 +1,9 @@
 import type { FrequencyData } from '@/types/analyzer'
 import {
-  applyBandSensitivity,
-  getFrequencyBinRange,
-} from '@/lib/frequencyUtils'
+  applyBandSensitivityByFreq,
+  freqToSpectrumIdx,
+  spectrumIdxToFreq,
+} from '@/lib/audio/logScaleBins'
 import {
   addPaletteStops,
   lastColor,
@@ -36,8 +37,6 @@ export interface LinearBarsConfig {
   trebleSensitivity?: number
 }
 
-const FALLBACK_SAMPLE_RATE = 44100
-
 export function renderLinearBars(
   ctx: CanvasRenderingContext2D,
   frequencyData: FrequencyData,
@@ -67,21 +66,18 @@ export function renderLinearBars(
     midSensitivity = 1,
     trebleSensitivity = 1,
   } = config
-  const { raw } = frequencyData
+  const { spectrum, spectrumBins } = frequencyData
 
-  // Frequency range slicing — only sample bins inside [startFrequency, endFrequency].
-  const { startBin, endBin } = getFrequencyBinRange(
-    raw.length * 2,
-    FALLBACK_SAMPLE_RATE,
-    startFrequency,
-    endFrequency,
-  )
-  const slicedRaw = raw.subarray(startBin, endBin + 1)
-  const sourceLen = slicedRaw.length || 1
+  // Frequency range → log-scaled spectrum index range. Spectrum bins
+  // are spaced evenly across log(20 Hz)..log(20 kHz), so this slice
+  // gives bass more relative pixels per bar than the old linear FFT
+  // path could — exactly where the visual action lives.
+  const sStart = freqToSpectrumIdx(startFrequency, spectrumBins)
+  const sEnd = freqToSpectrumIdx(endFrequency, spectrumBins)
+  const sRange = Math.max(1, sEnd - sStart)
 
   const totalGap = barGap * (barCount - 1)
   const barWidth = Math.max(1, (width - totalGap) / barCount)
-  const step = Math.max(1, Math.floor(sourceLen / barCount))
 
   if (glowEnabled) {
     ctx.shadowBlur = glowIntensity
@@ -95,25 +91,28 @@ export function renderLinearBars(
   const drawBottom = sideMode !== 'side_a'
   const centerY = height / 2
 
-  // Smoothing pass — runs every frame regardless of display mode so the
-  // perceived response is consistent when switching modes. Per-band gain
-  // uses the ABSOLUTE bin position in the full FFT (startBin + i*step),
-  // not the sliced index, so "bass" stays bass even when the user has
-  // narrowed startFrequency/endFrequency.
-  const totalBins = raw.length
+  // Smoothing pass — runs every frame regardless of display mode so
+  // the perceived response is consistent when switching modes. Per-band
+  // gain is applied by FREQUENCY (Hz), not bin position, so the user's
+  // bass/mid/treble multipliers still target the bands they hear.
+  // `spectrum` is the asymmetric-lerped log-scaled array — already
+  // 0..1, already smoothed by the analyzer, so most of the flow comes
+  // from there. The renderer's own `smoothing` still adds a final
+  // pass for per-layer feel.
   for (let i = 0; i < barCount; i++) {
-    const absBin = startBin + i * step
-    const rawValue = applyBandSensitivity(
-      slicedRaw[i * step] ?? 0,
-      absBin,
-      totalBins,
+    const sIdxF = sStart + (i / barCount) * sRange
+    const sIdx = Math.min(spectrumBins - 1, Math.max(0, Math.floor(sIdxF)))
+    const freq = spectrumIdxToFreq(sIdx, spectrumBins)
+    const value = applyBandSensitivityByFreq(
+      spectrum[sIdx] ?? 0,
+      freq,
       bassSensitivity,
       midSensitivity,
       trebleSensitivity,
     )
     const targetHeight = Math.max(
       minBarHeight,
-      (rawValue / 255) * height * (mirrorMode ? 0.5 : 1),
+      value * height * (mirrorMode ? 0.5 : 1),
     )
     previousHeights[i] =
       previousHeights[i] + (targetHeight - previousHeights[i]) * smoothing

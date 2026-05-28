@@ -54,8 +54,8 @@ export function drawHaloFlame(
 
   const count = Math.max(6, Math.min(24, config.flameCount ?? 12))
   const dir = config.flameDirection ?? 'all'
-  const raw = data.raw
-  const totalBins = raw.length
+  const spectrum = data.spectrum
+  const spectrumBins = data.spectrumBins
 
   const bassEnergy = (data.bass / 255) * config.bassSensitivity
   const beat = Math.min(1, data.beatEnergy)
@@ -66,7 +66,7 @@ export function drawHaloFlame(
 
   const baseR = config.baseRadius
   const baseLength = baseR * 0.7
-  const binStep = Math.max(1, Math.floor(totalBins / count))
+  const binStep = Math.max(1, Math.floor(spectrumBins / count))
 
   const hotColor = firstColor(config.palette, config.colorStart)
   const tipColor = lastColor(config.palette, config.colorEnd)
@@ -90,8 +90,8 @@ export function drawHaloFlame(
         ? -Math.PI / 2 + (i - count / 2) * 0.06 // slight horizontal spread
         : baseAngle
 
-    const binIdx = (i * binStep) % totalBins
-    const bandEnergy = (raw[binIdx] ?? 0) / 255
+    const sIdx = (i * binStep) % spectrumBins
+    const bandEnergy = spectrum[sIdx] ?? 0
     const flicker = 0.85 + 0.15 * Math.sin(tSec * seeds.freqs[i] * Math.PI + seeds.phases[i])
     const length =
       baseLength * (0.7 + bandEnergy * 1.5 + bassEnergy + beat * 0.4) * flicker

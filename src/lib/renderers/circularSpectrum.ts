@@ -2,9 +2,10 @@ import type { FrequencyData } from '@/types/analyzer'
 import type { VideoSyncMode } from '@/types/video'
 import type { VideoFit } from '@/types/layer'
 import {
-  applyBandSensitivity,
-  getFrequencyBinRange,
-} from '@/lib/frequencyUtils'
+  applyBandSensitivityByFreq,
+  freqToSpectrumIdx,
+  spectrumIdxToFreq,
+} from '@/lib/audio/logScaleBins'
 import {
   addPaletteStops,
   firstColor,
@@ -45,8 +46,6 @@ export interface CircularSpectrumConfig {
   videoFillSyncMode?: VideoSyncMode
   videoFillFit?: VideoFit
 }
-
-const FALLBACK_SAMPLE_RATE = 44100
 
 export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
   radius: 180,
@@ -94,18 +93,13 @@ export function renderCircularSpectrum(
     midSensitivity = 1,
     trebleSensitivity = 1,
   } = config
-  const { raw, bass } = frequencyData
+  const { spectrum, spectrumBins, bass } = frequencyData
 
-  if (!raw || raw.length === 0) return
+  if (!spectrum || spectrumBins === 0) return
 
-  const { startBin, endBin } = getFrequencyBinRange(
-    raw.length * 2,
-    FALLBACK_SAMPLE_RATE,
-    startFrequency,
-    endFrequency,
-  )
-  const slicedRaw = raw.subarray(startBin, endBin + 1)
-  const sourceLen = slicedRaw.length || 1
+  const sStart = freqToSpectrumIdx(startFrequency, spectrumBins)
+  const sEnd = freqToSpectrumIdx(endFrequency, spectrumBins)
+  const sRange = Math.max(1, sEnd - sStart)
 
   const drawOutward = sideMode !== 'side_b'
   const drawInward = sideMode !== 'side_a'
@@ -140,7 +134,6 @@ export function renderCircularSpectrum(
 
   // Available radial space for bars
   const barMaxLength = Math.max(8, effectiveOuterRadius - effectiveInnerRadius)
-  const step = Math.max(1, Math.floor(sourceLen / barCount))
   // Inward bars can extend at most to the center; cap so they don't cross it.
   const inwardMaxLength = Math.max(0, pulseAmount - 4)
 
@@ -224,18 +217,18 @@ export function renderCircularSpectrum(
   const barThickness = Math.max(1, (Math.PI * 2 * effectiveInnerRadius) / barCount - 1)
   ctx.lineWidth = barThickness
 
-  const totalBins = raw.length
   for (let i = 0; i < barCount; i++) {
-    const absBin = startBin + i * step
-    const rawValue = applyBandSensitivity(
-      slicedRaw[i * step] ?? 0,
-      absBin,
-      totalBins,
+    const sIdxF = sStart + (i / barCount) * sRange
+    const sIdx = Math.min(spectrumBins - 1, Math.max(0, Math.floor(sIdxF)))
+    const freq = spectrumIdxToFreq(sIdx, spectrumBins)
+    const value = applyBandSensitivityByFreq(
+      spectrum[sIdx] ?? 0,
+      freq,
       bassSensitivity,
       midSensitivity,
       trebleSensitivity,
     )
-    const targetLength = (rawValue / 255) * barMaxLength
+    const targetLength = value * barMaxLength
 
     previousHeights[i] =
       previousHeights[i] + (targetLength - previousHeights[i]) * smoothing

@@ -24,8 +24,8 @@ export function drawHaloRadialBurst(
   const cy = height * config.offsetY
 
   const rayCount = Math.max(12, Math.min(48, config.rayCount ?? 24))
-  const raw = data.raw
-  const totalBins = raw.length
+  const spectrum = data.spectrum
+  const spectrumBins = data.spectrumBins
 
   const bassEnergy = (data.bass / 255) * config.bassSensitivity
   const beat = Math.min(1, data.beatEnergy)
@@ -52,8 +52,8 @@ export function drawHaloRadialBurst(
   )
 
   const innerR = config.baseRadius
-  // One bin per ray, evenly spread across the spectrum.
-  const binStep = Math.max(1, Math.floor(totalBins / rayCount))
+  // One log-scaled bin per ray, evenly spread across the spectrum.
+  const binStep = Math.max(1, Math.floor(spectrumBins / rayCount))
 
   ctx.save()
   ctx.translate(cx, cy)
@@ -68,8 +68,8 @@ export function drawHaloRadialBurst(
 
   for (let i = 0; i < rayCount; i++) {
     const angle = (i / rayCount) * Math.PI * 2
-    const binIdx = (i * binStep) % totalBins
-    const bandEnergy = (raw[binIdx] ?? 0) / 255
+    const sIdx = (i * binStep) % spectrumBins
+    const bandEnergy = spectrum[sIdx] ?? 0
     // Outer radius: 1.5× base at silence → up to ~3× at full peak.
     const scale = 1.5 + bandEnergy * 2 + bassEnergy * 0.5 + beatPunch
     const outerR = innerR * scale

@@ -20,8 +20,8 @@ export function drawHaloSpectrumCrown(
   const cy = height * config.offsetY
 
   const barCount = Math.max(32, Math.min(128, config.barCount ?? 64))
-  const raw = data.raw
-  const totalBins = raw.length
+  const spectrum = data.spectrum
+  const spectrumBins = data.spectrumBins
 
   const bassEnergy = (data.bass / 255) * config.bassSensitivity
   const trebleEnergy = (data.treble / 255) * config.trebleSensitivity
@@ -41,7 +41,7 @@ export function drawHaloSpectrumCrown(
   const circumference = 2 * Math.PI * innerR
   const barWidth = (circumference / barCount) * 0.7
 
-  const binStep = Math.max(1, Math.floor(totalBins / barCount))
+  const binStep = Math.max(1, Math.floor(spectrumBins / barCount))
 
   const rotRad = (config.rotation * Math.PI) / 180
 
@@ -66,8 +66,8 @@ export function drawHaloSpectrumCrown(
 
   for (let i = 0; i < barCount; i++) {
     const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2
-    const binIdx = (i * binStep) % totalBins
-    const bandEnergy = (raw[binIdx] ?? 0) / 255
+    const sIdx = (i * binStep) % spectrumBins
+    const bandEnergy = spectrum[sIdx] ?? 0
     // Beat punch boosts every bar uniformly so peaks are dramatic.
     const barH = bandEnergy * maxBarH * (1 + beat * 0.3)
     if (barH < 0.5) continue

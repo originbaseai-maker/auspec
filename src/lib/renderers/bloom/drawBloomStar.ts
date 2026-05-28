@@ -1,7 +1,10 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { firstColor, lastColor } from '@/lib/colorPalette'
-import { applyBandSensitivity } from '@/lib/frequencyUtils'
+import {
+  applyBandSensitivityByFreq,
+  spectrumIdxToFreq,
+} from '@/lib/audio/logScaleBins'
 
 const rotationByConfig = new WeakMap<
   BloomConfig,
@@ -30,9 +33,8 @@ export function drawBloomStar(
 
   const spikes = Math.max(4, Math.min(12, config.starPoints ?? 6))
 
-  const raw = data.raw
-  // Use full spectrum here; per-band sensitivity handles weighting.
-  const totalBins = raw.length
+  const spectrum = data.spectrum
+  const spectrumBins = data.spectrumBins
 
   // Slow continuous rotation.
   const now = performance.now()
@@ -55,8 +57,11 @@ export function drawBloomStar(
   // tunes how aggressively spikes shoot out.
   const outerRange = baseR * 1.0 * config.amplitudeScale
 
-  // Sample one bin per spike, spread evenly across the spectrum.
-  const sampleStep = Math.max(1, Math.floor(totalBins / spikes))
+  // Sample one log-scaled bin per spike, spread evenly across the
+  // spectrum. Log-binning means each spike now corresponds to a
+  // similar perceptual octave range rather than a fixed Hz slice —
+  // the star "feels" more even across the music.
+  const sampleStep = Math.max(1, Math.floor(spectrumBins / spikes))
 
   ctx.save()
   ctx.translate(cx, cy)
@@ -87,17 +92,15 @@ export function drawBloomStar(
 
     let r: number
     if (isOuter) {
-      const binIdx = (spikeIdx * sampleStep) % totalBins
-      const rawValue = raw[binIdx] ?? 0
-      const adjusted = applyBandSensitivity(
-        rawValue,
-        binIdx,
-        totalBins,
+      const sIdx = (spikeIdx * sampleStep) % spectrumBins
+      const freq = spectrumIdxToFreq(sIdx, spectrumBins)
+      const energy = applyBandSensitivityByFreq(
+        spectrum[sIdx] ?? 0,
+        freq,
         config.bassSensitivity ?? 1,
         config.midSensitivity ?? 1,
         config.trebleSensitivity ?? 1,
       )
-      const energy = adjusted / 255
       r = baseR + energy * outerRange
     } else {
       r = innerR
