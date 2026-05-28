@@ -259,6 +259,18 @@ export function LayerSidebar(): JSX.Element {
       e.preventDefault()
       return
     }
+    // Bail when the drag originated inside a `data-no-drag` element
+    // (e.g. the opacity slider). Without this the parent row's
+    // HTML5 drag handler fires on any pointerdown inside the row,
+    // including on the slider thumb — so adjusting opacity would
+    // accidentally start a reorder.
+    if (
+      e.target instanceof HTMLElement &&
+      e.target.closest('[data-no-drag]') !== null
+    ) {
+      e.preventDefault()
+      return
+    }
     setDraggedId(layer.id)
     e.dataTransfer.effectAllowed = 'move'
     // Firefox requires setData to actually start the drag.
@@ -296,7 +308,22 @@ export function LayerSidebar(): JSX.Element {
 
   const handleContextMenu = (e: React.MouseEvent, layer: Layer) => {
     e.preventDefault()
-    setContextMenu({ layerId: layer.id, x: e.clientX, y: e.clientY })
+    // Clamp the spawn position so the menu stays inside the viewport
+    // even when the user right-clicks on the bottommost layer (where
+    // a downward menu would slide off-screen) or close to the right
+    // edge. Estimate dims from the menu's content — 7 rows + 2
+    // dividers + padding ≈ 240 px tall, width matches the menu's
+    // w-44 (176 px). 8 px safety buffer keeps the menu off the
+    // viewport edge. Mirrors the flip-on-clip approach the Add menu
+    // already uses.
+    const MENU_W = 176
+    const MENU_H = 240
+    const BUFFER = 8
+    const maxX = window.innerWidth - MENU_W - BUFFER
+    const maxY = window.innerHeight - MENU_H - BUFFER
+    const x = Math.max(BUFFER, Math.min(e.clientX, maxX))
+    const y = Math.max(BUFFER, Math.min(e.clientY, maxY))
+    setContextMenu({ layerId: layer.id, x, y })
   }
 
   const renderRow = (layer: Layer) => {
@@ -447,10 +474,21 @@ export function LayerSidebar(): JSX.Element {
 
         {isActive && !isRenaming && (
           <div
+            data-no-drag
             className="flex items-center gap-2 border-t px-2 py-1"
             style={{ borderColor: '#1a1a1a' }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
+            // Belt + suspenders: even if the row's onDragStart misses
+            // the data-no-drag check (e.g. during ancestor capture
+            // re-entry), preventing dragstart here stops the reorder
+            // dead in its tracks. preventDefault on a draggable
+            // descendant cancels the parent's drag pipeline.
+            onDragStart={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            draggable={false}
           >
             <span className="text-[9px] uppercase tracking-wider text-white/40 w-6 shrink-0">
               Opc
@@ -609,12 +647,16 @@ export function LayerSidebar(): JSX.Element {
           />
           <div
             role="menu"
-            className="fixed z-50 w-44 rounded-lg border p-1 shadow-2xl"
+            className="fixed z-50 w-44 rounded-lg border p-1 shadow-2xl overflow-y-auto overscroll-contain"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
               borderColor: '#2a2a2a',
               background: '#131313',
+              // Same belt-and-braces fallback as the Add menu — if a
+              // very short viewport still can't fit the menu after
+              // clamping, internal scroll picks up the rest.
+              maxHeight: 'min(60vh, 420px)',
             }}
           >
             {(() => {
