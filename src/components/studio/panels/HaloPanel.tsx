@@ -1,4 +1,6 @@
 import { useLayerStore } from '@/store/useLayerStore'
+import { useVideoAssetStore } from '@/store/useVideoAssetStore'
+import { isHaloStyleFillable } from '@/lib/fillSource'
 import type {
   HaloFlameDirection,
   HaloFrameShape,
@@ -9,12 +11,19 @@ import { Image as ImageIcon } from 'lucide-react'
 import {
   CenterSliderRow,
   LockedLayerBanner,
+  LogoFillPicker,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
   SliderRow,
   Toggle,
 } from './shared'
+
+const FIT_MODES = [
+  { id: 'cover' as const, label: 'Cover' },
+  { id: 'contain' as const, label: 'Contain' },
+  { id: 'fill' as const, label: 'Fill' },
+]
 
 interface Props {
   layerId: string
@@ -70,6 +79,7 @@ export function HaloPanel({ layerId }: Props) {
     return s.layers.find((l) => l.id === layerId && l.type === 'halo')
   })
   const updateConfig = useLayerStore((s) => s.updateConfig)
+  const videoAssets = useVideoAssetStore((s) => s.assets)
   // Logo lookup — drives the "Add a Logo" prompt when no logo exists
   // and lockToLogo is true.
   const hasLogoLayer = useLayerStore((s) =>
@@ -388,6 +398,101 @@ export function HaloPanel({ layerId }: Props) {
           ariaLabel="Rotation offset"
         />
       </PanelGroup>
+
+      {/* Inner Fill — only on closed-area styles (PulseFrame). The
+          open styles (RadialBurst, SpectrumCrown, Flame, Orbit)
+          have no enclosed area so the fill UI is hidden. Config
+          persists across style switches so the user's fill setup
+          isn't lost when they hop styles. */}
+      {isHaloStyleFillable(cfg.style) && (
+        <PanelGroup title="Inner Fill">
+          <div className="mb-2">
+            <SegmentedGroup
+              options={[
+                { id: 'none' as const, label: 'None' },
+                { id: 'video' as const, label: 'Video' },
+                { id: 'image' as const, label: 'Image' },
+              ]}
+              value={
+                cfg.videoFillEnabled
+                  ? 'video'
+                  : cfg.imageFillEnabled
+                    ? 'image'
+                    : 'none'
+              }
+              onChange={(v) =>
+                update({
+                  videoFillEnabled: v === 'video',
+                  imageFillEnabled: v === 'image',
+                })
+              }
+              cols={3}
+            />
+          </div>
+          {cfg.videoFillEnabled && (
+            <div className="space-y-2">
+              {videoAssets.length === 0 ? (
+                <p
+                  className="rounded-md border px-3 py-2 text-[11px] text-white/60"
+                  style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+                >
+                  No videos uploaded yet. Open the Videos modal to add one.
+                </p>
+              ) : (
+                <>
+                  <select
+                    value={cfg.videoFillAssetId ?? ''}
+                    onChange={(e) =>
+                      update({ videoFillAssetId: e.target.value || null })
+                    }
+                    className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+                    style={{ borderColor: '#2a2a2a' }}
+                    aria-label="Halo video fill source"
+                  >
+                    <option value="">— Connect to video —</option>
+                    {videoAssets.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40">
+                    Fit
+                  </p>
+                  <SegmentedGroup
+                    options={FIT_MODES}
+                    value={cfg.videoFillFit ?? 'cover'}
+                    onChange={(v) => update({ videoFillFit: v })}
+                    cols={3}
+                  />
+                </>
+              )}
+            </div>
+          )}
+          {cfg.imageFillEnabled && (
+            <div className="space-y-2">
+              <LogoFillPicker
+                value={cfg.imageFillLogoLayerId ?? null}
+                onChange={(id) =>
+                  update({
+                    imageFillLogoLayerId: id,
+                    imageFillSrc: id ? null : (cfg.imageFillSrc ?? null),
+                  })
+                }
+              />
+              <p className="text-[10px] uppercase tracking-wider text-white/40">
+                Fit
+              </p>
+              <SegmentedGroup
+                options={FIT_MODES}
+                value={cfg.imageFillFit ?? 'cover'}
+                onChange={(v) => update({ imageFillFit: v })}
+                cols={3}
+              />
+            </div>
+          )}
+        </PanelGroup>
+      )}
     </div>
   )
 }
