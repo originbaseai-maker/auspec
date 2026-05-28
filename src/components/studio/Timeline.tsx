@@ -201,7 +201,11 @@ export function Timeline() {
 
       <div
         ref={trackRef}
-        className="relative h-10 flex-1 cursor-pointer rounded-lg border bg-[#131313]"
+        className={
+          isVideoClock
+            ? 'relative h-6 flex-1 cursor-pointer rounded-lg border bg-[#131313]'
+            : 'relative h-10 flex-1 cursor-pointer rounded-lg border bg-[#131313]'
+        }
         style={{ borderColor: '#1f1f1f' }}
         onPointerDown={(e) => {
           const t = pointToTime(e.clientX)
@@ -216,31 +220,14 @@ export function Timeline() {
         }}
       >
         {isVideoClock ? (
-          /* Video clock: there's no waveform to draw (no audio file
-             to sample). A flat duration bar fills the same visual
-             slot — the trim window overlay, trim handles, and
-             playhead all still work because they reference the
-             timeline's geometry, not the bars. */
-          <div className="absolute inset-x-1 top-1/2 -translate-y-1/2">
-            <div
-              className="h-1.5 w-full rounded-full"
-              style={{
-                background:
-                  'linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.18), rgba(255,255,255,0.10))',
-              }}
-              aria-hidden="true"
-            />
-            {duration > 0 && (
-              <div
-                className="absolute top-0 h-1.5 rounded-full"
-                style={{
-                  width: `${Math.min(100, Math.max(0, (currentTime / duration) * 100))}%`,
-                  background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-                }}
-                aria-hidden="true"
-              />
-            )}
-          </div>
+          /* Video clock: the VideoTimelineTrack above is the primary
+             scrub surface. This row collapses to a trim-controls
+             band — trim window highlight + handles + playhead — so
+             we keep the trim affordances without a second redundant
+             duration bar. The trim window highlight is rendered by
+             the existing block below; here we just suppress the
+             waveform / duration-line render. */
+          null
         ) : (
         <div className="absolute inset-0 flex items-center justify-between px-1">
           {Array.from({ length: 200 }).map((_, i) => {
