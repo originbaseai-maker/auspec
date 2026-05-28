@@ -14,6 +14,18 @@ import {
 } from '@/lib/colorPalette'
 import { getVideoElement } from '@/lib/videoPool'
 
+const fillImageCache = new Map<string, HTMLImageElement>()
+
+function getOrLoadFillImage(src: string): HTMLImageElement {
+  let img = fillImageCache.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    fillImageCache.set(src, img)
+  }
+  return img
+}
+
 export type PolygonShape =
   | 'triangle'
   | 'square'
@@ -52,6 +64,16 @@ export interface PolygonSpectrumConfig {
   videoFillAssetId?: string | null
   videoFillSyncMode?: VideoSyncMode
   videoFillFit?: VideoFit
+  /**
+   * Image fill — clipped to the same exact-form polygon as the
+   * video fill. Mutually exclusive in UI; if both flagged, video
+   * wins. imageFillLogoLayerId enables bidirectional connection
+   * (Logo panel shows where it's used as a fill).
+   */
+  imageFillEnabled?: boolean
+  imageFillSrc?: string | null
+  imageFillLogoLayerId?: string | null
+  imageFillFit?: VideoFit
 }
 
 export const DEFAULT_POLYGON_CONFIG: PolygonSpectrumConfig = {
@@ -230,6 +252,12 @@ function getPerimeterPoints(
   return points
 }
 
+/**
+ * `resolvedImageFillSrc`: when the layer's image fill references a
+ * Logo layer (via `imageFillLogoLayerId`), the caller resolves it
+ * to that Logo's current imageSrc and passes it through. Same
+ * pattern as renderCircularSpectrum.
+ */
 export function renderPolygonSpectrum(
   ctx: CanvasRenderingContext2D,
   frequencyData: FrequencyData,
@@ -237,6 +265,7 @@ export function renderPolygonSpectrum(
   width: number,
   height: number,
   previousHeights: Float32Array,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const {
     shape,
@@ -335,6 +364,59 @@ export function renderPolygonSpectrum(
       }
       ctx.drawImage(video, dx, dy, dw, dh)
       ctx.restore()
+    }
+  } else if (config.imageFillEnabled) {
+    // Image fill — exact-form polygon clip, same fit math as the
+    // video branch above. Source preference: resolved Logo-layer
+    // imageSrc when set (bidirectional cascade), inline data URL
+    // when not.
+    const src = resolvedImageFillSrc ?? config.imageFillSrc ?? null
+    if (src) {
+      const img = getOrLoadFillImage(src)
+      if (img.complete && img.naturalWidth > 0) {
+        ctx.save()
+        ctx.beginPath()
+        for (let i = 0; i < vertices.length; i++) {
+          const v = vertices[i]
+          if (i === 0) ctx.moveTo(v.x, v.y)
+          else ctx.lineTo(v.x, v.y)
+        }
+        ctx.closePath()
+        ctx.clip()
+
+        const bw = scaledRadius * 2
+        const bh = scaledRadius * 2
+        const lx = cx - scaledRadius
+        const ly = cy - scaledRadius
+        const iw = img.naturalWidth
+        const ih = img.naturalHeight
+        const iAR = iw / ih
+        const boxAR = bw / Math.max(bh, 1)
+        const fit = config.imageFillFit ?? 'cover'
+        let dx = lx
+        let dy = ly
+        let dw = bw
+        let dh = bh
+        if (fit === 'cover') {
+          if (iAR > boxAR) {
+            dw = bh * iAR
+            dx = lx + (bw - dw) / 2
+          } else {
+            dh = bw / iAR
+            dy = ly + (bh - dh) / 2
+          }
+        } else if (fit === 'contain') {
+          if (iAR > boxAR) {
+            dh = bw / iAR
+            dy = ly + (bh - dh) / 2
+          } else {
+            dw = bh * iAR
+            dx = lx + (bw - dw) / 2
+          }
+        }
+        ctx.drawImage(img, dx, dy, dw, dh)
+        ctx.restore()
+      }
     }
   }
 

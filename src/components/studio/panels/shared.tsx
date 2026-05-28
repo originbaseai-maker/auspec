@@ -677,6 +677,62 @@ export function PanelGroup({
  * `opacity: 0.5; pointerEvents: 'none'` so the controls visibly read
  * as disabled.
  */
+/**
+ * Logo-layer dropdown picker for the unified "Image fill" path on
+ * container panels. The renderer reads the referenced Logo's
+ * imageSrc each frame, so picking a Logo here both:
+ *   1. Connects the container so the bidirectional UI in LogoPanel
+ *      can show "Used as fill in: …"
+ *   2. Makes a Logo update cascade into every container using it
+ *      (one upload, many fills).
+ *
+ * When no Logo exists yet, shows a helper hint instead of an empty
+ * dropdown so the user knows the next action (upload via the Logo
+ * tile or drop an image).
+ */
+import { useLayerStore } from '@/store/useLayerStore'
+
+export function LogoFillPicker({
+  value,
+  onChange,
+}: {
+  value: string | null
+  onChange: (id: string | null) => void
+}) {
+  const logoLayers = useLayerStore((s) =>
+    s.layers
+      .filter((l) => l.type === 'logo')
+      .sort((a, b) => b.zOrder - a.zOrder),
+  )
+  if (logoLayers.length === 0) {
+    return (
+      <p
+        className="rounded-md border px-3 py-2 text-[11px] text-white/60"
+        style={{ borderColor: '#2a2a2a', background: '#0f0f0f' }}
+      >
+        No Logo layers yet. Add one from the Tools panel or drop an
+        image — that's the asset you'll be connecting to.
+      </p>
+    )
+  }
+  return (
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6]"
+      style={{ borderColor: '#2a2a2a' }}
+      aria-label="Image fill source"
+    >
+      <option value="">— Connect to logo —</option>
+      {logoLayers.map((l) => (
+        <option key={l.id} value={l.id}>
+          {l.name}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 export function LockedLayerBanner() {
   return (
     <div

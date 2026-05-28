@@ -14,6 +14,23 @@ import {
 } from '@/lib/colorPalette'
 import { getVideoElement } from '@/lib/videoPool'
 
+/**
+ * Lazy image cache for the `image` fill kind. Shared across all
+ * Circular layers — the same data URL maps to the same image, and
+ * decoding happens once per src.
+ */
+const fillImageCache = new Map<string, HTMLImageElement>()
+
+function getOrLoadFillImage(src: string): HTMLImageElement {
+  let img = fillImageCache.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    fillImageCache.set(src, img)
+  }
+  return img
+}
+
 export type CircularSideMode = 'both' | 'side_a' | 'side_b'
 
 export interface CircularSpectrumConfig {
@@ -45,6 +62,18 @@ export interface CircularSpectrumConfig {
   videoFillAssetId?: string | null
   videoFillSyncMode?: VideoSyncMode
   videoFillFit?: VideoFit
+  /**
+   * Image fill — clipped to the same exact-form circle as the video
+   * fill, mutually exclusive (UI prevents both being enabled at once,
+   * but if they are, video wins because it's the more dynamic asset).
+   * imageFillSrc is an inline data URL (uploaded directly); when
+   * imageFillLogoLayerId is set, the renderer prefers the referenced
+   * Logo layer's image so removing the Logo cleanly removes the fill.
+   */
+  imageFillEnabled?: boolean
+  imageFillSrc?: string | null
+  imageFillLogoLayerId?: string | null
+  imageFillFit?: VideoFit
 }
 
 export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
@@ -64,6 +93,13 @@ export const DEFAULT_CIRCULAR_SPECTRUM_CONFIG: CircularSpectrumConfig = {
   sideMode: 'both',
 }
 
+/**
+ * `resolvedImageFillSrc`: when the layer's image fill references a
+ * Logo layer (via `imageFillLogoLayerId`), the caller (VisualizerCanvas)
+ * resolves it to that Logo's current imageSrc and passes it through.
+ * Without that, the renderer wouldn't have access to the layer
+ * stack — sidestepping the dependency cleanly via this param.
+ */
 export function renderCircularSpectrum(
   ctx: CanvasRenderingContext2D,
   frequencyData: FrequencyData,
@@ -72,6 +108,7 @@ export function renderCircularSpectrum(
   height: number,
   previousHeights: Float32Array,
   logoSizeRatio?: number,
+  resolvedImageFillSrc?: string | null,
 ): void {
   const {
     radius,
@@ -193,6 +230,54 @@ export function renderCircularSpectrum(
       }
       ctx.drawImage(video, dx, dy, dw, dh)
       ctx.restore()
+    }
+  } else if (config.imageFillEnabled) {
+    // Image fill — uses the same exact-form circle clip as the
+    // video branch. Source preference: a Logo-layer reference
+    // (resolvedImageFillSrc) wins so a Logo edit cascades to every
+    // container using it; falls through to inline imageFillSrc
+    // when the reference is empty or dangling.
+    const src = resolvedImageFillSrc ?? config.imageFillSrc ?? null
+    if (src) {
+      const img = getOrLoadFillImage(src)
+      if (img.complete && img.naturalWidth > 0) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(cx, cy, effectiveOuterRadius, 0, Math.PI * 2)
+        ctx.clip()
+        const bw = effectiveOuterRadius * 2
+        const bh = effectiveOuterRadius * 2
+        const lx = cx - effectiveOuterRadius
+        const ly = cy - effectiveOuterRadius
+        const iw = img.naturalWidth
+        const ih = img.naturalHeight
+        const iAR = iw / ih
+        const boxAR = bw / Math.max(bh, 1)
+        const fit = config.imageFillFit ?? 'cover'
+        let dx = lx
+        let dy = ly
+        let dw = bw
+        let dh = bh
+        if (fit === 'cover') {
+          if (iAR > boxAR) {
+            dw = bh * iAR
+            dx = lx + (bw - dw) / 2
+          } else {
+            dh = bw / iAR
+            dy = ly + (bh - dh) / 2
+          }
+        } else if (fit === 'contain') {
+          if (iAR > boxAR) {
+            dh = bw / iAR
+            dy = ly + (bh - dh) / 2
+          } else {
+            dw = bh * iAR
+            dx = lx + (bw - dw) / 2
+          }
+        }
+        ctx.drawImage(img, dx, dy, dw, dh)
+        ctx.restore()
+      }
     }
   }
 

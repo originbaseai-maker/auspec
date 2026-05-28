@@ -5,6 +5,7 @@ import {
   CenterSliderRow,
   FreqRangeBlock,
   LockedLayerBanner,
+  LogoFillPicker,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -257,17 +258,37 @@ export function CircularPanel({ layerId }: Props) {
         />
       </PanelGroup>
 
-      <PanelGroup title="Video Fill">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] text-white/70">Enabled</span>
-          <Toggle
-            checked={!!cfg.videoFillEnabled}
-            onChange={(v) => update({ videoFillEnabled: v })}
-            ariaLabel="Video fill enabled"
+      <PanelGroup title="Inner Fill">
+        {/* Mutually-exclusive Video / Image fill selector. The
+            existing 'none' state is the default (bars-only); a
+            Video and an Image fill can't be on at the same time —
+            picking one disables the other so the renderer's
+            priority rule never has to break a tie. */}
+        <div className="mb-2">
+          <SegmentedGroup
+            options={[
+              { id: 'none' as const, label: 'None' },
+              { id: 'video' as const, label: 'Video' },
+              { id: 'image' as const, label: 'Image' },
+            ]}
+            value={
+              cfg.videoFillEnabled
+                ? 'video'
+                : cfg.imageFillEnabled
+                  ? 'image'
+                  : 'none'
+            }
+            onChange={(v) =>
+              update({
+                videoFillEnabled: v === 'video',
+                imageFillEnabled: v === 'image',
+              })
+            }
+            cols={3}
           />
         </div>
         {cfg.videoFillEnabled && (
-          <div className="space-y-2" style={{ opacity: cfg.videoFillEnabled ? 1 : 0.4 }}>
+          <div className="space-y-2">
             {videoAssets.length === 0 ? (
               <p
                 className="rounded-md border px-3 py-2 text-[11px] text-white/60"
@@ -311,6 +332,36 @@ export function CircularPanel({ layerId }: Props) {
                 />
               </>
             )}
+          </div>
+        )}
+        {cfg.imageFillEnabled && (
+          <div className="space-y-2">
+            {/* Logo-layer picker takes precedence: when the user has
+                an image they already uploaded as a Logo, this is
+                the path that opens up the bidirectional connection
+                (LogoPanel shows where it's used). Bare image upload
+                stays as the simpler-onboarding fallback. */}
+            <LogoFillPicker
+              value={cfg.imageFillLogoLayerId ?? null}
+              onChange={(id) =>
+                update({
+                  imageFillLogoLayerId: id,
+                  // Clear inline src when a Logo is picked — the
+                  // renderer prefers the Logo reference anyway,
+                  // and clearing prevents stale data hanging on.
+                  imageFillSrc: id ? null : (cfg.imageFillSrc ?? null),
+                })
+              }
+            />
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
+              Fit
+            </p>
+            <SegmentedGroup
+              options={FIT_MODES}
+              value={cfg.imageFillFit ?? 'cover'}
+              onChange={(v) => update({ imageFillFit: v })}
+              cols={3}
+            />
           </div>
         )}
       </PanelGroup>

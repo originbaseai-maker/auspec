@@ -40,6 +40,25 @@ import { AnalyzerDebugOverlay } from '@/components/debug/AnalyzerDebugOverlay'
 
 const MAX_BAR_COUNT = 256
 
+/**
+ * Resolve a container's image-fill Logo-layer reference to the
+ * referenced Logo's current imageSrc. Called every frame for
+ * Circular / Polygon image fills — cheap (array scan, no allocation).
+ *
+ * Returns null when the reference is empty, the Logo was removed,
+ * or the Logo has no image set yet. Each downstream renderer then
+ * falls through to its own inline `imageFillSrc` field as a backup.
+ */
+function resolveLogoImageSrc(
+  logoLayerId: string | null | undefined,
+  layers: Layer[],
+): string | null {
+  if (!logoLayerId) return null
+  const logo = layers.find((l) => l.id === logoLayerId && l.type === 'logo')
+  if (!logo || logo.type !== 'logo') return null
+  return logo.config.imageSrc ?? null
+}
+
 export default function VisualizerCanvas(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const { canvasRef, ctx, width, height } = useVisualizerCanvas(containerRef)
@@ -456,6 +475,14 @@ export default function VisualizerCanvas(): JSX.Element {
               height,
               circularHeightsRef.current,
               cover.logo ? cover.logoSize : undefined,
+              // Resolve image fill source: a Logo-layer reference
+              // cascades the Logo's imageSrc into the container. Falls
+              // through to the renderer's own inline fallback when
+              // not set / dangling.
+              resolveLogoImageSrc(
+                layer.config.imageFillLogoLayerId,
+                layersRef.current,
+              ),
             )
             break
           case 'wave':
@@ -497,6 +524,10 @@ export default function VisualizerCanvas(): JSX.Element {
               width,
               height,
               polygonHeightsRef.current,
+              resolveLogoImageSrc(
+                layer.config.imageFillLogoLayerId,
+                layersRef.current,
+              ),
             )
             break
           }

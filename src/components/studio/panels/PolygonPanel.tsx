@@ -8,6 +8,7 @@ import {
   CenterSliderRow,
   FreqRangeBlock,
   LockedLayerBanner,
+  LogoFillPicker,
   PaletteEditor,
   PanelGroup,
   SegmentedGroup,
@@ -291,13 +292,28 @@ export function PolygonPanel({ layerId }: Props) {
         />
       </PanelGroup>
 
-      <PanelGroup title="Video Fill">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-[11px] text-white/70">Enabled</span>
-          <Toggle
-            checked={!!cfg.videoFillEnabled}
-            onChange={(v) => update({ videoFillEnabled: v })}
-            ariaLabel="Video fill enabled"
+      <PanelGroup title="Inner Fill">
+        <div className="mb-2">
+          <SegmentedGroup
+            options={[
+              { id: 'none' as const, label: 'None' },
+              { id: 'video' as const, label: 'Video' },
+              { id: 'image' as const, label: 'Image' },
+            ]}
+            value={
+              cfg.videoFillEnabled
+                ? 'video'
+                : cfg.imageFillEnabled
+                  ? 'image'
+                  : 'none'
+            }
+            onChange={(v) =>
+              update({
+                videoFillEnabled: v === 'video',
+                imageFillEnabled: v === 'image',
+              })
+            }
+            cols={3}
           />
         </div>
         {cfg.videoFillEnabled && (
@@ -345,6 +361,28 @@ export function PolygonPanel({ layerId }: Props) {
                 />
               </>
             )}
+          </div>
+        )}
+        {cfg.imageFillEnabled && (
+          <div className="space-y-2">
+            <LogoFillPicker
+              value={cfg.imageFillLogoLayerId ?? null}
+              onChange={(id) =>
+                update({
+                  imageFillLogoLayerId: id,
+                  imageFillSrc: id ? null : (cfg.imageFillSrc ?? null),
+                })
+              }
+            />
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
+              Fit
+            </p>
+            <SegmentedGroup
+              options={FIT_MODES}
+              value={cfg.imageFillFit ?? 'cover'}
+              onChange={(v) => update({ imageFillFit: v })}
+              cols={3}
+            />
           </div>
         )}
       </PanelGroup>
