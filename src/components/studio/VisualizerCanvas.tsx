@@ -297,16 +297,15 @@ export default function VisualizerCanvas(): JSX.Element {
         }
       }
 
-      // Audio routing: the asset that's the visualiser's analyser
-      // source gets unmuted so the user hears it AND the analyser's
-      // createMediaElementSource has signal to read. All other pool
-      // videos stay muted (default) so we don't get layered audio.
-      // resolveAnalyserSource collapses three cases into one rule:
-      //   - explicit 'video' source → THAT video unmuted
-      //   - audio file loaded ('uploaded') → all videos muted
-      //   - no audio file, video clock fallback → the clock video
-      //     gets unmuted automatically so visualisers + audio align
-      //     even when the user never touched the source toggle.
+      // Audio routing: only the CHOSEN audio source's element is
+      // audible. resolveAnalyserSource collapses every mode into one
+      // rule — the active candidate's element is unmuted; everything
+      // else stays muted (default):
+      //   - Music only          → all videos muted, music plays
+      //   - Video only          → that video unmuted, no music
+      //   - Music + Video src=music → all videos muted
+      //   - Music + Video src=video → the chosen video unmuted,
+      //                                music muted by useAudioPlayer
       const analyserSource = resolveAnalyserSource()
       const shouldUnmute =
         analyserSource.isVideo &&

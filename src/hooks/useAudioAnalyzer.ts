@@ -53,9 +53,9 @@ export function useAudioAnalyzer(): UseAudioAnalyzerResult {
     void resumeAudioContext()
 
     // connectMediaElement caches the SourceNode per element (via a
-    // WeakMap), so flipping audioSource between 'uploaded' and
-    // 'video' multiple times never re-invokes createMediaElementSource
-    // on the same element (which would throw InvalidStateError).
+    // WeakMap), so flipping audioSource between 'music' and 'video'
+    // multiple times never re-invokes createMediaElementSource on
+    // the same element (which would throw InvalidStateError).
     const { analyser } = connectMediaElement(element)
 
     if (!engineRef.current) {
