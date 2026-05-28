@@ -1,5 +1,11 @@
 import type { AnalyzerConfig, FrequencyData } from '@/types/analyzer'
 import { calcRMS, calcPeak } from '@/lib/frequencyUtils'
+import { toLogScaleBins } from '@/lib/audio/logScaleBins'
+import {
+  SPECTRUM_ATTACK,
+  SPECTRUM_BINS,
+  SPECTRUM_RELEASE,
+} from '@/lib/audio/constants'
 
 function bandAverageFromBins(
   data: Uint8Array,
@@ -51,6 +57,19 @@ export class AnalyzerEngine {
   private bins: BandBins
   private readonly tickBound: () => void
   /**
+   * Log-binned target spectrum (raw, this-frame snapshot from the FFT).
+   * Recomputed every tick from frequencyBuffer.
+   */
+  private spectrumTarget: Float32Array
+  /**
+   * Persistent smoothed spectrum — the one renderers actually read.
+   * Each tick we asymmetrically lerp from `smoothedSpectrum` toward
+   * `spectrumTarget`: fast on attack (rising), slow on release
+   * (falling). This is what gives the visualisers their "punch up,
+   * trail down" feel without needing per-renderer history.
+   */
+  private smoothedSpectrum: Float32Array
+  /**
    * Stable wrapper object emitted every tick. Fields are mutated in
    * place so consumers (mainly VisualizerCanvas via its dataRef) always
    * see fresh values, while React's `setState(sameRef)` short-circuits
@@ -75,6 +94,8 @@ export class AnalyzerEngine {
     this.frequencyBuffer = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount))
     this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(analyser.fftSize))
     this.bins = this.computeBins()
+    this.spectrumTarget = new Float32Array(SPECTRUM_BINS)
+    this.smoothedSpectrum = new Float32Array(SPECTRUM_BINS)
     this.tickBound = () => this.tick()
     this.latestData = {
       raw: this.frequencyBuffer,
@@ -85,11 +106,18 @@ export class AnalyzerEngine {
       rms: 0,
       peak: 0,
       beatEnergy: 0,
+      spectrum: this.smoothedSpectrum,
+      spectrumBins: SPECTRUM_BINS,
     }
   }
 
   start(): void {
     if (this.animationId !== null) return
+    // Clear smoothed spectrum so a new playback session doesn't bleed
+    // the previous track's tail into the first frame. Cheap reset; the
+    // first few frames will ramp up under ATTACK anyway.
+    this.smoothedSpectrum.fill(0)
+    this.spectrumTarget.fill(0)
     this.animationId = requestAnimationFrame(this.tickBound)
   }
 
@@ -115,6 +143,11 @@ export class AnalyzerEngine {
       this.timeDomainBuffer = new Uint8Array(new ArrayBuffer(this.analyser.fftSize))
       this.bins = this.computeBins()
       this.beatHistory.length = 0
+      // Spectrum buffers track output bin count, not FFT bin count —
+      // they don't change size on fftSize, but a discontinuity in the
+      // input warrants resetting the smoothed tail.
+      this.smoothedSpectrum.fill(0)
+      this.spectrumTarget.fill(0)
       // Repoint the stable wrapper at the new buffers so consumers keep
       // reading live data after fftSize changes.
       this.latestData.raw = this.frequencyBuffer
@@ -182,6 +215,30 @@ export class AnalyzerEngine {
 
     history.push(bass)
     if (history.length > BEAT_HISTORY_MAX) history.shift()
+
+    // Log-binned target from this frame's raw FFT (already
+    // analyser-side smoothed via smoothingTimeConstant). 'average'
+    // mode is the safer default — peak looks punchier for bars but
+    // can cause sub-bin flicker that the lerp then has to absorb.
+    toLogScaleBins(
+      this.frequencyBuffer,
+      this.sampleRate,
+      SPECTRUM_BINS,
+      this.spectrumTarget,
+      'average',
+    )
+
+    // Asymmetric attack/release lerp — fast on rise, slow on fall.
+    // This is the secret sauce: peaks track the music tightly, decays
+    // trail smoothly so visualisers flow instead of flickering.
+    const smoothed = this.smoothedSpectrum
+    const target = this.spectrumTarget
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      const t = target[i]
+      const cur = smoothed[i]
+      const factor = t > cur ? SPECTRUM_ATTACK : SPECTRUM_RELEASE
+      smoothed[i] = cur + (t - cur) * factor
+    }
 
     // Mutate the stable wrapper in place — same reference every tick so
     // React's setState dedupes (no per-frame reconciliation). The canvas

@@ -14,6 +14,14 @@ export interface FrequencyData {
   peak: number
   beatEnergy: number
   timeDomain: Uint8Array
+  /**
+   * Log-scaled, temporally-smoothed spectrum normalised to 0..1.
+   * Driven by an asymmetric attack/release lerp so peaks punch fast
+   * and decays trail slowly. Renderers should read this for bar/point
+   * heights — raw stays for beat detection that needs raw responsiveness.
+   */
+  spectrum: Float32Array
+  spectrumBins: number
 }
 
 export const DEFAULT_ANALYZER_CONFIG: AnalyzerConfig = {
