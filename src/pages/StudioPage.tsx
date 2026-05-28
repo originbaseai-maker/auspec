@@ -29,7 +29,8 @@ import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
 import { initializeLayersFromVisualizerStore, useLayerStore } from '@/store/useLayerStore';
-import { useHasMasterClock } from '@/lib/masterClock';
+import { useHasMasterClock, useMasterClock } from '@/lib/masterClock';
+import { useMasterClockSync } from '@/hooks/useMasterClockSync';
 import { useVisualizerStore } from '@/store/useVisualizerStore';
 import { usePresetStore } from '@/store/usePresetStore';
 import { BUILT_IN_PRESETS } from '@/lib/presets';
@@ -663,6 +664,12 @@ export function StudioPage() {
   // Timeline (transport for the master clock) and the AudioPlayerBar
   // (upload-prompt empty state).
   const hasMasterClock = useHasMasterClock();
+  const masterClock = useMasterClock();
+  // When the master clock element changes (source toggle, MP3 added,
+  // video removed, etc.) this hook pauses the previous element and
+  // resumes the new one in lockstep. Without it, source toggles
+  // would leave the previous element still playing under the hood.
+  useMasterClockSync();
   const showCanvas = hasAudio || previewMode;
 
   const activeFormat = useFormatStore((s) => s.activeFormat);
@@ -861,7 +868,7 @@ export function StudioPage() {
           </main>
 
           {hasAudio && <AudioElement />}
-          {!hasAudio && hasMasterClock && <VideoClock />}
+          {masterClock.kind === 'video' && <VideoClock />}
 
           {/* Layout spacer — reserves flex-column height for the
               floating Timeline + Tabs + open sheet. Pushes `main` to
@@ -988,13 +995,13 @@ export function StudioPage() {
         </div>
 
         {hasAudio && <AudioElement />}
-        {/* When the master clock is a video (no uploaded audio
-            file), VideoClock bridges the video element's events
-            into useAudioStore so the Timeline transport reads/
-            writes the same store fields it always has. Unmounts
-            cleanly the moment an audio file is added — at which
-            point useAudioPlayer's listeners take over. */}
-        {!hasAudio && hasMasterClock && <VideoClock />}
+        {/* VideoClock bridges video playback events into useAudioStore
+            whenever the master clock IS a video. Covers both
+            "video-only" mode and "music + video, source=video".
+            Listener writes are gated by a master-check inside the
+            component so simultaneously mounted useAudioPlayer
+            listeners never double-write. */}
+        {masterClock.kind === 'video' && <VideoClock />}
         {/* Video track sits ABOVE the audio control bar so the master
             playhead reads top→bottom: videos, then audio. Renders
             null when no Video layers reference a registered asset,
