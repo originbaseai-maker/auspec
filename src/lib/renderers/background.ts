@@ -1,4 +1,5 @@
 import type { BackgroundLayerConfig } from '@/types/layer'
+import { getOrLoadLibraryVideo } from '@/lib/libraryVideoPool'
 
 /**
  * Background layer renderer. Each layer can be a solid color, a linear
@@ -27,6 +28,14 @@ export function drawBackgroundLayer(
   config: BackgroundLayerConfig,
   width: number,
   height: number,
+  /**
+   * Normalised 0..1 bass energy. Only consumed when the layer is a
+   * video background with `videoReactEnabled`. The caller's per-
+   * frame audio extraction (VisualizerCanvas) is the same value the
+   * Frame layer reads, so the background pulse stays in lockstep
+   * with the rest of the bass-driven UI.
+   */
+  bassEnergy = 0,
 ): void {
   if (config.bgType === 'transparent') return
 
@@ -50,6 +59,50 @@ export function drawBackgroundLayer(
     grad.addColorStop(1, config.color2)
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, width, height)
+  } else if (config.bgType === 'video' && config.videoSrc) {
+    const video = getOrLoadLibraryVideo(config.videoSrc)
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      // Cover-fit: scale up so the shorter axis matches the canvas,
+      // crop the longer one. Same math the Image branch uses for the
+      // 'cover' mode — kept inline so this branch stays self-contained.
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      const ratio = Math.max(width / vw, height / vh)
+      const drawW = vw * ratio
+      const drawH = vh * ratio
+      const dx = (width - drawW) / 2
+      const dy = (height - drawH) / 2
+
+      // Audio reactivity — opacity multiply + tiny scale-up. NEVER
+      // touch playbackRate (that desyncs the loop and breaks
+      // captureStream exports). Both effects are deliberately
+      // small-amplitude: max ~4% scale and ~10% alpha swing even at
+      // intensity = 1. A pumping background fights the visualiser.
+      let scale = 1
+      let alphaMul = 1
+      if (config.videoReactEnabled) {
+        const intensity = Math.max(
+          0,
+          Math.min(1, config.videoReactIntensity ?? 0.5),
+        )
+        const e = Math.max(0, Math.min(1, bassEnergy))
+        scale = 1 + e * 0.04 * intensity
+        alphaMul = 1 - e * 0.1 * intensity
+      }
+
+      if (config.blur > 0) {
+        ctx.filter = `blur(${config.blur}px)`
+      }
+      ctx.save()
+      ctx.globalAlpha = ctx.globalAlpha * alphaMul
+      if (scale !== 1) {
+        ctx.translate(width / 2, height / 2)
+        ctx.scale(scale, scale)
+        ctx.translate(-width / 2, -height / 2)
+      }
+      ctx.drawImage(video, dx, dy, drawW, drawH)
+      ctx.restore()
+    }
   } else if (config.bgType === 'image' && config.imageSrc) {
     const img = getImage(config.imageSrc)
     if (img.complete && img.naturalWidth > 0) {

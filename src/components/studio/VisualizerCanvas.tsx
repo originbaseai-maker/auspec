@@ -429,7 +429,11 @@ export default function VisualizerCanvas(): JSX.Element {
 
         switch (layer.type) {
           case 'background':
-            drawBackgroundLayer(ctx, layer.config, width, height)
+            // bassEnergy threads through so a Library video background
+            // can opt into the gentle bass-driven pulse via its config.
+            // Color / gradient / image / transparent backgrounds
+            // ignore the parameter — costs nothing for those layers.
+            drawBackgroundLayer(ctx, layer.config, width, height, bassEnergy)
             break
           case 'bars':
             if (!data) break
