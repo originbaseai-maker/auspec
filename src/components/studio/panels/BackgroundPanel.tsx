@@ -1,12 +1,15 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { Film } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
 import type { BackgroundLayerConfig } from '@/types/layer'
+import { BackgroundLibraryModal } from '../BackgroundLibraryModal'
 import {
   ColorRow,
   LockedLayerBanner,
   PanelGroup,
   SegmentedGroup,
   SliderRow,
+  Toggle,
 } from './shared'
 
 interface Props {
@@ -17,6 +20,7 @@ const BG_TYPES = [
   { id: 'color' as const, label: 'Color' },
   { id: 'gradient' as const, label: 'Gradient' },
   { id: 'image' as const, label: 'Image' },
+  { id: 'video' as const, label: 'Video' },
   { id: 'transparent' as const, label: 'None' },
 ]
 
@@ -32,6 +36,7 @@ export function BackgroundPanel({ layerId }: Props) {
   )
   const updateConfig = useLayerStore((s) => s.updateConfig)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   if (!layer) {
     return (
@@ -169,6 +174,73 @@ export function BackgroundPanel({ layerId }: Props) {
         </>
       )}
 
+      {cfg.bgType === 'video' && (
+        <>
+          <PanelGroup title="Library">
+            <button
+              type="button"
+              onClick={() => setLibraryOpen(true)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-medium text-white"
+              style={{
+                background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                boxShadow: '0 2px 8px rgba(59,130,246,0.2)',
+              }}
+            >
+              <Film className="h-3.5 w-3.5" aria-hidden="true" />
+              {cfg.videoSrc ? 'Browse Library' : 'Pick a background…'}
+            </button>
+            {cfg.videoSrc && (
+              <button
+                type="button"
+                onClick={() =>
+                  update({
+                    videoSrc: null,
+                    videoLibraryId: null,
+                    videoPosterSrc: null,
+                  })
+                }
+                className="mt-1 w-full rounded-md border px-3 py-1.5 text-[10px] text-white/40 hover:text-red-400"
+                style={{ borderColor: '#2a2a2a', background: '#1a1a1a' }}
+              >
+                Remove video
+              </button>
+            )}
+            <p className="mt-1 text-[9px] text-white/30">
+              Curated stock loops. Plays muted + looping.
+            </p>
+          </PanelGroup>
+
+          <PanelGroup title="🎵 React to audio">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] text-white/70">
+                Subtle bass pulse
+              </span>
+              <Toggle
+                checked={cfg.videoReactEnabled === true}
+                onChange={(v) => update({ videoReactEnabled: v })}
+                ariaLabel="React to audio"
+              />
+            </div>
+            <div style={{ opacity: cfg.videoReactEnabled ? 1 : 0.4 }}>
+              <SliderRow
+                label="Intensity"
+                hint={`${Math.round((cfg.videoReactIntensity ?? 0.5) * 100)}%`}
+                value={Math.round((cfg.videoReactIntensity ?? 0.5) * 100)}
+                min={0}
+                max={100}
+                step={1}
+                onChange={(v) => update({ videoReactIntensity: v / 100 })}
+                ariaLabel="React intensity"
+              />
+              <p className="mt-1 text-[9px] text-white/30">
+                Opacity + tiny scale only. Loop stays in sync — safe
+                for export.
+              </p>
+            </div>
+          </PanelGroup>
+        </>
+      )}
+
       {cfg.bgType !== 'transparent' && (
         <SliderRow
           label="Opacity"
@@ -182,6 +254,18 @@ export function BackgroundPanel({ layerId }: Props) {
         />
       )}
 
+      <BackgroundLibraryModal
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onPick={(video) =>
+          update({
+            bgType: 'video',
+            videoSrc: video.videoUrl,
+            videoLibraryId: video.id,
+            videoPosterSrc: video.thumbnailUrl,
+          })
+        }
+      />
     </div>
   )
 }
