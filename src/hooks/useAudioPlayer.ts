@@ -14,7 +14,18 @@ export function useAudioPlayer() {
     setVolume,
     audioFile,
     setAudioElement,
+    audioSource,
   } = useAudioStore()
+
+  // When the analyser is sampling a video's audio track, mute the
+  // uploaded audio element so the user doesn't hear two streams at
+  // once. The audio element keeps PLAYING — it's still the master
+  // timeline clock; only its output is silenced. Restored on toggle
+  // back to 'uploaded'.
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = audioSource === 'video'
+  }, [audioSource])
 
   useEffect(() => {
     // Only the instance that actually owns the audio element should write

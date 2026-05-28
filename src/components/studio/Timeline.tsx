@@ -16,6 +16,7 @@ import {
   isValidAudioFile,
   MAX_FILE_SIZE,
 } from '@/types/audio'
+import { AudioSourceToggle } from './AudioSourceToggle'
 
 function formatTime(s: number): string {
   if (!isFinite(s) || s < 0) s = 0
@@ -529,6 +530,11 @@ export function Timeline() {
           style={{ background: '#2a2a2a' }}
           aria-hidden="true"
         />
+
+        {/* Audio source picker — only renders when at least one
+            Video layer has audio that COULD replace the uploaded
+            track. Quiet on the common single-audio case. */}
+        <AudioSourceToggle />
 
         <button
           type="button"

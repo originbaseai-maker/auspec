@@ -14,6 +14,23 @@ export interface AudioStore {
   loop: boolean
   previewMode: boolean
 
+  /**
+   * Which audio stream drives the visualiser AnalyserNode.
+   *   'uploaded' — the uploaded music file (current default behaviour)
+   *   'video'    — a Video layer's own audio track
+   * When 'video', `videoAudioAssetId` names which video asset.
+   * The uploaded audio element keeps playing silently as the master
+   * timeline clock (Timeline scrubs work as-is); the video element
+   * gets unmuted and its createMediaElementSource feeds the analyser.
+   * Toggling back to 'uploaded' restores the previous routing.
+   */
+  audioSource: 'uploaded' | 'video'
+  videoAudioAssetId: string | null
+  setAudioSource: (
+    source: 'uploaded' | 'video',
+    videoAudioAssetId?: string | null,
+  ) => void
+
   /** Detected/manual BPM. 0 = none yet. */
   bpm: number
   /** 0-1 confidence in the auto-detected BPM. 1 for manual. */
@@ -52,6 +69,17 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   trimEnd: null,
   loop: false,
   previewMode: true,
+
+  audioSource: 'uploaded',
+  videoAudioAssetId: null,
+  setAudioSource: (audioSource, videoAudioAssetId) =>
+    set((s) => ({
+      audioSource,
+      videoAudioAssetId:
+        videoAudioAssetId !== undefined
+          ? videoAudioAssetId
+          : s.videoAudioAssetId,
+    })),
 
   bpm: 0,
   bpmConfidence: 0,
