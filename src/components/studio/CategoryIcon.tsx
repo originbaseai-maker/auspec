@@ -277,6 +277,49 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           />
         </svg>
       )
+    case 'cinematic':
+      return (
+        <svg {...props}>
+          {/* Aperture-style outer ring + vignetted centre — reads as
+              "lens / film" without needing a literal camera glyph. */}
+          <defs>
+            <radialGradient id="cinematic-vignette" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.85)" />
+              <stop offset="55%" stopColor="rgba(255,255,255,0.4)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </radialGradient>
+          </defs>
+          <circle
+            cx="20"
+            cy="20"
+            r="14"
+            fill="none"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="1.5"
+          />
+          <circle cx="20" cy="20" r="10" fill="url(#cinematic-vignette)" />
+          {/* Six aperture blades hinted as short ticks around the ring. */}
+          {Array.from({ length: 6 }, (_, i) => {
+            const angle = (i / 6) * Math.PI * 2 + Math.PI / 12
+            const x1 = 20 + Math.cos(angle) * 14
+            const y1 = 20 + Math.sin(angle) * 14
+            const x2 = 20 + Math.cos(angle) * 11
+            const y2 = 20 + Math.sin(angle) * 11
+            return (
+              <line
+                key={i}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="rgba(255,255,255,0.7)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            )
+          })}
+        </svg>
+      )
     default:
       return null
   }

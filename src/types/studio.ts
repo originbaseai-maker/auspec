@@ -13,6 +13,7 @@ export type StudioCategory =
   | 'text'
   | 'ai_style'
   | 'frame'
+  | 'cinematic'
 
 export interface CategoryConfig {
   id: StudioCategory
@@ -32,6 +33,7 @@ export interface CategoryConfig {
     | 'text'
     | 'ai_style'
     | 'frame'
+    | 'cinematic'
   hasAI: boolean
 }
 
@@ -65,4 +67,10 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
   { id: 'ai_style', label: 'AI Style', icon: 'ai_style', hasAI: true },
   { id: 'frame', label: 'Frame', icon: 'frame', hasAI: false },
   { id: 'visualizer_halo', label: 'Halo', icon: 'halo', hasAI: false },
+  {
+    id: 'cinematic',
+    label: 'Cinematic',
+    icon: 'cinematic',
+    hasAI: false,
+  },
 ]

@@ -16,6 +16,7 @@ import { LogoPanel } from './panels/LogoPanel'
 import { TextPanel } from './panels/TextPanel'
 import { AIStylePanel } from './AIStylePanel'
 import { FramePanel } from './panels/FramePanel'
+import { CinematicPanel } from './panels/CinematicPanel'
 
 interface Props {
   /**
@@ -45,6 +46,7 @@ const LAYER_CATEGORIES = new Set([
   'frame',
   'background',
   'text',
+  'cinematic',
 ])
 
 export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
@@ -108,6 +110,8 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <BackgroundPanel layerId={activeLayer.id} />
         case 'text':
           return <TextPanel layerId={activeLayer.id} />
+        case 'cinematic':
+          return <CinematicPanel layerId={activeLayer.id} />
       }
     }
 
