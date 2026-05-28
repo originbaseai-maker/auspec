@@ -8,6 +8,7 @@ import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
 import { VideoTimelineTrack } from '../components/studio/VideoTimelineTrack';
+import { VideoClock } from '../components/studio/VideoClock';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
 import { TextInteractive } from '../components/studio/TextInteractive';
@@ -28,6 +29,7 @@ import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
 import { initializeLayersFromVisualizerStore, useLayerStore } from '@/store/useLayerStore';
+import { useHasMasterClock } from '@/lib/masterClock';
 import { useVisualizerStore } from '@/store/useVisualizerStore';
 import { usePresetStore } from '@/store/usePresetStore';
 import { BUILT_IN_PRESETS } from '@/lib/presets';
@@ -656,6 +658,11 @@ export function StudioPage() {
   const previewMode = useAudioStore((s) => s.previewMode);
   useAnalyzer();
   const hasAudio = audioFile !== null;
+  // True when ANY playback source exists — uploaded audio file OR an
+  // audio-source video. Used to decide between rendering the
+  // Timeline (transport for the master clock) and the AudioPlayerBar
+  // (upload-prompt empty state).
+  const hasMasterClock = useHasMasterClock();
   const showCanvas = hasAudio || previewMode;
 
   const activeFormat = useFormatStore((s) => s.activeFormat);
@@ -854,6 +861,7 @@ export function StudioPage() {
           </main>
 
           {hasAudio && <AudioElement />}
+          {!hasAudio && hasMasterClock && <VideoClock />}
 
           {/* Layout spacer — reserves flex-column height for the
               floating Timeline + Tabs + open sheet. Pushes `main` to
@@ -877,7 +885,7 @@ export function StudioPage() {
             style={{ bottom: mobileBottomFloor }}
           >
             <VideoTimelineTrack />
-            {hasAudio ? <Timeline /> : <AudioPlayerBar />}
+            {hasMasterClock ? <Timeline /> : <AudioPlayerBar />}
           </div>
 
           {/* Pinned tabs (position:fixed inside MobileBottomTabs). The
@@ -980,13 +988,20 @@ export function StudioPage() {
         </div>
 
         {hasAudio && <AudioElement />}
+        {/* When the master clock is a video (no uploaded audio
+            file), VideoClock bridges the video element's events
+            into useAudioStore so the Timeline transport reads/
+            writes the same store fields it always has. Unmounts
+            cleanly the moment an audio file is added — at which
+            point useAudioPlayer's listeners take over. */}
+        {!hasAudio && hasMasterClock && <VideoClock />}
         {/* Video track sits ABOVE the audio control bar so the master
             playhead reads top→bottom: videos, then audio. Renders
             null when no Video layers reference a registered asset,
             so the timeline area is identical to before for the
             audio-only case. */}
         <VideoTimelineTrack />
-        {hasAudio ? <Timeline /> : <AudioPlayerBar />}
+        {hasMasterClock ? <Timeline /> : <AudioPlayerBar />}
       </div>
       {formatFlashStyles}
     </GlobalDropZone>
