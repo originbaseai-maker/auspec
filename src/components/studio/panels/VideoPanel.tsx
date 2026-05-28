@@ -1,6 +1,7 @@
 import { useLayerStore } from '@/store/useLayerStore'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import type { VideoLayerConfig } from '@/types/layer'
+import { FillConnectionsList } from './FillConnectionsList'
 import {
   CenterSliderRow,
   LockedLayerBanner,
@@ -94,6 +95,10 @@ export function VideoPanel({ layerId }: Props) {
 
       {cfg.videoAssetId && (
         <>
+          {/* Bidirectional: list every container layer using this
+              same asset as its fill. Updates live as connections
+              come/go. Each chip is clickable to jump to the container. */}
+          <FillConnectionsList kind="video" assetKey={cfg.videoAssetId} />
           <PanelGroup title="Sync Mode">
             <SegmentedGroup
               options={SYNC_MODES}

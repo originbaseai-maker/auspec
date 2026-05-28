@@ -7,6 +7,7 @@ import { loadImageFile } from '@/types/coverArt'
 import type { CropMode } from '@/types/coverArt'
 import type { LogoLayerConfig } from '@/types/layer'
 import CoverArtUploaderSingle from '@/components/coverart/CoverArtUploaderSingle'
+import { FillConnectionsList } from './FillConnectionsList'
 import {
   CenterSliderRow,
   LockedLayerBanner,
@@ -92,6 +93,12 @@ export function LogoPanel({ layerId }: Props) {
       }}
     >
       {isLocked && <LockedLayerBanner />}
+
+      {/* Bidirectional: list every container layer that has THIS
+          Logo wired as its image fill. Drives a quick navigation
+          path back to the containers using this logo (one tap →
+          container's fine tune). */}
+      <FillConnectionsList kind="image" assetKey={layerId} />
 
       {brandLogos.length > 0 && (
         <PanelGroup title="From Brand Kit">
