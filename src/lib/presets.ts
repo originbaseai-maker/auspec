@@ -28,6 +28,13 @@ export interface Preset {
   layers?: Layer[]
   /** Which layer of the stack should be active after apply. */
   activeLayerId?: string | null
+  /**
+   * User-set "protect this preset" flag. When true, the preset can
+   * still be APPLIED but not renamed/overwritten/deleted. Built-in
+   * presets ignore this field entirely (they're protected by their
+   * built-in status; the lock UI is only rendered for user presets).
+   */
+  locked?: boolean
 }
 
 export const BUILT_IN_PRESETS: Preset[] = [

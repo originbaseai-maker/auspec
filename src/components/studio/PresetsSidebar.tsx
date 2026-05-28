@@ -5,11 +5,13 @@ import {
   ChevronRight,
   FolderOpen,
   GripVertical,
+  Lock,
   Pencil,
   Plus,
   RotateCcw,
   Star,
   Trash2,
+  Unlock,
 } from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
 import { MAX_PRESET_FAVORITES, usePresetStore } from '@/store/usePresetStore'
@@ -54,6 +56,7 @@ interface PresetItemProps {
   preset: Preset
   isActive: boolean
   isBuiltIn: boolean
+  isLocked: boolean
   isFavorite: boolean
   canFavorite: boolean
   showDragHandle?: boolean
@@ -61,12 +64,14 @@ interface PresetItemProps {
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
   onToggleFavorite: (id: string) => void
+  onToggleLock: (id: string) => void
 }
 
 function PresetItem({
   preset,
   isActive,
   isBuiltIn,
+  isLocked,
   isFavorite,
   canFavorite,
   showDragHandle,
@@ -74,6 +79,7 @@ function PresetItem({
   onRename,
   onDelete,
   onToggleFavorite,
+  onToggleLock,
 }: PresetItemProps): JSX.Element {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(preset.name)
@@ -87,7 +93,7 @@ function PresetItem({
   }, [isActive])
 
   const startEdit = (e: React.MouseEvent) => {
-    if (isBuiltIn) return
+    if (isBuiltIn || isLocked) return
     e.stopPropagation()
     setDraft(preset.name)
     setEditing(true)
@@ -187,14 +193,45 @@ function PresetItem({
           </button>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {!isBuiltIn && (
-              <button
-                type="button"
-                onClick={startEdit}
-                aria-label={`Rename ${preset.name}`}
-                className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
-              >
-                <Pencil className="h-3 w-3" aria-hidden="true" />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleLock(preset.id)
+                  }}
+                  aria-pressed={isLocked}
+                  aria-label={
+                    isLocked
+                      ? `Unlock ${preset.name}`
+                      : `Lock ${preset.name} to prevent edits`
+                  }
+                  title={
+                    isLocked
+                      ? 'Locked — click to unlock'
+                      : 'Click to lock and prevent edits'
+                  }
+                  className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white"
+                >
+                  {isLocked ? (
+                    <Lock
+                      className="h-3 w-3 text-amber-400"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Unlock className="h-3 w-3" aria-hidden="true" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  disabled={isLocked}
+                  aria-label={`Rename ${preset.name}`}
+                  className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <Pencil className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -202,9 +239,16 @@ function PresetItem({
                 e.stopPropagation()
                 onDelete(preset.id)
               }}
+              disabled={!isBuiltIn && isLocked}
               aria-label={deleteLabel}
-              title={isBuiltIn ? 'Hide preset (restorable)' : 'Delete preset'}
-              className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-red-500/20 hover:text-red-400"
+              title={
+                isBuiltIn
+                  ? 'Hide preset (restorable)'
+                  : isLocked
+                    ? 'Locked — unlock to delete'
+                    : 'Delete preset'
+              }
+              className="flex h-5 w-5 items-center justify-center rounded text-white/50 hover:bg-red-500/20 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <Trash2 className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -313,6 +357,12 @@ export function PresetsSidebar({
   const restoreAllBuiltIn = usePresetStore((s) => s.restoreAllBuiltIn)
   const toggleFavorite = usePresetStore((s) => s.toggleFavorite)
   const reorderFavorites = usePresetStore((s) => s.reorderFavorites)
+  const togglePresetLock = usePresetStore((s) => s.togglePresetLock)
+  const userPresetLockMap = useMemo(() => {
+    const m = new Map<string, boolean>()
+    for (const p of userPresets) m.set(p.id, p.locked === true)
+    return m
+  }, [userPresets])
 
   const activePresetId = useVisualizerStore((s) => s.activePresetId)
   const applyPreset = useVisualizerStore((s) => s.applyPreset)
@@ -496,6 +546,7 @@ export function PresetsSidebar({
                         preset={preset}
                         isActive={activePresetId === preset.id}
                         isBuiltIn={usePresetStore.getState().isBuiltIn(preset.id)}
+                        isLocked={userPresetLockMap.get(preset.id) === true}
                         isFavorite={true}
                         canFavorite={true}
                         showDragHandle
@@ -510,6 +561,7 @@ export function PresetsSidebar({
                           }
                         }}
                         onToggleFavorite={toggleFavorite}
+                        onToggleLock={togglePresetLock}
                       />
                     </li>
                   )
@@ -564,12 +616,14 @@ export function PresetsSidebar({
                             preset={preset}
                             isActive={activePresetId === preset.id}
                             isBuiltIn={true}
+                            isLocked={false}
                             isFavorite={favorites.includes(preset.id)}
                             canFavorite={canFavoriteMore}
                             onApply={handleApply}
                             onRename={renamePreset}
                             onDelete={hideBuiltIn}
                             onToggleFavorite={toggleFavorite}
+                            onToggleLock={togglePresetLock}
                           />
                         </li>
                       ))}
@@ -605,12 +659,14 @@ export function PresetsSidebar({
                             preset={preset}
                             isActive={activePresetId === preset.id}
                             isBuiltIn={false}
+                            isLocked={userPresetLockMap.get(preset.id) === true}
                             isFavorite={favorites.includes(preset.id)}
                             canFavorite={canFavoriteMore}
                             onApply={handleApply}
                             onRename={renamePreset}
                             onDelete={deletePreset}
                             onToggleFavorite={toggleFavorite}
+                            onToggleLock={togglePresetLock}
                           />
                         </li>
                       ))}

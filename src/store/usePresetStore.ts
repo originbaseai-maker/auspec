@@ -92,6 +92,17 @@ export interface PresetStore {
   isBuiltIn: (id: string) => boolean
   hideBuiltIn: (id: string) => void
   restoreAllBuiltIn: () => void
+  /**
+   * Flip the locked flag on a user preset. Built-ins are skipped
+   * (they're protected by virtue of being built-in — see Preset.locked).
+   */
+  togglePresetLock: (id: string) => void
+  /**
+   * True iff the preset is user-created and has `locked: true`. Built-ins
+   * return false here even though they ARE effectively unmodifiable —
+   * the UI uses isBuiltIn() separately.
+   */
+  isPresetLocked: (id: string) => boolean
 
   // Favorites
   toggleFavorite: (id: string) => void
@@ -147,6 +158,17 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
 
   renamePreset: (id, newName) => {
     if (get().isBuiltIn(id)) return
+    const target = get().userPresets.find((p) => p.id === id)
+    if (target?.locked) {
+      // No silent failure — a rename that looks accepted in the UI but
+      // doesn't persist would be worse than a one-line alert.
+      try {
+        window.alert('Preset is locked. Unlock it to rename.')
+      } catch {
+        /* alert blocked in iframe / non-DOM context */
+      }
+      return
+    }
     const updated = get().userPresets.map((p) =>
       p.id === id ? { ...p, name: newName } : p,
     )
@@ -156,6 +178,15 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
 
   deletePreset: (id) => {
     if (get().isBuiltIn(id)) return
+    const target = get().userPresets.find((p) => p.id === id)
+    if (target?.locked) {
+      try {
+        window.alert('Preset is locked. Unlock it to delete.')
+      } catch {
+        /* ignore */
+      }
+      return
+    }
     const updated = get().userPresets.filter((p) => p.id !== id)
     saveToStorage(updated)
     // Prune from favorites — a deleted preset shouldn't linger as a dead ID.
@@ -222,4 +253,18 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
   },
 
   isFavorite: (id) => get().favorites.includes(id),
+
+  togglePresetLock: (id) => {
+    if (get().isBuiltIn(id)) return
+    const updated = get().userPresets.map((p) =>
+      p.id === id ? { ...p, locked: !p.locked } : p,
+    )
+    saveToStorage(updated)
+    set({ userPresets: updated })
+  },
+
+  isPresetLocked: (id) => {
+    if (get().isBuiltIn(id)) return false
+    return get().userPresets.find((p) => p.id === id)?.locked === true
+  },
 }))
