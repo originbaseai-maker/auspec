@@ -6,6 +6,22 @@ interface Rgb {
   b: number
 }
 
+/**
+ * Per-layer persistent state for the beat-color lerp. Keyed by the
+ * live FrameConfig so it auto-GCs when the layer is removed. Holds
+ * the eased colour-lerp amount so subsequent frames decay smoothly
+ * rather than tracking beatEnergy directly (which would flicker on
+ * beat-heavy tracks).
+ */
+const lerpStateByConfig = new WeakMap<FrameConfig, { amount: number }>()
+
+/**
+ * Rising-edge rate constant. Faster than the decay so peaks punch
+ * in tight to the beat. 0.5 lands within ~2 frames of a hard hit,
+ * which reads as "in time" without overshooting.
+ */
+const BEAT_COLOR_ATTACK = 0.5
+
 function hexToRgb(hex: string): Rgb {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return m
@@ -75,6 +91,9 @@ export function drawFrame(
     pulseEnabled,
     pulseIntensity,
     beatColor,
+    beatColorEnabled = true,
+    beatColorIntensity = 1,
+    beatColorDecay = 0.08,
     beatThreshold = 0.6,
     beatBlur = 0,
   } = config
@@ -86,18 +105,33 @@ export function drawFrame(
   const r = smoothness
   const supportsRoundRect = typeof ctx.roundRect === 'function'
 
-  // Lerp the stroke colour and shadow blur from `color` → `beatColor`
-  // as beatEnergy crosses beatThreshold. lerpAmount is 0 below the
-  // threshold and ramps to 1 at peak — preserves a calm rest state
-  // and a punchy on-beat hit. Both beatColor and beatBlur are
-  // optional; if neither is set, this whole block is a no-op.
-  const lerpAmount = beatColor
-    ? Math.max(
-        0,
-        Math.min(1, (beatEnergy - beatThreshold) / Math.max(0.0001, 1 - beatThreshold)),
-      )
-    : 0
-  const renderColor = beatColor
+  // Persistent asymmetric lerp toward the beat-driven target. Fast
+  // ATTACK catches the kick, slow user-tunable DECAY lets the colour
+  // ease back to base — kills the flicker that direct beatEnergy
+  // tracking caused. Skipped entirely when the user toggled beat
+  // colour off or no beatColor is set.
+  let lerpAmount = 0
+  if (beatColor && beatColorEnabled) {
+    const target = Math.max(
+      0,
+      Math.min(
+        1,
+        (beatEnergy - beatThreshold) / Math.max(0.0001, 1 - beatThreshold),
+      ),
+    )
+    let s = lerpStateByConfig.get(config)
+    if (!s) {
+      s = { amount: 0 }
+      lerpStateByConfig.set(config, s)
+    }
+    const decay = Math.max(0.02, Math.min(0.3, beatColorDecay))
+    const rate = target > s.amount ? BEAT_COLOR_ATTACK : decay
+    s.amount += (target - s.amount) * rate
+    // Multiply by the user's intensity knob *after* easing so a low
+    // intensity scales the swing, not the smoothing curve.
+    lerpAmount = s.amount * Math.max(0, Math.min(1, beatColorIntensity))
+  }
+  const renderColor = beatColor && beatColorEnabled
     ? lerpColor(hexToRgb(color), hexToRgb(beatColor), lerpAmount)
     : color
   const renderBlur = beatBlur > 0 ? beatBlur * lerpAmount : 0

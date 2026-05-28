@@ -23,14 +23,36 @@ export interface FrameConfig {
   pulseIntensity: number // 0–100
 
   /**
-   * Optional accent color flashed on beats. When set, drawFrame lerps
-   * the stroke colour from `color` → `beatColor` as beatEnergy crosses
-   * `beatThreshold`. Restores the legacy renderFramePulse look for
-   * presets that ship a separate beat colour (Cyberpunk, Dark Neon, …).
+   * Optional accent color flashed on beats. When set AND
+   * beatColorEnabled, drawFrame asymmetric-lerps the stroke colour
+   * from `color` → `beatColor` as beatEnergy crosses `beatThreshold`.
+   * Lerp state is persistent across frames with a fast ATTACK and a
+   * tunable slow DECAY (controlled by `beatColorDecay`) so the
+   * colour eases back to base instead of snapping — kills the
+   * nervous flicker on beat-heavy tracks.
    */
   beatColor?: string
+  /**
+   * Master switch for the beat-driven colour shift. When false, the
+   * frame stays at `color` regardless of beatEnergy. Default true so
+   * existing presets keep their look.
+   */
+  beatColorEnabled?: boolean
   /** 0–1; below this, no colour shift / no beat blur. Default ~0.6. */
   beatThreshold?: number
+  /**
+   * 0–1 multiplier applied to the lerp amount before the colour
+   * blend. 1 = full swing to beatColor at peaks; 0.5 = blend halfway.
+   * Default 1 so the legacy behaviour is preserved.
+   */
+  beatColorIntensity?: number
+  /**
+   * Per-frame decay rate for the persistent colour-lerp state. Range
+   * 0.02 (very smooth, ~3 s tail) to 0.3 (fast, snaps back in a few
+   * frames). Default 0.08. Rising edge always uses a fixed ATTACK
+   * (see drawFrame) — only the falling edge listens to this knob.
+   */
+  beatColorDecay?: number
   /**
    * 0–100 px shadow-blur applied to the stroke at peak beat. Scales
    * linearly with the same lerp amount as the colour. 0 disables.
