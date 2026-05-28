@@ -201,6 +201,13 @@ export interface LogoLayerRenderConfig {
   position: { x: number; y: number }
   /** Optional video override — when set, drawn instead of the image. */
   videoAssetId?: string | null
+  /**
+   * Optional per-layer image source (object URL or data URL). When
+   * set, the renderer prefers this over the legacy `logo` argument
+   * (which is sourced from the global useCoverArtStore). Set by the
+   * "Drop image as Logo" flow so the image survives preset switches.
+   */
+  imageSrc?: string | null
 }
 
 /**
@@ -262,8 +269,13 @@ export function drawLogoLayer(
     // Video assigned but not ready yet → fall through to image, or nothing.
   }
 
-  if (!logo) return
-  const logoImg = getOrLoadImage(logo.objectUrl)
+  // Per-layer imageSrc wins over the legacy global cover-art logo.
+  // The per-layer path is what makes "drop image as Logo" survive
+  // preset switches (the per-layer src is snapshotted in the layer
+  // config; the global one is not).
+  const src = config.imageSrc ?? logo?.objectUrl
+  if (!src) return
+  const logoImg = getOrLoadImage(src)
   if (!logoImg) return
 
   ctx.save()

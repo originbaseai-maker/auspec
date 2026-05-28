@@ -66,6 +66,14 @@ export interface LogoLayerConfig {
   /** Auto-sync to a circular/polygon layer's radius (V1: still global behavior). */
   autoLogoSync: boolean
   /**
+   * Optional per-layer image. When set, the renderer prefers this
+   * over `useCoverArtStore.logo` (the global shared logo). This is
+   * what makes dropped-image-as-Logo per-preset: the layer config
+   * snapshots with the preset, while the global cover-art store does
+   * not. Object URL or data URL — either works for canvas drawImage.
+   */
+  imageSrc?: string | null
+  /**
    * Optional: when set, the renderer draws this video into the logo
    * slot instead of the cover-art image. Same crop / position semantics.
    */

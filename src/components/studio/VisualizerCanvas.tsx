@@ -60,6 +60,8 @@ export default function VisualizerCanvas(): JSX.Element {
   const audioFile = useAudioStore((s) => s.audioFile)
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const currentTime = useAudioStore((s) => s.currentTime)
+  const audioSource = useAudioStore((s) => s.audioSource)
+  const videoAudioAssetId = useAudioStore((s) => s.videoAudioAssetId)
   const layers = useLayerStore((s) => s.layers)
   const draftLayer = useLayerStore((s) => s.draftLayer)
   const videoAssets = useVideoAssetStore((s) => s.assets)
@@ -294,6 +296,19 @@ export default function VisualizerCanvas(): JSX.Element {
         }
       }
 
+      // Audio routing: the asset that's the visualisation's audio
+      // source gets unmuted so the user hears it AND the analyser's
+      // createMediaElementSource has signal to read. All other pool
+      // videos stay muted (default) so we don't get layered audio.
+      // Audio is gated by audioSource — when 'uploaded', every video
+      // is muted regardless of videoAudioAssetId, preserving the
+      // "silent video layer over uploaded track" default.
+      const shouldUnmute =
+        audioSource === 'video' && assetId === videoAudioAssetId
+      if (video.muted !== !shouldUnmute) {
+        video.muted = !shouldUnmute
+      }
+
       if (isPlaying) {
         if (video.paused) {
           // .play() can reject if blocked by autoplay policy — muted
@@ -304,7 +319,15 @@ export default function VisualizerCanvas(): JSX.Element {
         video.pause()
       }
     }
-  }, [isPlaying, currentTime, videoAssets, layers, draftLayer])
+  }, [
+    isPlaying,
+    currentTime,
+    videoAssets,
+    layers,
+    draftLayer,
+    audioSource,
+    videoAudioAssetId,
+  ])
 
   useEffect(() => {
     if (!ctx || width === 0 || height === 0) return
@@ -499,6 +522,7 @@ export default function VisualizerCanvas(): JSX.Element {
                 logoCropMode: layer.config.logoCropMode,
                 position: layer.config.position,
                 videoAssetId: layer.config.videoAssetId ?? null,
+                imageSrc: layer.config.imageSrc ?? null,
               },
               width,
               height,
