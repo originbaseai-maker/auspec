@@ -128,13 +128,34 @@ export function TextInteractive(): JSX.Element | null {
 
   if (visibleLayers.length === 0) return null
 
+  // Wrapper is pointer-transparent so pointerdowns on the canvas
+  // (outside any text-box hit area) fall through to the sibling
+  // CanvasInteractiveOverlay's layer-drag handlers. Without this,
+  // loading audio — which auto-creates the Artist + Title text
+  // layers via setAudioFile → addLayerImmediate('text') — silently
+  // mounted this wrapper as `pointerEvents: 'auto'`, stealing every
+  // click on the canvas and breaking visualizer drag/resize.
+  //
+  // The deselect-on-tap-off behaviour is preserved by a separate
+  // catcher rendered only while something IS selected or editing —
+  // same pattern CanvasInteractiveOverlay uses for its deselect
+  // catcher, so the two overlays now compose cleanly.
+  const showDeselectCatcher =
+    selectedLayerId !== null || editingLayerId !== null
   return (
     <div
       ref={wrapperRef}
       className="absolute inset-0 z-10"
-      onPointerDown={handleBackgroundPointerDown}
-      style={{ pointerEvents: 'auto', background: 'transparent' }}
+      style={{ pointerEvents: 'none', background: 'transparent' }}
     >
+      {showDeselectCatcher && (
+        <div
+          className="absolute inset-0"
+          style={{ pointerEvents: 'auto' }}
+          onPointerDown={handleBackgroundPointerDown}
+          aria-hidden="true"
+        />
+      )}
       {visibleLayers.map((layer) => {
         const isSelected = selectedLayerId === layer.id
         const isEditing = editingLayerId === layer.id
@@ -146,6 +167,12 @@ export function TextInteractive(): JSX.Element | null {
             key={layer.id}
             className="absolute"
             style={{
+              // Each text box opts into pointer events explicitly so
+              // it's tappable for drag / double-click-to-edit — the
+              // parent wrapper is now `pointer-events: none`, so
+              // without this opt-in the boxes wouldn't receive
+              // pointerdowns either.
+              pointerEvents: 'auto',
               left: `${cfg.x * 100}%`,
               top: `${cfg.y * 100}%`,
               transform: 'translate(-50%, -50%)',
