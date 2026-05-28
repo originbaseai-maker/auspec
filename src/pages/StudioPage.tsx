@@ -7,6 +7,7 @@ import { PresetsSidebar } from '../components/studio/PresetsSidebar';
 import { CategoryGrid } from '../components/studio/CategoryGrid';
 import { CategoryDetailPanel } from '../components/studio/CategoryDetailPanel';
 import { Timeline } from '../components/studio/Timeline';
+import { VideoTimelineTrack } from '../components/studio/VideoTimelineTrack';
 import { AudioElement } from '../components/studio/AudioElement';
 import { FrameWrapper } from '../components/studio/FrameWrapper';
 import { TextInteractive } from '../components/studio/TextInteractive';
@@ -875,6 +876,7 @@ export function StudioPage() {
             className="fixed left-0 right-0 z-[55]"
             style={{ bottom: mobileBottomFloor }}
           >
+            <VideoTimelineTrack />
             {hasAudio ? <Timeline /> : <AudioPlayerBar />}
           </div>
 
@@ -978,6 +980,12 @@ export function StudioPage() {
         </div>
 
         {hasAudio && <AudioElement />}
+        {/* Video track sits ABOVE the audio control bar so the master
+            playhead reads top→bottom: videos, then audio. Renders
+            null when no Video layers reference a registered asset,
+            so the timeline area is identical to before for the
+            audio-only case. */}
+        <VideoTimelineTrack />
         {hasAudio ? <Timeline /> : <AudioPlayerBar />}
       </div>
       {formatFlashStyles}
