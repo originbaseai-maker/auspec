@@ -1,8 +1,9 @@
-import { useMemo, type JSX } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { Film } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
 import { useAudioStore } from '@/store/useAudioStore'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
+import { useMasterClock } from '@/lib/masterClock'
 import type { VideoLayerConfig } from '@/types/layer'
 
 function formatTime(s: number): string {
@@ -34,6 +35,13 @@ export function VideoTimelineTrack(): JSX.Element | null {
   const assets = useVideoAssetStore((s) => s.assets)
   const currentTime = useAudioStore((s) => s.currentTime)
   const audioDuration = useAudioStore((s) => s.duration)
+  // When the master clock is a video, this track is the PRIMARY
+  // scrub surface (the audio Timeline collapses its waveform to a
+  // trim-only band). Otherwise it's a passive read-only display.
+  const clock = useMasterClock()
+  const isPrimary = clock.kind === 'video'
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [scrubbing, setScrubbing] = useState(false)
 
   const videoLayers = useMemo(
     () =>
@@ -71,16 +79,63 @@ export function VideoTimelineTrack(): JSX.Element | null {
     Math.min(100, (currentTime / maxDuration) * 100),
   )
 
+  const pointToTime = (clientX: number): number => {
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0) return 0
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left))
+    return (x / rect.width) * maxDuration
+  }
+
+  const seekTo = (t: number) => {
+    if (!clock.element) return
+    try {
+      clock.element.currentTime = Math.max(0, Math.min(maxDuration, t))
+    } catch {
+      /* element not seekable yet */
+    }
+  }
+
+  // Drag-to-scrub. Pointer events on document (not on the track)
+  // so the user can drag outside the row and the playhead still
+  // follows — same UX as the audio Timeline's playhead drag.
+  useEffect(() => {
+    if (!scrubbing) return
+    const onMove = (e: PointerEvent) => seekTo(pointToTime(e.clientX))
+    const onUp = () => setScrubbing(false)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    // pointToTime + seekTo close over current refs; deps cover what changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrubbing, clock.element, maxDuration])
+
   return (
     <div
       className="flex shrink-0 items-stretch gap-3 border-t bg-[#0a0a0a] px-5 py-1.5"
       style={{ borderColor: '#1a1a1a' }}
-      aria-label="Video timeline tracks"
+      aria-label={
+        isPrimary ? 'Video timeline (master)' : 'Video timeline tracks'
+      }
     >
       <div className="flex w-[44px] items-center justify-end pr-1">
         <Film className="h-3.5 w-3.5 text-white/40" aria-hidden="true" />
       </div>
-      <div className="relative flex flex-1 flex-col justify-center gap-1 py-0.5">
+      <div
+        ref={trackRef}
+        className="relative flex flex-1 flex-col justify-center gap-1 py-0.5"
+        style={{ cursor: isPrimary ? 'pointer' : 'default' }}
+        onPointerDown={
+          isPrimary
+            ? (e) => {
+                seekTo(pointToTime(e.clientX))
+                setScrubbing(true)
+              }
+            : undefined
+        }
+      >
         {videoLayers.map(({ layer, asset }) => {
           const cfg = layer.config as VideoLayerConfig
           const isActive = activeLayerId === layer.id
@@ -157,16 +212,35 @@ export function VideoTimelineTrack(): JSX.Element | null {
         })}
         {/* Shared playhead — same vertical white line the audio
             timeline uses, positioned by the same master clock so the
-            two visually align. */}
+            two visually align. Beefed up to a draggable cap when this
+            track is the primary scrub surface (video-only mode). */}
         <div
-          className="pointer-events-none absolute top-0 bottom-0 w-0.5"
+          className="pointer-events-none absolute top-0 bottom-0"
           style={{
             left: `${playheadPct}%`,
+            width: isPrimary ? 2 : 1.5,
             background: '#fff',
             boxShadow: '0 0 4px rgba(255,255,255,0.7)',
           }}
           aria-hidden="true"
-        />
+        >
+          {isPrimary && (
+            <div
+              style={{
+                position: 'absolute',
+                top: -4,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 0,
+                height: 0,
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderTop: '6px solid #fff',
+              }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
       <div className="flex w-[44px] items-center justify-start pl-1 text-[10px] tabular-nums text-white/40">
         {formatTime(maxDuration)}
