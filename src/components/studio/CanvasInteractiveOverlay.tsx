@@ -9,7 +9,12 @@ import { useLayerStore } from '@/store/useLayerStore'
 import { useCoverArtStore } from '@/store/useCoverArtStore'
 import { useStudioUIStore } from '@/store/useStudioUIStore'
 import type { StudioCategory } from '@/types/studio'
-import type { ShapeLayerConfig } from '@/types/layer'
+import type { HaloLayerConfig, Layer, ShapeLayerConfig } from '@/types/layer'
+import {
+  getLayerBounds,
+  getLayerSizeRange,
+  setLayerBoundsPatch,
+} from '@/lib/layerTransform'
 
 type SelectableTarget =
   | { kind: 'layer'; layerId: string }
@@ -134,19 +139,15 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     return () => ro.disconnect()
   }, [])
 
-  // Auto-sync selection with the active layer when it's a draggable
-  // visualizer (circular / polygon / bloom).
+  // Auto-sync selection with the active layer when it has bounds.
+  // Routes through getLayerBounds so adding a new positionable layer
+  // kind (Halo, etc.) requires no edit here — the contract decides.
   useEffect(() => {
     if (!activeLayerId) return
     const layer = layers.find((l) => l.id === activeLayerId)
-    if (
-      layer &&
-      (layer.type === 'circular' ||
-        layer.type === 'polygon' ||
-        layer.type === 'bloom')
-    ) {
-      setSelected({ kind: 'layer', layerId: layer.id })
-    }
+    if (!layer) return
+    if (getLayerBounds(layer, 1) === null) return // 1 is a dummy minDim — we only need null vs non-null
+    setSelected({ kind: 'layer', layerId: layer.id })
   }, [activeLayerId, layers])
 
   // Escape deselects.
@@ -163,51 +164,31 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
   const wrapperH = wrapperSize.h
   const minDim = Math.min(wrapperW, wrapperH)
 
+  // Universal selectables: any enabled layer whose bounds contract
+  // returns non-null becomes draggable. Lock state propagates from
+  // layer.locked. Halo with lockToLogo is filtered specially below —
+  // dragging it routes to the topmost Logo layer (matching the panel
+  // hint "Dragging the Logo drags the Halo") instead of being a
+  // no-op.
   const selectables: Selectable[] = []
   for (const layer of layers) {
     if (!layer.enabled) continue
-    if (layer.type === 'circular') {
-      const cfg = layer.config as {
-        offsetX?: number
-        offsetY?: number
-        radius?: number
-      }
-      selectables.push({
-        target: { kind: 'layer', layerId: layer.id },
-        x: cfg.offsetX ?? 0.5,
-        y: cfg.offsetY ?? 0.5,
-        sizePx: Math.max(20, cfg.radius ?? 100),
-        locked: layer.locked,
-      })
-    } else if (layer.type === 'polygon') {
-      const cfg = layer.config as {
-        offsetX?: number
-        offsetY?: number
-        radius?: number
-      }
-      selectables.push({
-        target: { kind: 'layer', layerId: layer.id },
-        x: cfg.offsetX ?? 0.5,
-        y: cfg.offsetY ?? 0.5,
-        sizePx: Math.max(20, cfg.radius ?? 100),
-        locked: layer.locked,
-      })
-    } else if (layer.type === 'bloom') {
-      const cfg = layer.config as {
-        offsetX?: number
-        offsetY?: number
-        baseRadius?: number
-      }
-      selectables.push({
-        target: { kind: 'layer', layerId: layer.id },
-        x: cfg.offsetX ?? 0.5,
-        y: cfg.offsetY ?? 0.5,
-        sizePx: Math.max(20, cfg.baseRadius ?? 80),
-        locked: layer.locked,
-      })
-    }
+    const bounds = getLayerBounds(layer, minDim)
+    if (!bounds) continue
+    selectables.push({
+      target: { kind: 'layer', layerId: layer.id },
+      x: bounds.x,
+      y: bounds.y,
+      sizePx: bounds.sizePx,
+      locked: layer.locked,
+    })
   }
-  if (logo && minDim > 0) {
+  // Legacy cover-art logo (when no LogoLayer exists). The new path
+  // surfaces logos as LogoLayer instances handled by the universal
+  // loop above; this is only a fallback for users who uploaded a
+  // logo via CoverArtUploader without adding a Logo layer.
+  const hasLogoLayer = layers.some((l) => l.type === 'logo' && l.enabled)
+  if (logo && minDim > 0 && !hasLogoLayer) {
     selectables.push({
       target: { kind: 'logo' },
       x: coverArtPosition.x,
@@ -217,38 +198,79 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     })
   }
 
+  /**
+   * Resolve a halo-with-lockToLogo selectable to the Logo it should
+   * actually drag. Returns the Logo layer, or null if there is no
+   * Logo in the stack (in which case the halo falls back to its own
+   * offsetX/Y and drag is allowed directly).
+   */
+  const resolveHaloProxy = (selLayerId: string): Layer | null => {
+    const halo = layers.find((l) => l.id === selLayerId)
+    if (!halo || halo.type !== 'halo') return null
+    const cfg = halo.config as HaloLayerConfig
+    if (!cfg.lockToLogo) return null
+    const logoLayer = layers.find((l) => l.type === 'logo' && l.enabled)
+    return logoLayer ?? null
+  }
+
+  // Category mapping for the right-rail panel to open when a layer
+  // is selected. Adding a layer kind here lights up the panel auto-
+  // open behaviour — does NOT affect dragability (the bounds
+  // contract decides that).
+  const LAYER_TYPE_TO_CATEGORY: Record<string, StudioCategory> = {
+    circular: 'visualizer_circular',
+    polygon: 'visualizer_polygon',
+    bloom: 'visualizer_bloom',
+    halo: 'visualizer_halo',
+    logo: 'logo',
+    shape: 'visualizer_shape',
+    video: 'visualizer_video',
+    // bars/wave/particles/frame/text not auto-opened via canvas drag.
+  }
+
   const startMove = (e: React.PointerEvent, sel: Selectable) => {
     if (sel.locked) return
     const rect = wrapperRef.current?.getBoundingClientRect()
     if (!rect) return
     e.preventDefault()
     e.stopPropagation()
+
+    // For a Halo with lockToLogo + an existing Logo, redirect the
+    // drag onto the Logo layer — moving the Halo directly would be
+    // overridden next frame by the lock anyway. The selection still
+    // shows the Halo (that's what the user clicked) but the bounds
+    // we write go to the Logo.
+    let dragTarget = sel.target
+    let dragStartX = sel.x
+    let dragStartY = sel.y
+    if (sel.target.kind === 'layer') {
+      const proxy = resolveHaloProxy(sel.target.layerId)
+      if (proxy) {
+        dragTarget = { kind: 'layer', layerId: proxy.id }
+        const proxyBounds = getLayerBounds(proxy, minDim)
+        if (proxyBounds) {
+          dragStartX = proxyBounds.x
+          dragStartY = proxyBounds.y
+        }
+      }
+    }
     setSelected(sel.target)
     if (sel.target.kind === 'layer') {
       const tgt = sel.target
       setActiveLayer(tgt.layerId)
       const l = layers.find((x) => x.id === tgt.layerId)
-      if (l) {
-        const cat: StudioCategory =
-          l.type === 'circular'
-            ? 'visualizer_circular'
-            : l.type === 'polygon'
-              ? 'visualizer_polygon'
-              : l.type === 'bloom'
-                ? 'visualizer_bloom'
-                : 'visualizer_circular'
-        setActiveCategory(cat)
-      }
+      const cat = l ? LAYER_TYPE_TO_CATEGORY[l.type] : undefined
+      if (cat) setActiveCategory(cat)
     } else {
       setActiveCategory('logo')
     }
     setDragState({
-      target: sel.target,
+      target: dragTarget,
       mode: 'move',
       startMouseX: e.clientX,
       startMouseY: e.clientY,
-      startX: sel.x,
-      startY: sel.y,
+      startX: dragStartX,
+      startY: dragStartY,
       startSizePx: sel.sizePx,
       wrapperWidth: rect.width,
       wrapperHeight: rect.height,
@@ -278,6 +300,10 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     (e: PointerEvent) => {
       if (!dragState) return
       const tgt = dragState.target
+      const wrapMinDim = Math.min(
+        dragState.wrapperWidth,
+        dragState.wrapperHeight,
+      )
 
       if (dragState.mode === 'move') {
         const dx = (e.clientX - dragState.startMouseX) / dragState.wrapperWidth
@@ -285,12 +311,21 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
         const newX = Math.max(0, Math.min(1, dragState.startX + dx))
         const newY = Math.max(0, Math.min(1, dragState.startY + dy))
         if (tgt.kind === 'layer') {
-          updateConfig(tgt.layerId, { offsetX: newX, offsetY: newY })
+          const layer = useLayerStore
+            .getState()
+            .layers.find((l) => l.id === tgt.layerId)
+          if (!layer) return
+          const patch = setLayerBoundsPatch(
+            layer,
+            { x: newX, y: newY },
+            wrapMinDim,
+          )
+          if (patch) updateConfig(tgt.layerId, patch)
         } else {
           setCoverArtPosition({ x: newX, y: newY })
         }
       } else {
-        // Resize — distance from center to pointer in wrapper-local pixels.
+        // Resize — distance from centre to pointer in wrapper-local px.
         const rect = wrapperRef.current?.getBoundingClientRect()
         if (!rect) return
         const cxPx = dragState.startX * dragState.wrapperWidth
@@ -301,25 +336,21 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
         const dyPx = mouseRelY - cyPx
         const distance = Math.sqrt(dxPx * dxPx + dyPx * dyPx)
         if (tgt.kind === 'layer') {
-          const newRadius = Math.max(20, Math.min(500, distance))
-          // Bloom writes `baseRadius`; circular/polygon write `radius`.
-          const targetLayer = useLayerStore
+          const layer = useLayerStore
             .getState()
             .layers.find((l) => l.id === tgt.layerId)
-          if (targetLayer?.type === 'bloom') {
-            updateConfig(tgt.layerId, { baseRadius: newRadius })
-          } else {
-            updateConfig(tgt.layerId, { radius: newRadius })
-          }
-        } else {
-          // Logo: distance is the requested half-extent in wrapper px;
-          // store value is fraction of minDim.
-          const minDimWrap = Math.min(
-            dragState.wrapperWidth,
-            dragState.wrapperHeight,
+          if (!layer) return
+          const range = getLayerSizeRange(layer.type)
+          const clamped = Math.max(range.min, Math.min(range.max, distance))
+          const patch = setLayerBoundsPatch(
+            layer,
+            { sizePx: clamped },
+            wrapMinDim,
           )
+          if (patch) updateConfig(tgt.layerId, patch)
+        } else {
           const newLogoSize =
-            minDimWrap > 0 ? (distance * 2) / minDimWrap : logoSize
+            wrapMinDim > 0 ? (distance * 2) / wrapMinDim : logoSize
           // setLogoSize clamps to [0.1, 1.0]
           setLogoSize(newLogoSize)
         }
