@@ -35,6 +35,41 @@ interface PointDragState {
 
 const POINT_CLICK_THRESHOLD_PX = 4
 
+/**
+ * Per-axis fractional distance from canvas centre below which the
+ * snap engages. 1.5% of canvas — small enough that the user has to
+ * actually be aiming at centre, large enough that you don't have to
+ * pixel-hunt.
+ */
+const SNAP_ENGAGE_THRESHOLD = 0.015
+
+/**
+ * Once engaged, the cursor's would-be position must move further
+ * than this from centre before the snap releases. The asymmetry
+ * (engage 0.015 < release 0.03) is what makes the snap feel
+ * "sticky" — you don't accidentally drift off centre when nudging
+ * the other axis. Tuned higher than the engage by 2x so you have
+ * to deliberately drag past it.
+ */
+const SNAP_BREAKAWAY_THRESHOLD = 0.03
+
+/**
+ * Tracks the persistent snap state across pointermove events within
+ * a single drag. Lives in a ref so updating it doesn't trigger a
+ * React re-render on every pointer event — only the actively-
+ * displayed `snapVisible` state (mirrored from this ref) drives
+ * re-renders, and only on transitions.
+ */
+interface SnapState {
+  snappedX: boolean
+  snappedY: boolean
+}
+
+const prefersReducedMotion =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 interface Selectable {
   target: SelectableTarget
   /** 0–1 horizontal center. */
@@ -123,6 +158,15 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
   const [wrapperSize, setWrapperSize] = useState<{ w: number; h: number }>({
     w: 0,
     h: 0,
+  })
+  // Persistent snap state across pointermove events — held in a ref
+  // so per-frame snap math doesn't trigger React updates. The
+  // derived `snapVisible` mirrors it for the guide-line render path,
+  // but only updates on transitions (engage / break).
+  const snapRef = useRef<SnapState>({ snappedX: false, snappedY: false })
+  const [snapVisible, setSnapVisible] = useState<SnapState>({
+    snappedX: false,
+    snappedY: false,
   })
 
   // Track wrapper size so hit boxes recompute when the canvas resizes
@@ -283,6 +327,19 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
     if (!rect) return
     e.preventDefault()
     e.stopPropagation()
+    // Seed the snap state from the layer's current centre at the
+    // start of resize. Resize doesn't change x/y, so the snap state
+    // stays valid throughout — the guides keep showing "you're
+    // still centred" feedback while the user adjusts size. Without
+    // this, snap state would stay at its previous (post-drag-end)
+    // value of false/false and guides wouldn't appear even on a
+    // perfectly centred layer.
+    const startSnap: SnapState = {
+      snappedX: Math.abs(sel.x - 0.5) <= SNAP_ENGAGE_THRESHOLD,
+      snappedY: Math.abs(sel.y - 0.5) <= SNAP_ENGAGE_THRESHOLD,
+    }
+    snapRef.current = startSnap
+    setSnapVisible(startSnap)
     setDragState({
       target: sel.target,
       mode: 'resize',
@@ -308,8 +365,57 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
       if (dragState.mode === 'move') {
         const dx = (e.clientX - dragState.startMouseX) / dragState.wrapperWidth
         const dy = (e.clientY - dragState.startMouseY) / dragState.wrapperHeight
-        const newX = Math.max(0, Math.min(1, dragState.startX + dx))
-        const newY = Math.max(0, Math.min(1, dragState.startY + dy))
+        // Desired (no-snap) position the user is currently dragging
+        // toward. Snap decisions compare THIS to centre, not the
+        // post-snap value — otherwise once snapped, the desired
+        // value would equal 0.5 forever and we could never break.
+        const desiredX = Math.max(0, Math.min(1, dragState.startX + dx))
+        const desiredY = Math.max(0, Math.min(1, dragState.startY + dy))
+
+        // Per-axis snap with sticky break-away. Engage threshold is
+        // smaller than the breakaway so a tiny over-move past
+        // centre doesn't immediately disengage — it's the asymmetry
+        // that makes the snap feel held-in-place.
+        const snap = snapRef.current
+        const wasSnappedX = snap.snappedX
+        const wasSnappedY = snap.snappedY
+        let snappedX: boolean
+        if (wasSnappedX) {
+          snappedX = Math.abs(desiredX - 0.5) <= SNAP_BREAKAWAY_THRESHOLD
+        } else {
+          snappedX = Math.abs(desiredX - 0.5) <= SNAP_ENGAGE_THRESHOLD
+        }
+        let snappedY: boolean
+        if (wasSnappedY) {
+          snappedY = Math.abs(desiredY - 0.5) <= SNAP_BREAKAWAY_THRESHOLD
+        } else {
+          snappedY = Math.abs(desiredY - 0.5) <= SNAP_ENGAGE_THRESHOLD
+        }
+
+        const newX = snappedX ? 0.5 : desiredX
+        const newY = snappedY ? 0.5 : desiredY
+
+        // Update snap state on transitions only — saves React work
+        // (the pointermove fires ~60x/sec; transitions happen at
+        // most a few times per drag).
+        if (snappedX !== wasSnappedX || snappedY !== wasSnappedY) {
+          snap.snappedX = snappedX
+          snap.snappedY = snappedY
+          setSnapVisible({ snappedX, snappedY })
+          // Haptic feedback on snap ENGAGE only (not on release).
+          // Pulses for ~5 ms on devices that support it; silently
+          // no-ops on desktop / browsers that don't.
+          const engaged =
+            (!wasSnappedX && snappedX) || (!wasSnappedY && snappedY)
+          if (engaged && typeof navigator !== 'undefined' && navigator.vibrate) {
+            try {
+              navigator.vibrate(5)
+            } catch {
+              /* some browsers throw without permission — silent */
+            }
+          }
+        }
+
         if (tgt.kind === 'layer') {
           const layer = useLayerStore
             .getState()
@@ -361,6 +467,12 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
 
   const onPointerUp = useCallback(() => {
     setDragState(null)
+    // Clear the snap state on drag end so guides vanish immediately.
+    // Visibility is gated by `dragState !== null` in the render path,
+    // but resetting here too keeps the ref + React state coherent
+    // for the next drag.
+    snapRef.current = { snappedX: false, snappedY: false }
+    setSnapVisible({ snappedX: false, snappedY: false })
   }, [])
 
   useEffect(() => {
@@ -445,12 +557,73 @@ export function CanvasInteractiveOverlay(): JSX.Element | null {
 
   if (selectables.length === 0 && !penMode) return null
 
+  // Centre guides are visible ONLY during an active drag OR resize
+  // (pointer down on a layer body or corner handle), and only on
+  // the axis that's currently snapped. Visibility is hard-gated by
+  // dragState — hover, idle selection, and post-pointer-up all skip
+  // the guides entirely. During resize, snap state is seeded from
+  // the layer's centre at start so a centred layer keeps showing
+  // the guide as confirmation while sizing.
+  const showGuides = dragState !== null
+  const guideTransition = prefersReducedMotion ? 'none' : 'opacity 80ms ease'
+
   return (
     <div
       ref={wrapperRef}
       className="absolute inset-0 z-10"
       style={{ pointerEvents: 'none' }}
     >
+      {/* Centre alignment guides. Always mounted (so the CSS
+          transition has somewhere to interpolate from) but
+          opacity-gated. Pointer-events: none so they don't fight
+          the drag they're guiding. */}
+      <div
+        className="pointer-events-none absolute inset-y-0"
+        style={{
+          left: '50%',
+          width: 1,
+          background: 'rgba(34,211,238,0.7)', // cyan accent
+          boxShadow: '0 0 6px rgba(34,211,238,0.6)',
+          opacity: showGuides && snapVisible.snappedX ? 1 : 0,
+          transition: guideTransition,
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0"
+        style={{
+          top: '50%',
+          height: 1,
+          background: 'rgba(34,211,238,0.7)',
+          boxShadow: '0 0 6px rgba(34,211,238,0.6)',
+          opacity: showGuides && snapVisible.snappedY ? 1 : 0,
+          transition: guideTransition,
+        }}
+        aria-hidden="true"
+      />
+      {/* Centre crosshair badge: a small accented dot at the
+          intersection when BOTH axes are snapped. Reads as a
+          confirmation marker without adding clutter when only one
+          axis is engaged. */}
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: '50%',
+          top: '50%',
+          width: 8,
+          height: 8,
+          marginLeft: -4,
+          marginTop: -4,
+          borderRadius: '50%',
+          background: 'rgba(34,211,238,1)',
+          boxShadow: '0 0 10px rgba(34,211,238,0.9)',
+          opacity:
+            showGuides && snapVisible.snappedX && snapVisible.snappedY ? 1 : 0,
+          transition: guideTransition,
+        }}
+        aria-hidden="true"
+      />
+
       {/* Deselect catcher: only active while something is selected so we
           don't block clicks on the underlying canvas in idle state. */}
       {selected && !penMode && (
