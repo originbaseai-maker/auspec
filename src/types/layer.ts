@@ -298,6 +298,46 @@ export interface ShapePoint {
 export type ShapeFillType = 'color' | 'gradient' | 'image' | 'video' | 'none'
 export type ShapeImageFit = 'cover' | 'contain' | 'fill'
 
+/**
+ * Universal fill-source contract. Read-only view computed from each
+ * container's specific fields (Shape uses `fillType`/`videoAssetId`/
+ * `imageSrc`; Circular/Polygon use parallel `videoFill*` / `imageFill*`
+ * fields). The discriminated union is the unifying surface — UI code
+ * and bidirectional connection lookup branch on `kind` without
+ * needing per-container knowledge.
+ *
+ * `none` covers the visual-only (stroke-only) case where no fill
+ * pixels are drawn.
+ */
+export type FillKind = 'none' | 'color' | 'gradient' | 'video' | 'image'
+export type FillFit = 'cover' | 'contain' | 'fill'
+
+export type FillSource =
+  | { kind: 'none' }
+  | { kind: 'color'; color: string; opacity: number }
+  | {
+      kind: 'gradient'
+      color: string
+      color2: string
+      angle: number
+      opacity: number
+    }
+  | {
+      kind: 'video'
+      assetId: string
+      fit: FillFit
+      opacity: number
+    }
+  | {
+      kind: 'image'
+      /** Inline data-URL when no logoLayerId is set. */
+      imageSrc: string | null
+      /** Optional reference to a Logo layer — enables bidirectional connections. */
+      logoLayerId: string | null
+      fit: FillFit
+      opacity: number
+    }
+
 export interface ShapeLayerConfig {
   /** Ordered list of vertices, fraction of canvas. */
   points: ShapePoint[]
