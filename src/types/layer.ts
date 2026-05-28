@@ -92,7 +92,7 @@ export interface FrameLayer {
 }
 
 export interface BackgroundLayerConfig {
-  bgType: 'color' | 'gradient' | 'image' | 'transparent'
+  bgType: 'color' | 'gradient' | 'image' | 'video' | 'transparent'
   /** Solid color, or first gradient stop. */
   color: string
   /** Second gradient stop. */
@@ -106,6 +106,38 @@ export interface BackgroundLayerConfig {
   blur: number
   /** 0–1 global alpha. */
   opacity: number
+  /**
+   * Public URL of a library video for 'video' bgType. Unlike
+   * blob-URL uploads, library videos are hosted on Supabase Storage,
+   * so the URL is STABLE across reloads and survives autosave — the
+   * preset literally remembers which background was chosen.
+   */
+  videoSrc?: string | null
+  /**
+   * Catalog id of the chosen library video (background_videos.id).
+   * Stored alongside the URL for reference / dedup / future "show
+   * me the original title" UI. Optional — the renderer only needs
+   * `videoSrc`.
+   */
+  videoLibraryId?: string | null
+  /**
+   * Optional poster image URL for the chosen video. Used as a
+   * placeholder while the video loads so users don't stare at a
+   * black canvas on first paint.
+   */
+  videoPosterSrc?: string | null
+  /**
+   * Toggle for the subtle bass-driven opacity + scale pulse. Off by
+   * default — backgrounds that pump too hard fight the foreground
+   * visualiser.
+   */
+  videoReactEnabled?: boolean
+  /**
+   * 0..1 strength multiplier on the pulse. The renderer scales the
+   * default pulse range by this number, so 0 = no pulse, 1 = full
+   * (still subtle — caps at ~4% scale and ~10% alpha swing).
+   */
+  videoReactIntensity?: number
 }
 
 export interface BackgroundLayer {
