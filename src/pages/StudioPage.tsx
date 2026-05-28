@@ -26,7 +26,12 @@ import { useAnalyzer } from '@/contexts/AnalyzerContext';
 import { useFormatStore } from '@/store/useFormatStore';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useStudioUIStore } from '@/store/useStudioUIStore';
-import { initializeLayersFromVisualizerStore } from '@/store/useLayerStore';
+import { initializeLayersFromVisualizerStore, useLayerStore } from '@/store/useLayerStore';
+import { useVisualizerStore } from '@/store/useVisualizerStore';
+import { usePresetStore } from '@/store/usePresetStore';
+import { BUILT_IN_PRESETS } from '@/lib/presets';
+import { loadStudioState } from '@/lib/studioPersistence';
+import { useStudioAutosave } from '@/hooks/useStudioAutosave';
 import { useViewport } from '@/hooks/useViewport';
 import { STUDIO_CATEGORIES } from '@/types/studio';
 import {
@@ -728,14 +733,66 @@ export function StudioPage() {
   const activeCategory = useStudioUIStore((s) => s.activeCategory);
   const layersInitialized = useRef(false);
 
-  // One-time migration: copy the existing visualizerStore state into the
-  // new layer store on first mount. Subsequent mounts are no-ops thanks
-  // to the ref guard.
+  // Mount-time restore. Priority:
+  //   1. localStorage autosave snapshot (where the user left off).
+  //   2. Topmost favorite preset (so a brand-new visitor lands on
+  //      *something*, not the empty default).
+  //   3. The legacy visualizerStore migration (last resort — covers
+  //      users from before the autosave shipped).
+  // Subsequent mounts are guarded by the ref so HMR doesn't replay.
   useEffect(() => {
     if (layersInitialized.current) return;
     layersInitialized.current = true;
+
+    const saved = loadStudioState();
+    if (saved) {
+      // Hydrate the visualizer store first so applyPreset-style fields
+      // (visualizerConfig.framePulse, primaryColor mirrors, etc.) match
+      // what the layer renderers expect.
+      useVisualizerStore.setState({
+        visualizerConfig: saved.visualizerConfig,
+        visualType: saved.visualType,
+        backgroundColor: saved.backgroundColor,
+        sensitivity: saved.sensitivity,
+        activePresetId: saved.activePresetId,
+      });
+      useLayerStore.getState().replaceLayers(saved.layers, saved.activeLayerId);
+      // replaceLayers nulls draft → restore explicitly if there was one.
+      if (saved.draftLayer) {
+        useLayerStore.setState({
+          draftLayer: saved.draftLayer,
+          draftIsDirty: saved.draftIsDirty,
+        });
+      }
+      if (saved.activeProjectId) {
+        useProjectStore.getState().setActiveProjectId(saved.activeProjectId);
+      }
+      return;
+    }
+
+    // No autosave → try the topmost favorite preset. Lookup spans
+    // built-ins + user presets; a stale favorite (preset since
+    // deleted) is silently skipped to the next.
+    const presetState = usePresetStore.getState();
+    const lookup = new Map(
+      [...BUILT_IN_PRESETS, ...presetState.userPresets].map((p) => [p.id, p]),
+    );
+    const topFavorite = presetState.favorites
+      .map((id) => lookup.get(id))
+      .find((p) => p !== undefined);
+    if (topFavorite) {
+      useVisualizerStore.getState().applyPreset(topFavorite);
+      return;
+    }
+
+    // No favorites at all → fall back to the legacy migration so we
+    // never open a blank canvas.
     initializeLayersFromVisualizerStore();
   }, []);
+
+  // Debounced autosave subscriber. Mounted unconditionally — disabling
+  // would risk a single-frame gap where edits are lost.
+  useStudioAutosave(true);
 
   const setActiveCategory = useStudioUIStore((s) => s.setActiveCategory);
   const activeCategoryLabel = activeCategory
