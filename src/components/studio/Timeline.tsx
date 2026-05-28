@@ -16,6 +16,7 @@ import {
   isValidAudioFile,
   MAX_FILE_SIZE,
 } from '@/types/audio'
+import { useMasterClock } from '@/lib/masterClock'
 import { AudioSourceToggle } from './AudioSourceToggle'
 
 function formatTime(s: number): string {
@@ -38,25 +39,37 @@ export function Timeline() {
   const setTrimEnd = useAudioStore((s) => s.setTrimEnd)
   const resetTrim = useAudioStore((s) => s.resetTrim)
   const setLoop = useAudioStore((s) => s.setLoop)
-  const audioElement = useAudioStore((s) => s.audioElement)
+  // The master clock is the audio element when an audio file is
+  // loaded; otherwise it's the active audio-source video. Every
+  // transport handler in this component routes through it instead
+  // of hardcoding `audioElement`, so the user gets the same play /
+  // pause / scrub / trim controls regardless of clock kind.
+  const masterClock = useMasterClock()
+  const masterElement = masterClock.element
+  const isVideoClock = masterClock.kind === 'video'
   const bpm = useAudioStore((s) => s.bpm)
   const bpmConfidence = useAudioStore((s) => s.bpmConfidence)
   const bpmAutoDetected = useAudioStore((s) => s.bpmAutoDetected)
   const bpmDetecting = useAudioStore((s) => s.bpmDetecting)
   const setBpmManual = useAudioStore((s) => s.setBpmManual)
 
-  // Play/pause act on the live audio element from the store (owned by the
-  // AudioElement component). isPlaying updates via the play/pause event
-  // listeners attached in useAudioPlayer, so we don't set it here.
+  // Play/pause act on whichever element is the master clock. isPlaying
+  // updates via the play/pause event listeners attached in
+  // useAudioPlayer (audio path) or VideoClock (video path), so we
+  // don't set it here.
   const handlePlayPause = () => {
-    if (!audioElement) return
+    if (!masterElement) return
     if (isPlaying) {
-      audioElement.pause()
+      masterElement.pause()
     } else {
-      if (audioElement.currentTime < trimStart) {
-        audioElement.currentTime = trimStart
+      if (masterElement.currentTime < trimStart) {
+        try {
+          masterElement.currentTime = trimStart
+        } catch {
+          /* element not seekable yet */
+        }
       }
-      void audioElement.play()
+      void masterElement.play()
     }
   }
 
@@ -131,11 +144,15 @@ export function Timeline() {
         setTrimStart(Math.min(t, effectiveTrimEnd - 0.5))
       } else if (dragging === 'end') {
         setTrimEnd(Math.max(t, trimStart + 0.5))
-      } else if (dragging === 'playhead' && audioElement) {
-        audioElement.currentTime = Math.max(
-          trimStart,
-          Math.min(effectiveTrimEnd, t),
-        )
+      } else if (dragging === 'playhead' && masterElement) {
+        try {
+          masterElement.currentTime = Math.max(
+            trimStart,
+            Math.min(effectiveTrimEnd, t),
+          )
+        } catch {
+          /* element not seekable yet */
+        }
       }
     }
     const onUp = () => setDragging(null)
@@ -147,7 +164,7 @@ export function Timeline() {
     }
   }, [
     dragging,
-    audioElement,
+    masterElement,
     trimStart,
     effectiveTrimEnd,
     duration,
@@ -188,12 +205,43 @@ export function Timeline() {
         style={{ borderColor: '#1f1f1f' }}
         onPointerDown={(e) => {
           const t = pointToTime(e.clientX)
-          if (audioElement && t >= trimStart && t <= effectiveTrimEnd) {
-            audioElement.currentTime = t
+          if (masterElement && t >= trimStart && t <= effectiveTrimEnd) {
+            try {
+              masterElement.currentTime = t
+            } catch {
+              /* element not seekable yet */
+            }
           }
           setDragging('playhead')
         }}
       >
+        {isVideoClock ? (
+          /* Video clock: there's no waveform to draw (no audio file
+             to sample). A flat duration bar fills the same visual
+             slot — the trim window overlay, trim handles, and
+             playhead all still work because they reference the
+             timeline's geometry, not the bars. */
+          <div className="absolute inset-x-1 top-1/2 -translate-y-1/2">
+            <div
+              className="h-1.5 w-full rounded-full"
+              style={{
+                background:
+                  'linear-gradient(90deg, rgba(255,255,255,0.10), rgba(255,255,255,0.18), rgba(255,255,255,0.10))',
+              }}
+              aria-hidden="true"
+            />
+            {duration > 0 && (
+              <div
+                className="absolute top-0 h-1.5 rounded-full"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (currentTime / duration) * 100))}%`,
+                  background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+                }}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        ) : (
         <div className="absolute inset-0 flex items-center justify-between px-1">
           {Array.from({ length: 200 }).map((_, i) => {
             const pos = i / 200
@@ -222,6 +270,7 @@ export function Timeline() {
             )
           })}
         </div>
+        )}
 
         <div
           className="pointer-events-none absolute inset-y-0"
@@ -397,7 +446,11 @@ export function Timeline() {
           type="button"
           onClick={() => {
             const next = !muted
-            if (audioElement) audioElement.muted = next
+            // Mute the master element regardless of kind. When clock
+            // is the video, this also silences the analyser's
+            // signal (it reads from the same element) — the user's
+            // explicit mute trumps the visualiser audio path.
+            if (masterElement) masterElement.muted = next
             setMuted(next)
           }}
           aria-pressed={muted}
