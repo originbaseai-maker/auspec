@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useAudioStore } from '@/store/useAudioStore'
+import { getMasterClock } from '@/lib/masterClock'
 
 export function useAudioPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -17,14 +18,14 @@ export function useAudioPlayer() {
     audioSource,
   } = useAudioStore()
 
-  // When the analyser is sampling a video's audio track, mute the
-  // uploaded audio element so the user doesn't hear two streams at
-  // once. The audio element keeps PLAYING — it's still the master
-  // timeline clock; only its output is silenced. Restored on toggle
-  // back to 'uploaded'.
+  // Mute discipline: the audio element is audible only when 'music'
+  // is the chosen source. In every other case the user wants the
+  // video's audio (or there's no audio at all). The element keeps
+  // existing — it's the master clock when source='music' — but its
+  // output route is muted to prevent double-audio.
   useEffect(() => {
     if (!audioRef.current) return
-    audioRef.current.muted = audioSource === 'video'
+    audioRef.current.muted = audioSource !== 'music'
   }, [audioSource])
 
   useEffect(() => {
@@ -46,7 +47,14 @@ export function useAudioPlayer() {
     const audio = audioRef.current
     if (!audio) return
 
+    // Listener-gating rule: only fire store writes when THIS element
+    // is the current master clock. With music+video and source=video,
+    // both this element and the video have play/timeupdate events
+    // firing — without the gate they'd race to update `isPlaying` /
+    // `currentTime`. The gate makes the non-master a silent passenger.
+    const isMaster = () => getMasterClock().element === audio
     const onTimeUpdate = () => {
+      if (!isMaster()) return
       const t = audio.currentTime
       setCurrentTime(t)
 
@@ -61,8 +69,12 @@ export function useAudioPlayer() {
         }
       }
     }
-    const onDurationChange = () => setDuration(audio.duration)
+    const onDurationChange = () => {
+      if (!isMaster()) return
+      setDuration(audio.duration)
+    }
     const onEnded = () => {
+      if (!isMaster()) return
       const { loop, trimStart } = useAudioStore.getState()
       if (loop) {
         // Restart from trimStart (or 0 if no trim was set). The play/pause
@@ -73,8 +85,14 @@ export function useAudioPlayer() {
       }
       setIsPlaying(false)
     }
-    const onPlay = () => setIsPlaying(true)
-    const onPause = () => setIsPlaying(false)
+    const onPlay = () => {
+      if (!isMaster()) return
+      setIsPlaying(true)
+    }
+    const onPause = () => {
+      if (!isMaster()) return
+      setIsPlaying(false)
+    }
 
     audio.addEventListener('timeupdate', onTimeUpdate)
     audio.addEventListener('durationchange', onDurationChange)

@@ -15,19 +15,21 @@ export interface AudioStore {
   previewMode: boolean
 
   /**
-   * Which audio stream drives the visualiser AnalyserNode.
-   *   'uploaded' — the uploaded music file (current default behaviour)
-   *   'video'    — a Video layer's own audio track
-   * When 'video', `videoAudioAssetId` names which video asset.
-   * The uploaded audio element keeps playing silently as the master
-   * timeline clock (Timeline scrubs work as-is); the video element
-   * gets unmuted and its createMediaElementSource feeds the analyser.
-   * Toggling back to 'uploaded' restores the previous routing.
+   * The user's CHOSEN audio source — the same field drives both the
+   * analyser routing AND the master transport clock.
+   *   'music' — the uploaded audio file
+   *   'video' — a Video layer's own audio track (videoAudioAssetId picks which)
+   *
+   * Resolution rules (see masterClock.ts) honour this choice when
+   * the named candidate exists, and fall back gracefully when it
+   * doesn't (e.g. user removes the chosen source). Single-candidate
+   * situations bypass the toggle entirely — resolveMasterClock picks
+   * the one available source regardless of `audioSource`.
    */
-  audioSource: 'uploaded' | 'video'
+  audioSource: 'music' | 'video'
   videoAudioAssetId: string | null
   setAudioSource: (
-    source: 'uploaded' | 'video',
+    source: 'music' | 'video',
     videoAudioAssetId?: string | null,
   ) => void
 
@@ -70,7 +72,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   loop: false,
   previewMode: true,
 
-  audioSource: 'uploaded',
+  audioSource: 'music',
   videoAudioAssetId: null,
   setAudioSource: (audioSource, videoAudioAssetId) =>
     set((s) => ({
@@ -105,6 +107,13 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       bpmConfidence: 0,
       bpmAutoDetected: false,
       bpmDetecting: false,
+      // Adding a music file is an explicit "I want to hear this"
+      // signal — auto-flip the audio source to 'music' so the user
+      // doesn't have to find the toggle. They can still flip back
+      // to 'video' if they wanted the video audio after all.
+      // Removing the file (null) intentionally does NOT auto-flip;
+      // the candidate resolver handles the single-source case.
+      audioSource: audioFile ? 'music' : get().audioSource,
     })
 
     // Best-effort autofill of Text layers from "Artist - Title.ext".
