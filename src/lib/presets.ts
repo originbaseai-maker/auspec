@@ -1,6 +1,7 @@
 import type { VisualizerConfig, VisualType } from '@/lib/visualizerConfig'
 import type { FrameConfig } from '@/store/useFrameStore'
 import type { Layer } from '@/types/layer'
+import { PRESET_PACK } from '@/lib/presetPack'
 
 export interface Preset {
   id: string
@@ -38,6 +39,10 @@ export interface Preset {
 }
 
 export const BUILT_IN_PRESETS: Preset[] = [
+  // Curated 8-preset pack — listed first so new users see polished,
+  // background-video-backed templates before the simpler legacy
+  // built-ins. Defined in presetPack.ts.
+  ...PRESET_PACK,
   {
     id: 'dark-neon-circle',
     name: 'Dark Neon Circle',
