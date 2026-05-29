@@ -622,6 +622,7 @@ export default function VisualizerCanvas(): JSX.Element {
               width,
               height,
               editingTextId === layer.id,
+              bassEnergy,
             )
             break
           case 'cinematic':

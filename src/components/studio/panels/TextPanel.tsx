@@ -1,6 +1,7 @@
 import { useBrandKitStore } from '@/store/useBrandKitStore'
 import { useLayerStore } from '@/store/useLayerStore'
-import type { FontFamily, TextLayerConfig } from '@/types/layer'
+import { FONT_CATEGORIES, type FontFamily, type TextLayerConfig } from '@/types/layer'
+import { ensureFontLoaded } from '@/lib/fontLoader'
 import {
   ColorRow,
   LockedLayerBanner,
@@ -8,14 +9,6 @@ import {
   SliderRow,
   Toggle,
 } from './shared'
-
-const FONTS: FontFamily[] = [
-  'Inter',
-  'Bebas Neue',
-  'Playfair Display',
-  'Pacifico',
-  'Space Mono',
-]
 
 const POSITIONS: { x: number; y: number; label: string }[] = [
   { x: 0.1, y: 0.1, label: '↖' },
@@ -161,28 +154,44 @@ export function TextPanel({ layerId }: Props) {
         <p className="mb-1 text-[10px] uppercase tracking-wider text-white/40">
           Font
         </p>
-        <div className="grid grid-cols-2 gap-1">
-          {FONTS.map((font) => {
-            const active = cfg.font === font
-            return (
-              <button
-                key={font}
-                type="button"
-                onClick={() => update({ font })}
-                className="rounded border px-2 py-1.5 text-[11px] transition-colors"
-                style={{
-                  borderColor: active ? '#3b82f6' : '#2a2a2a',
-                  background: active
-                    ? 'rgba(59,130,246,0.15)'
-                    : '#1a1a1a',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.65)',
-                  fontFamily: `"${font}", sans-serif`,
-                }}
-              >
-                {font}
-              </button>
-            )
-          })}
+        <div className="space-y-2">
+          {FONT_CATEGORIES.map((cat) => (
+            <div key={cat.label}>
+              <p className="mb-1 text-[9px] uppercase tracking-wider text-white/30">
+                {cat.label}
+              </p>
+              <div className="grid grid-cols-2 gap-1">
+                {cat.fonts.map((font) => {
+                  const active = cfg.font === font
+                  return (
+                    <button
+                      key={font}
+                      type="button"
+                      onClick={() => {
+                        // Eagerly load before letting the canvas read
+                        // the new family — guards against the
+                        // fillText-falls-back-silently gotcha when the
+                        // font hasn't been touched yet this session.
+                        void ensureFontLoaded(font as FontFamily)
+                        update({ font })
+                      }}
+                      className="rounded border px-2 py-1.5 text-[11px] transition-colors"
+                      style={{
+                        borderColor: active ? '#3b82f6' : '#2a2a2a',
+                        background: active
+                          ? 'rgba(59,130,246,0.15)'
+                          : '#1a1a1a',
+                        color: active ? '#fff' : 'rgba(255,255,255,0.65)',
+                        fontFamily: `"${font}", sans-serif`,
+                      }}
+                    >
+                      {font}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -312,6 +321,134 @@ export function TextPanel({ layerId }: Props) {
               ariaLabel="shadow color"
             />
           </div>
+        </div>
+      </PanelGroup>
+
+      <PanelGroup title="Glow">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] text-white/70">Outer glow</span>
+          <Toggle
+            checked={cfg.glowEnabled === true}
+            onChange={(v) => update({ glowEnabled: v })}
+            ariaLabel="Glow"
+          />
+        </div>
+        <div
+          style={{ opacity: cfg.glowEnabled ? 1 : 0.4 }}
+          className="space-y-2"
+        >
+          <SliderRow
+            label="Intensity"
+            hint={`${Math.round(cfg.glowIntensity ?? 24)}px`}
+            value={cfg.glowIntensity ?? 24}
+            min={0}
+            max={60}
+            step={1}
+            onChange={(v) => update({ glowIntensity: Math.round(v) })}
+            ariaLabel="Glow intensity"
+          />
+          <div>
+            <p className="mb-1 text-[11px] text-white/70">Color</p>
+            <ColorRow
+              value={cfg.glowColor ?? cfg.color}
+              onChange={(c) => update({ glowColor: c })}
+              ariaLabel="glow color"
+            />
+          </div>
+        </div>
+      </PanelGroup>
+
+      <PanelGroup title="Outline">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] text-white/70">Stroke</span>
+          <Toggle
+            checked={cfg.outlineEnabled === true}
+            onChange={(v) => update({ outlineEnabled: v })}
+            ariaLabel="Outline"
+          />
+        </div>
+        <div
+          style={{ opacity: cfg.outlineEnabled ? 1 : 0.4 }}
+          className="space-y-2"
+        >
+          <SliderRow
+            label="Width"
+            hint={`${cfg.outlineWidth ?? 2}px`}
+            value={cfg.outlineWidth ?? 2}
+            min={0}
+            max={20}
+            step={0.5}
+            onChange={(v) => update({ outlineWidth: v })}
+            ariaLabel="Outline width"
+          />
+          <div>
+            <p className="mb-1 text-[11px] text-white/70">Color</p>
+            <ColorRow
+              value={cfg.outlineColor ?? '#000000'}
+              onChange={(c) => update({ outlineColor: c })}
+              ariaLabel="outline color"
+            />
+          </div>
+        </div>
+      </PanelGroup>
+
+      <PanelGroup title="Gradient Fill">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] text-white/70">Two-stop gradient</span>
+          <Toggle
+            checked={cfg.gradientEnabled === true}
+            onChange={(v) => update({ gradientEnabled: v })}
+            ariaLabel="Gradient"
+          />
+        </div>
+        <div
+          style={{ opacity: cfg.gradientEnabled ? 1 : 0.4 }}
+          className="space-y-2"
+        >
+          <div>
+            <p className="mb-1 text-[11px] text-white/70">Stop 2 (Color above is stop 1)</p>
+            <ColorRow
+              value={cfg.gradientColor2 ?? '#3b82f6'}
+              onChange={(c) => update({ gradientColor2: c })}
+              ariaLabel="gradient stop 2 color"
+            />
+          </div>
+          <SliderRow
+            label="Angle"
+            hint={`${Math.round(cfg.gradientAngle ?? 90)}°`}
+            value={cfg.gradientAngle ?? 90}
+            min={0}
+            max={360}
+            step={1}
+            onChange={(v) => update({ gradientAngle: Math.round(v) })}
+            ariaLabel="Gradient angle"
+          />
+        </div>
+      </PanelGroup>
+
+      <PanelGroup title="Audio Reactive">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] text-white/70">Pulse with bass</span>
+          <Toggle
+            checked={cfg.audioReactiveEnabled === true}
+            onChange={(v) => update({ audioReactiveEnabled: v })}
+            ariaLabel="Audio reactive"
+          />
+        </div>
+        <div
+          style={{ opacity: cfg.audioReactiveEnabled ? 1 : 0.4 }}
+          className="space-y-2"
+        >
+          <SliderRow
+            label="Intensity"
+            hint={`${Math.round((cfg.audioReactiveIntensity ?? 0.5) * 100)}%`}
+            value={cfg.audioReactiveIntensity ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => update({ audioReactiveIntensity: v })}
+            ariaLabel="Audio reactive intensity"
+          />
         </div>
       </PanelGroup>
     </div>

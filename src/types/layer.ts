@@ -24,11 +24,38 @@ export type LayerType =
   | 'cinematic'
 
 export type FontFamily =
+  // Sans
   | 'Inter'
-  | 'Bebas Neue'
+  | 'Montserrat'
+  | 'Poppins'
+  // Serif
   | 'Playfair Display'
+  | 'Lora'
+  // Display
+  | 'Bebas Neue'
+  | 'Anton'
+  // Handwritten
   | 'Pacifico'
+  | 'Caveat'
+  // Mono
   | 'Space Mono'
+  | 'JetBrains Mono'
+  // Retro / Pixel
+  | 'Press Start 2P'
+
+/**
+ * Categorisation used by the font picker. Order in each bucket is
+ * the order the picker renders them. The picker reads this constant
+ * directly; adding a new FontFamily member also needs an entry here.
+ */
+export const FONT_CATEGORIES: { label: string; fonts: FontFamily[] }[] = [
+  { label: 'Sans', fonts: ['Inter', 'Montserrat', 'Poppins'] },
+  { label: 'Serif', fonts: ['Playfair Display', 'Lora'] },
+  { label: 'Display', fonts: ['Bebas Neue', 'Anton'] },
+  { label: 'Handwritten', fonts: ['Pacifico', 'Caveat'] },
+  { label: 'Mono', fonts: ['Space Mono', 'JetBrains Mono'] },
+  { label: 'Retro', fonts: ['Press Start 2P'] },
+]
 
 export interface BarsLayer {
   type: 'bars'
@@ -162,6 +189,43 @@ export interface TextLayerConfig {
   /** 0–100. */
   shadowIntensity: number
   shadowColor: string
+
+  /**
+   * Audio-reactive pulse — same bass-energy signal the visualisers
+   * use (no parallel analyser). Off by default so existing presets
+   * stay pixel-identical until the user opts in.
+   */
+  audioReactiveEnabled?: boolean
+  /** 0..1. Default 0.5. Caps the visual scale swing at ~6%. */
+  audioReactiveIntensity?: number
+
+  /**
+   * Outer glow — rendered via the shared `drawGlow` helper
+   * ([src/lib/renderers/glow.ts](../lib/renderers/glow.ts)) using
+   * an offscreen + GPU filter-blur, NOT ctx.shadowBlur. (shadowBlur
+   * was just removed from Wave / Bloom Organic for performance —
+   * reintroducing it on text would bring back the same stutter.)
+   */
+  glowEnabled?: boolean
+  /** Visual blur radius in px. 0..60 typical. */
+  glowIntensity?: number
+  glowColor?: string
+
+  /** Stroke / outline drawn around the glyphs. */
+  outlineEnabled?: boolean
+  outlineColor?: string
+  /** 0–20 px. */
+  outlineWidth?: number
+
+  /**
+   * Two-stop linear gradient fill. When enabled, replaces the solid
+   * `color` fill. `color` is the first stop; `gradientColor2` is the
+   * second.
+   */
+  gradientEnabled?: boolean
+  gradientColor2?: string
+  /** 0–360°. */
+  gradientAngle?: number
 }
 
 export interface TextLayer {
@@ -778,6 +842,20 @@ export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {
   shadowEnabled: true,
   shadowIntensity: 60,
   shadowColor: '#000000',
+
+  // New effect / reactivity fields — all OFF by default so the look
+  // of every existing preset is preserved exactly.
+  audioReactiveEnabled: false,
+  audioReactiveIntensity: 0.5,
+  glowEnabled: false,
+  glowIntensity: 24,
+  glowColor: '#ffffff',
+  outlineEnabled: false,
+  outlineColor: '#000000',
+  outlineWidth: 2,
+  gradientEnabled: false,
+  gradientColor2: '#3b82f6',
+  gradientAngle: 90,
 }
 
 /**

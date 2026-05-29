@@ -14,15 +14,9 @@ import {
   MAX_BRAND_KIT_BYTES,
   MAX_BRAND_LOGO_BYTES,
 } from '@/types/brandKit'
-import type { FontFamily } from '@/types/layer'
+import { FONT_CATEGORIES, type FontFamily } from '@/types/layer'
 
-const AVAILABLE_FONTS: FontFamily[] = [
-  'Inter',
-  'Bebas Neue',
-  'Playfair Display',
-  'Pacifico',
-  'Space Mono',
-]
+const AVAILABLE_FONTS: FontFamily[] = FONT_CATEGORIES.flatMap((c) => c.fonts)
 
 interface Props {
   open: boolean
