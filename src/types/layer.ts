@@ -22,6 +22,7 @@ export type LayerType =
   | 'video'
   | 'halo'
   | 'cinematic'
+  | 'lyrics'
 
 export type FontFamily =
   // Sans
@@ -624,6 +625,96 @@ export interface CinematicLayer {
   config: CinematicConfig
 }
 
+/**
+ * One karaoke line. `time` is seconds on the master clock at which
+ * the line becomes the "active" line; null means the line hasn't
+ * been synced yet. `text` is the line as the user typed it; an
+ * empty string is allowed and represents an explicit instrumental
+ * gap (renders nothing for that interval but still consumes a
+ * timestamp slot so the user can sync the gap explicitly).
+ */
+export interface LyricsLine {
+  time: number | null
+  text: string
+}
+
+/**
+ * Karaoke / synced-lyrics layer. The data is a list of timed lines;
+ * styling reuses the Text layer's vocabulary (font, glow, outline,
+ * gradient, audio-reactive pulse) via the shared drawStyledText
+ * helper so karaoke text honours the same effects.
+ *
+ * Two display modes:
+ *   - 'spotlight': one or three lines centred on the canvas, the
+ *     "current" line large + bright, optional dimmed previous /
+ *     next around it. The classic music-video lyric look.
+ *   - 'scroll': a vertical stack of lines that scrolls so the
+ *     current line sits at the layer's anchor. Older / newer
+ *     lines fade out by distance.
+ */
+export type LyricsDisplayMode = 'spotlight' | 'scroll'
+
+export interface LyricsLayerConfig {
+  /** Ordered list of timed lines. time=null = not yet synced. */
+  lines: LyricsLine[]
+  displayMode: LyricsDisplayMode
+
+  // ----- Typography (shared vocabulary with TextLayerConfig) -----
+  font: FontFamily
+  fontWeight: 400 | 600 | 700
+  /** 12–120. */
+  fontSize: number
+  color: string
+  /** 0–1 horizontal centre — where the "current" line lands. */
+  x: number
+  /** 0–1 vertical centre — where the "current" line lands. */
+  y: number
+  /** -2 to 10 px. */
+  letterSpacing: number
+  shadowEnabled: boolean
+  shadowIntensity: number
+  shadowColor: string
+
+  // ----- Effects (parallels TextLayerConfig) -----
+  glowEnabled?: boolean
+  glowIntensity?: number
+  glowColor?: string
+  outlineEnabled?: boolean
+  outlineColor?: string
+  outlineWidth?: number
+  gradientEnabled?: boolean
+  gradientColor2?: string
+  gradientAngle?: number
+
+  /** Pulse the active line with bass energy. */
+  audioReactiveEnabled?: boolean
+  audioReactiveIntensity?: number
+
+  // ----- Karaoke-specific -----
+  /**
+   * Show the previous and next lines around the active one in
+   * 'spotlight' mode. When false, only the active line is drawn —
+   * cleaner for high-contrast hero shots.
+   */
+  spotlightContext?: boolean
+  /**
+   * Number of lines visible above and below the active line in
+   * 'scroll' mode. Higher = more karaoke-prompter feel, lower =
+   * more cinematic single-line emphasis.
+   */
+  scrollVisibleLines?: number
+  /**
+   * Seconds of cross-fade between adjacent lines. 0 = hard cut;
+   * 0.2 (default) reads as a gentle hand-off without feeling slow.
+   */
+  fadeSec?: number
+}
+
+export interface LyricsLayer {
+  type: 'lyrics'
+  config: LyricsLayerConfig
+}
+
 export type LayerData =
   | BarsLayer
   | CircularLayer
@@ -639,6 +730,7 @@ export type LayerData =
   | VideoLayer
   | HaloLayer
   | CinematicLayer
+  | LyricsLayer
 
 export interface LayerState {
   /** Unique across all layers. UUID in modern browsers, fallback for old. */
@@ -677,6 +769,7 @@ export const LAYER_LABELS: Record<LayerType, string> = {
   video: 'Video',
   halo: 'Halo',
   cinematic: 'Cinematic',
+  lyrics: 'Lyrics',
 }
 
 export const LAYER_TYPES: readonly LayerType[] = [
@@ -691,6 +784,7 @@ export const LAYER_TYPES: readonly LayerType[] = [
   'video',
   'logo',
   'text',
+  'lyrics',
   'frame',
   'halo',
   'cinematic',
@@ -856,6 +950,46 @@ export const DEFAULT_TEXT_CONFIG: TextLayerConfig = {
   gradientEnabled: false,
   gradientColor2: '#3b82f6',
   gradientAngle: 90,
+}
+
+/**
+ * Lyrics default. Empty `lines` so the panel opens with a friendly
+ * paste textarea instead of a stale demo. Effects OFF so the layer
+ * adds cleanly to existing projects without changing their look.
+ * fontSize 56 and y=0.78 land the spotlight in the bottom third —
+ * the music-video convention.
+ */
+export const DEFAULT_LYRICS_CONFIG: LyricsLayerConfig = {
+  lines: [],
+  displayMode: 'spotlight',
+
+  font: 'Inter',
+  fontWeight: 700,
+  fontSize: 56,
+  color: '#ffffff',
+  x: 0.5,
+  y: 0.78,
+  letterSpacing: 0,
+  shadowEnabled: true,
+  shadowIntensity: 70,
+  shadowColor: '#000000',
+
+  glowEnabled: false,
+  glowIntensity: 24,
+  glowColor: '#ffffff',
+  outlineEnabled: false,
+  outlineColor: '#000000',
+  outlineWidth: 2,
+  gradientEnabled: false,
+  gradientColor2: '#3b82f6',
+  gradientAngle: 90,
+
+  audioReactiveEnabled: false,
+  audioReactiveIntensity: 0.4,
+
+  spotlightContext: true,
+  scrollVisibleLines: 2,
+  fadeSec: 0.2,
 }
 
 /**

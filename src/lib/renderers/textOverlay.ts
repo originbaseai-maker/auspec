@@ -1,6 +1,164 @@
 import type { TextLayer, TextLayerId } from '@/store/useTextStore'
-import type { TextLayerConfig } from '@/types/layer'
+import type { FontFamily, TextLayerConfig } from '@/types/layer'
 import { drawGlow } from '@/lib/renderers/glow'
+
+/**
+ * Per-glyph styling vocabulary shared by drawTextLayer and the Lyrics
+ * layer renderer. Lets karaoke text honour the same fonts / glow /
+ * outline / gradient / audio-pulse pipeline without duplicating the
+ * 90-line render dance below.
+ *
+ * Coordinates are CSS pixels in the main canvas. Effects flagged as
+ * `…Enabled?: boolean` are off when undefined — that's how new code
+ * paths can request "no effect" without explicitly listing every
+ * field.
+ */
+export interface StyledTextOpts {
+  text: string
+  /** Absolute x in CSS pixels (centre of the text). */
+  x: number
+  /** Absolute y in CSS pixels (vertical centre / textBaseline=middle). */
+  y: number
+  fontSize: number
+  font: FontFamily
+  fontWeight: 400 | 600 | 700
+  color: string
+  letterSpacing: number
+
+  shadowEnabled?: boolean
+  shadowIntensity?: number
+  shadowColor?: string
+
+  glowEnabled?: boolean
+  glowIntensity?: number
+  glowColor?: string
+
+  outlineEnabled?: boolean
+  outlineColor?: string
+  outlineWidth?: number
+
+  gradientEnabled?: boolean
+  gradientColor2?: string
+  gradientAngle?: number
+
+  audioReactiveEnabled?: boolean
+  audioReactiveIntensity?: number
+
+  /**
+   * Multiplied onto ctx.globalAlpha before drawing. The Lyrics
+   * renderer uses this to dim non-active lines and to cross-fade
+   * between the current and next line.
+   */
+  opacityMul?: number
+  /** Defaults to 'center'. */
+  textAlign?: CanvasTextAlign
+}
+
+/**
+ * Render a single piece of styled text into the main canvas using
+ * the full effect pipeline (glow via drawGlow, drop-shadow, outline,
+ * gradient fill, audio-reactive scale pulse). Idempotent w.r.t. ctx
+ * state — save / restore is scoped internally.
+ *
+ * Called by drawTextLayer (Text-layer single text) and by
+ * drawLyricsLayer (Lyrics-layer per line).
+ */
+export function drawStyledText(
+  ctx: CanvasRenderingContext2D,
+  opts: StyledTextOpts,
+  width: number,
+  height: number,
+  bassEnergy: number,
+): void {
+  if (!opts.text.trim()) return
+
+  let scale = 1
+  if (opts.audioReactiveEnabled) {
+    const intensity = clamp01(opts.audioReactiveIntensity ?? 0.5)
+    const e = clamp01(bassEnergy)
+    scale = 1 + e * 0.06 * intensity
+  }
+  const fontPx = opts.fontSize * scale
+  const fontSpec = `${opts.fontWeight} ${fontPx}px "${opts.font}", sans-serif`
+  const align = opts.textAlign ?? 'center'
+
+  // --- GLOW PASS (offscreen + GPU filter-blur, never shadowBlur) ---
+  if (opts.glowEnabled && (opts.glowIntensity ?? 0) > 0) {
+    const glowColor = opts.glowColor ?? opts.color
+    drawGlow(ctx, {
+      blurPx: opts.glowIntensity ?? 24,
+      width,
+      height,
+      opacity: opts.opacityMul,
+      drawSource: (off) => {
+        off.font = fontSpec
+        off.fillStyle = glowColor
+        off.textAlign = align
+        off.textBaseline = 'middle'
+        if ('letterSpacing' in off) {
+          ;(off as CanvasRenderingContext2D & {
+            letterSpacing: string
+          }).letterSpacing = `${opts.letterSpacing}px`
+        }
+        off.fillText(opts.text, opts.x, opts.y)
+      },
+    })
+  }
+
+  // --- SHARP PASS ---
+  ctx.save()
+  if (opts.opacityMul !== undefined) {
+    ctx.globalAlpha *= clamp01(opts.opacityMul)
+  }
+  ctx.font = fontSpec
+  ctx.textAlign = align
+  ctx.textBaseline = 'middle'
+  if ('letterSpacing' in ctx) {
+    ;(ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
+      `${opts.letterSpacing}px`
+  }
+
+  if (opts.shadowEnabled && (opts.shadowIntensity ?? 0) > 0) {
+    const si = opts.shadowIntensity ?? 0
+    ctx.shadowColor = opts.shadowColor ?? '#000000'
+    ctx.shadowBlur = si * 0.3
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = si * 0.04
+  }
+
+  if (opts.outlineEnabled && (opts.outlineWidth ?? 0) > 0) {
+    ctx.strokeStyle = opts.outlineColor ?? '#000000'
+    ctx.lineWidth = opts.outlineWidth ?? 2
+    ctx.lineJoin = 'round'
+    ctx.miterLimit = 2
+    ctx.strokeText(opts.text, opts.x, opts.y)
+  }
+
+  if (opts.gradientEnabled) {
+    const metrics = ctx.measureText(opts.text)
+    const ascent = metrics.actualBoundingBoxAscent || fontPx * 0.8
+    const descent = metrics.actualBoundingBoxDescent || fontPx * 0.2
+    const w = metrics.width
+    const h = ascent + descent
+    const angleRad = ((opts.gradientAngle ?? 90) * Math.PI) / 180
+    const dx = Math.cos(angleRad)
+    const dy = Math.sin(angleRad)
+    const halfDiag = Math.sqrt(w * w + h * h) / 2
+    const x1 = opts.x - dx * halfDiag
+    const y1 = opts.y - dy * halfDiag
+    const x2 = opts.x + dx * halfDiag
+    const y2 = opts.y + dy * halfDiag
+    const grad = ctx.createLinearGradient(x1, y1, x2, y2)
+    grad.addColorStop(0, opts.color)
+    grad.addColorStop(1, opts.gradientColor2 ?? opts.color)
+    ctx.fillStyle = grad
+  } else {
+    ctx.fillStyle = opts.color
+  }
+
+  ctx.fillText(opts.text, opts.x, opts.y)
+  ctx.restore()
+}
 
 /**
  * Per-layer text rendering used by the new TextLayer flow in the canvas
@@ -24,111 +182,36 @@ export function drawTextLayer(
   bassEnergy: number,
 ): void {
   if (isEditing) return
-  if (!config.text.trim()) return
-
-  // Audio-reactive scale pulse. Capped at ~6% so the text "breathes"
-  // with the bass without becoming distracting. Same multiplier maths
-  // as the Background-Video pulse, just scaled smaller because text
-  // contrast amplifies motion perceptually.
-  let scale = 1
-  if (config.audioReactiveEnabled) {
-    const intensity = clamp01(config.audioReactiveIntensity ?? 0.5)
-    const e = clamp01(bassEnergy)
-    scale = 1 + e * 0.06 * intensity
-  }
-
-  const fontPx = config.fontSize * scale
-  const x = config.x * width
-  const y = config.y * height
-  const fontSpec = `${config.fontWeight} ${fontPx}px "${config.font}", sans-serif`
-
-  // --- GLOW PASS (offscreen + GPU filter-blur, never shadowBlur) ---
-  // shadowBlur was removed from Wave / Bloom Organic for the same
-  // reason it'd be wrong here: it's software-rendered and costs 10+
-  // ms per call. drawGlow renders to a half-res offscreen with
-  // ctx.filter='blur(...)' then composites with 'lighter' — ~2 ms
-  // regardless of glow radius.
-  if (config.glowEnabled && (config.glowIntensity ?? 0) > 0) {
-    const glowColor = config.glowColor ?? config.color
-    drawGlow(ctx, {
-      blurPx: config.glowIntensity ?? 24,
-      width,
-      height,
-      drawSource: (off) => {
-        off.font = fontSpec
-        off.fillStyle = glowColor
-        off.textAlign = 'center'
-        off.textBaseline = 'middle'
-        if ('letterSpacing' in off) {
-          ;(off as CanvasRenderingContext2D & {
-            letterSpacing: string
-          }).letterSpacing = `${config.letterSpacing}px`
-        }
-        off.fillText(config.text, x, y)
-      },
-    })
-  }
-
-  // --- SHARP PASS (main canvas) ---
-  ctx.save()
-  ctx.font = fontSpec
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  if ('letterSpacing' in ctx) {
-    ;(ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
-      `${config.letterSpacing}px`
-  }
-
-  // Drop shadow stays on shadowBlur — it's a single offset shadow,
-  // small radius (intensity * 0.3, max 30 px), and per-letter rather
-  // than per-path. The cost is bounded and the offset+blur effect
-  // can't be done cheaply with filter (would need a second offscreen
-  // pass with a translate). Acceptable.
-  if (config.shadowEnabled && config.shadowIntensity > 0) {
-    ctx.shadowColor = config.shadowColor
-    ctx.shadowBlur = config.shadowIntensity * 0.3
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = config.shadowIntensity * 0.04
-  }
-
-  // Outline first so the fill (or gradient) lands on top — outline
-  // sticking out beyond the silhouette is the desired look.
-  if (config.outlineEnabled && (config.outlineWidth ?? 0) > 0) {
-    ctx.strokeStyle = config.outlineColor ?? '#000000'
-    ctx.lineWidth = config.outlineWidth ?? 2
-    ctx.lineJoin = 'round'
-    ctx.miterLimit = 2
-    ctx.strokeText(config.text, x, y)
-  }
-
-  // Fill — solid or two-stop linear gradient. The gradient extends
-  // across the measured text bounding box so each glyph gets the
-  // full sweep regardless of fontSize.
-  if (config.gradientEnabled) {
-    const metrics = ctx.measureText(config.text)
-    const ascent = metrics.actualBoundingBoxAscent || fontPx * 0.8
-    const descent = metrics.actualBoundingBoxDescent || fontPx * 0.2
-    const w = metrics.width
-    const h = ascent + descent
-    const angleRad = ((config.gradientAngle ?? 90) * Math.PI) / 180
-    const dx = Math.cos(angleRad)
-    const dy = Math.sin(angleRad)
-    const halfDiag = Math.sqrt(w * w + h * h) / 2
-    const x1 = x - dx * halfDiag
-    const y1 = y - dy * halfDiag
-    const x2 = x + dx * halfDiag
-    const y2 = y + dy * halfDiag
-    const grad = ctx.createLinearGradient(x1, y1, x2, y2)
-    grad.addColorStop(0, config.color)
-    grad.addColorStop(1, config.gradientColor2 ?? config.color)
-    ctx.fillStyle = grad
-  } else {
-    ctx.fillStyle = config.color
-  }
-
-  ctx.fillText(config.text, x, y)
-  ctx.restore()
+  drawStyledText(
+    ctx,
+    {
+      text: config.text,
+      x: config.x * width,
+      y: config.y * height,
+      fontSize: config.fontSize,
+      font: config.font,
+      fontWeight: config.fontWeight,
+      color: config.color,
+      letterSpacing: config.letterSpacing,
+      shadowEnabled: config.shadowEnabled,
+      shadowIntensity: config.shadowIntensity,
+      shadowColor: config.shadowColor,
+      glowEnabled: config.glowEnabled,
+      glowIntensity: config.glowIntensity,
+      glowColor: config.glowColor,
+      outlineEnabled: config.outlineEnabled,
+      outlineColor: config.outlineColor,
+      outlineWidth: config.outlineWidth,
+      gradientEnabled: config.gradientEnabled,
+      gradientColor2: config.gradientColor2,
+      gradientAngle: config.gradientAngle,
+      audioReactiveEnabled: config.audioReactiveEnabled,
+      audioReactiveIntensity: config.audioReactiveIntensity,
+    },
+    width,
+    height,
+    bassEnergy,
+  )
 }
 
 function clamp01(v: number): number {

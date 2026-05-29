@@ -155,6 +155,11 @@ export function getLayerBounds(
       // Future callers that want text bounds for non-overlay reasons
       // can branch on type directly.
       return null
+    case 'lyrics':
+      // Lyrics position is panel-controlled (x/y sliders in the
+      // future + drag via the same TextInteractive path eventually).
+      // For phase 1, no canvas-overlay handles.
+      return null
     // Full-canvas / non-positionable kinds. Listed explicitly so
     // adding a new layer type forces a compile-time decision.
     case 'bars':
@@ -254,6 +259,7 @@ export function setLayerBoundsPatch(
       return out
     }
     case 'text':
+    case 'lyrics':
     case 'bars':
     case 'wave':
     case 'particles':

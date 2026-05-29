@@ -14,6 +14,7 @@ import { HaloPanel } from './panels/HaloPanel'
 import { BackgroundPanel } from './panels/BackgroundPanel'
 import { LogoPanel } from './panels/LogoPanel'
 import { TextPanel } from './panels/TextPanel'
+import { LyricsPanel } from './panels/LyricsPanel'
 import { AIStylePanel } from './AIStylePanel'
 import { FramePanel } from './panels/FramePanel'
 import { CinematicPanel } from './panels/CinematicPanel'
@@ -46,6 +47,7 @@ const LAYER_CATEGORIES = new Set([
   'frame',
   'background',
   'text',
+  'lyrics',
   'cinematic',
 ])
 
@@ -110,6 +112,8 @@ export function CategoryDetailPanel({ hideHeader = false }: Props = {}) {
           return <BackgroundPanel layerId={activeLayer.id} />
         case 'text':
           return <TextPanel layerId={activeLayer.id} />
+        case 'lyrics':
+          return <LyricsPanel layerId={activeLayer.id} />
         case 'cinematic':
           return <CinematicPanel layerId={activeLayer.id} />
       }

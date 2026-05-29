@@ -23,6 +23,7 @@ import {
   Sun,
   Square,
   Trash2,
+  Mic2,
   Type as TypeIcon,
   Unlock,
   type LucideIcon,
@@ -53,6 +54,7 @@ const LAYER_ICONS: Record<LayerType, LucideIcon> = {
   video: Film,
   halo: Sun,
   cinematic: Aperture,
+  lyrics: Mic2,
 }
 
 const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
@@ -70,6 +72,7 @@ const CATEGORY_MAP: Record<LayerType, StudioCategory> = {
   video: 'visualizer_video',
   halo: 'visualizer_halo',
   cinematic: 'cinematic',
+  lyrics: 'lyrics',
 }
 
 interface ContextMenuState {

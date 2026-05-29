@@ -13,6 +13,7 @@ import {
   DEFAULT_CINEMATIC_CONFIG,
   DEFAULT_HALO_CONFIG,
   DEFAULT_LOGO_LAYER_CONFIG,
+  DEFAULT_LYRICS_CONFIG,
   DEFAULT_SHAPE_CONFIG,
   DEFAULT_TEXT_CONFIG,
   DEFAULT_VIDEO_CONFIG,
@@ -79,6 +80,11 @@ function defaultData(type: LayerType): LayerData {
       }
     case 'cinematic':
       return { type: 'cinematic', config: { ...DEFAULT_CINEMATIC_CONFIG } }
+    case 'lyrics':
+      return {
+        type: 'lyrics',
+        config: { ...DEFAULT_LYRICS_CONFIG, lines: [] },
+      }
   }
 }
 
@@ -187,6 +193,12 @@ function createLayer(
         ...base,
         type: 'cinematic',
         config: { ...DEFAULT_CINEMATIC_CONFIG },
+      }
+    case 'lyrics':
+      return {
+        ...base,
+        type: 'lyrics',
+        config: { ...DEFAULT_LYRICS_CONFIG, lines: [] },
       }
   }
 }
@@ -726,6 +738,18 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
             config: { ...source.config },
           }
           break
+        case 'lyrics':
+          dup = {
+            ...base,
+            type: 'lyrics',
+            config: {
+              ...source.config,
+              // Deep-copy the lines list so editing the dup doesn't
+              // mutate the source's array.
+              lines: source.config.lines.map((l) => ({ ...l })),
+            },
+          }
+          break
       }
       return {
         layers: [...s.layers, dup],
@@ -817,6 +841,10 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           case 'cinematic':
             newDraft = { ...draft, type: 'cinematic',
               config: { ...(fresh as { type: 'cinematic'; config: object }).config } } as Layer
+            break
+          case 'lyrics':
+            newDraft = { ...draft, type: 'lyrics',
+              config: { ...(fresh as { type: 'lyrics'; config: object }).config } } as Layer
             break
         }
         return { draftLayer: newDraft, draftIsDirty: true }
@@ -924,6 +952,13 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               ...l,
               type: 'cinematic',
               config: { ...(fresh as { type: 'cinematic'; config: object })
+                .config },
+            } as Layer
+          case 'lyrics':
+            return {
+              ...l,
+              type: 'lyrics',
+              config: { ...(fresh as { type: 'lyrics'; config: object })
                 .config },
             } as Layer
         }
@@ -1177,6 +1212,13 @@ export function initializeLayersFromVisualizerStore(): void {
           layer = {
             ...base,
             type: 'cinematic',
+            config: { ...(configClone as Layer['config']) } as Layer['config'],
+          } as Layer
+          break
+        case 'lyrics':
+          layer = {
+            ...base,
+            type: 'lyrics',
             config: { ...(configClone as Layer['config']) } as Layer['config'],
           } as Layer
           break

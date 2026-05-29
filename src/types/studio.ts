@@ -11,6 +11,7 @@ export type StudioCategory =
   | 'background'
   | 'logo'
   | 'text'
+  | 'lyrics'
   | 'ai_style'
   | 'frame'
   | 'cinematic'
@@ -31,6 +32,7 @@ export interface CategoryConfig {
     | 'background'
     | 'logo'
     | 'text'
+    | 'lyrics'
     | 'ai_style'
     | 'frame'
     | 'cinematic'
@@ -64,6 +66,7 @@ export const STUDIO_CATEGORIES: CategoryConfig[] = [
   { id: 'background', label: 'Background', icon: 'background', hasAI: false },
   { id: 'logo', label: 'Logo', icon: 'logo', hasAI: false },
   { id: 'text', label: 'Text', icon: 'text', hasAI: false },
+  { id: 'lyrics', label: 'Lyrics', icon: 'lyrics', hasAI: false },
   { id: 'ai_style', label: 'AI Style', icon: 'ai_style', hasAI: true },
   { id: 'frame', label: 'Frame', icon: 'frame', hasAI: false },
   { id: 'visualizer_halo', label: 'Halo', icon: 'halo', hasAI: false },

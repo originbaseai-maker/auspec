@@ -19,6 +19,7 @@ import { drawBloom } from '@/lib/renderers/bloom'
 import { drawCustomShape } from '@/lib/renderers/customShape'
 import { drawHaloLayer } from '@/lib/renderers/halo'
 import { drawCinematic } from '@/lib/renderers/cinematic'
+import { drawLyricsLayer } from '@/lib/renderers/lyrics'
 import { drawVideoLayer } from '@/lib/renderers/video'
 import { useVideoAssetStore } from '@/store/useVideoAssetStore'
 import {
@@ -162,6 +163,7 @@ export default function VisualizerCanvas(): JSX.Element {
   const audioFileRef = useRef(audioFile)
   const layersRef = useRef(layers)
   const draftLayerRef = useRef(draftLayer)
+  const currentTimeRef = useRef(currentTime)
 
   useEffect(() => {
     layersRef.current = layers
@@ -178,6 +180,10 @@ export default function VisualizerCanvas(): JSX.Element {
   useEffect(() => {
     audioFileRef.current = audioFile
   }, [audioFile])
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime
+  }, [currentTime])
 
   useEffect(() => {
     configRef.current = config
@@ -622,6 +628,19 @@ export default function VisualizerCanvas(): JSX.Element {
               width,
               height,
               editingTextId === layer.id,
+              bassEnergy,
+            )
+            break
+          case 'lyrics':
+            // currentTime via ref so the lyrics renderer always sees
+            // the freshest master-clock time within the rAF tick, not
+            // the value captured when React last re-rendered.
+            drawLyricsLayer(
+              ctx,
+              layer.config,
+              width,
+              height,
+              currentTimeRef.current,
               bassEnergy,
             )
             break

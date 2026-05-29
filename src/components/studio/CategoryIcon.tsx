@@ -205,6 +205,27 @@ export function CategoryIcon({ icon, size = 36 }: Props) {
           />
         </svg>
       )
+    case 'lyrics':
+      return (
+        <svg {...props}>
+          {/* Quote-mark + waveform: lyrics = synced text */}
+          <path
+            d="M 10 10 Q 8 10 8 12 L 8 16 Q 8 18 10 18 L 13 18 L 13 16 Q 13 14 11 14 L 11 12 Q 13 12 13 14"
+            fill="rgba(255,255,255,0.85)"
+          />
+          <path
+            d="M 20 10 Q 18 10 18 12 L 18 16 Q 18 18 20 18 L 23 18 L 23 16 Q 23 14 21 14 L 21 12 Q 23 12 23 14"
+            fill="rgba(255,255,255,0.85)"
+          />
+          <path
+            d="M 6 26 Q 12 22 18 26 T 30 26 T 38 24"
+            fill="none"
+            stroke="rgba(59,130,246,0.85)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
     case 'ai_style':
       return (
         <svg {...props}>
