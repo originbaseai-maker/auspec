@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Mic2 } from 'lucide-react'
+import { Mic2, RotateCcw } from 'lucide-react'
+import { useAudioStore } from '@/store/useAudioStore'
 import { useLayerStore } from '@/store/useLayerStore'
+import { useMasterClock } from '@/lib/masterClock'
 import {
   FONT_CATEGORIES,
   type FontFamily,
@@ -13,6 +15,7 @@ import {
   ColorRow,
   LockedLayerBanner,
   PanelGroup,
+  SegmentedGroup,
   SliderRow,
   Toggle,
 } from './shared'
@@ -48,6 +51,16 @@ function linesToText(lines: LyricsLine[]): string {
   return lines.map((l) => l.text).join('\n')
 }
 
+function formatTime(t: number | null): string {
+  if (t === null) return '--:--'
+  const m = Math.floor(t / 60)
+  const s = Math.floor(t - m * 60)
+  const ms = Math.floor((t - Math.floor(t)) * 100)
+  return `${m}:${s.toString().padStart(2, '0')}.${ms
+    .toString()
+    .padStart(2, '0')}`
+}
+
 export function LyricsPanel({ layerId }: Props) {
   // Same draft-aware lookup as TextPanel — newly-drafted Lyrics
   // layers live on s.draftLayer until commit, so we must check it
@@ -63,6 +76,9 @@ export function LyricsPanel({ layerId }: Props) {
     return s.layers.find((l) => l.id === layerId && l.type === 'lyrics')
   })
   const updateConfig = useLayerStore((s) => s.updateConfig)
+  const setCurrentTime = useAudioStore((s) => s.setCurrentTime)
+  const masterClock = useMasterClock()
+  const masterElement = masterClock.element
   const [syncOpen, setSyncOpen] = useState(false)
 
   if (!layer) {
@@ -84,6 +100,31 @@ export function LyricsPanel({ layerId }: Props) {
 
   const onPasteChange = (raw: string) => {
     update({ lines: parsePaste(raw, cfg.lines) })
+  }
+
+  const jumpTo = (t: number): void => {
+    if (masterElement) {
+      try {
+        masterElement.currentTime = t
+      } catch {
+        /* not seekable yet */
+      }
+    }
+    setCurrentTime(t)
+  }
+
+  const nudgeLine = (idx: number, delta: number): void => {
+    const lines = [...cfg.lines]
+    const cur = lines[idx]
+    if (cur.time === null) return
+    lines[idx] = { ...cur, time: Math.max(0, cur.time + delta) }
+    update({ lines })
+  }
+
+  const clearLineTime = (idx: number): void => {
+    const lines = [...cfg.lines]
+    lines[idx] = { ...lines[idx], time: null }
+    update({ lines })
   }
 
   return (
@@ -122,6 +163,124 @@ export function LyricsPanel({ layerId }: Props) {
             <Mic2 className="h-3 w-3" aria-hidden="true" />
             {syncedCount === 0 ? 'Sync lyrics' : 'Re-sync'}
           </button>
+        </div>
+      </PanelGroup>
+
+      {syncedCount > 0 && (
+        <PanelGroup title="Fine-tune">
+          <p className="mb-1.5 text-[10px] uppercase tracking-wider text-white/40">
+            ▶ preview · ± nudge 0.1 s · ⟲ un-sync
+          </p>
+          <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {cfg.lines.map((line, idx) => {
+              // Trim trailing blanks at the visual level — a row that
+              // has neither text nor a timestamp is just noise.
+              if (line.text === '' && line.time === null) return null
+              return (
+                <li
+                  key={idx}
+                  className="flex items-center gap-2 rounded border bg-[#0a0a0a] px-2 py-1 text-[11px]"
+                  style={{ borderColor: '#2a2a2a' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (line.time !== null) jumpTo(line.time)
+                    }}
+                    disabled={line.time === null}
+                    className="rounded bg-[#1a1a1a] px-1.5 py-0.5 text-[10px] text-white/70 hover:bg-[#222] disabled:cursor-not-allowed disabled:opacity-30"
+                    title="Preview from here"
+                  >
+                    ▶
+                  </button>
+                  <span className="w-[72px] tabular-nums text-white/60">
+                    {formatTime(line.time)}
+                  </span>
+                  <span className="flex-1 truncate text-white/85">
+                    {line.text || (
+                      <em className="text-white/30">(instrumental)</em>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => nudgeLine(idx, -0.1)}
+                    disabled={line.time === null}
+                    className="rounded bg-[#1a1a1a] px-1.5 py-0.5 text-[10px] text-white/60 hover:bg-[#222] disabled:cursor-not-allowed disabled:opacity-30"
+                    title="−0.1 s"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeLine(idx, 0.1)}
+                    disabled={line.time === null}
+                    className="rounded bg-[#1a1a1a] px-1.5 py-0.5 text-[10px] text-white/60 hover:bg-[#222] disabled:cursor-not-allowed disabled:opacity-30"
+                    title="+0.1 s"
+                  >
+                    +
+                  </button>
+                  {line.time !== null && (
+                    <button
+                      type="button"
+                      onClick={() => clearLineTime(idx)}
+                      className="rounded px-1.5 py-0.5 text-[10px] text-white/40 hover:text-red-400"
+                      title="Un-sync this line"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </PanelGroup>
+      )}
+
+      <PanelGroup title="Display Mode">
+        <SegmentedGroup
+          cols={2}
+          value={cfg.displayMode}
+          onChange={(v) => update({ displayMode: v as LyricsLayerConfig['displayMode'] })}
+          options={[
+            { id: 'spotlight', label: 'Spotlight', sub: 'one line bright' },
+            { id: 'scroll', label: 'Scroll', sub: 'teleprompter' },
+          ]}
+        />
+        {cfg.displayMode === 'spotlight' && (
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-[11px] text-white/70">Show prev + next</span>
+            <Toggle
+              checked={cfg.spotlightContext !== false}
+              onChange={(v) => update({ spotlightContext: v })}
+              ariaLabel="Spotlight context"
+            />
+          </div>
+        )}
+        {cfg.displayMode === 'scroll' && (
+          <div className="mt-3">
+            <SliderRow
+              label="Visible lines"
+              hint={`±${cfg.scrollVisibleLines ?? 2}`}
+              value={cfg.scrollVisibleLines ?? 2}
+              min={0}
+              max={4}
+              step={1}
+              onChange={(v) => update({ scrollVisibleLines: Math.round(v) })}
+              ariaLabel="Scroll visible lines"
+            />
+          </div>
+        )}
+        <div className="mt-3">
+          <SliderRow
+            label="Cross-fade"
+            hint={`${(cfg.fadeSec ?? 0.2).toFixed(2)}s`}
+            value={cfg.fadeSec ?? 0.2}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => update({ fadeSec: v })}
+            ariaLabel="Line cross-fade"
+          />
         </div>
       </PanelGroup>
 
