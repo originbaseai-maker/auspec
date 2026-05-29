@@ -19,13 +19,55 @@
 const pool = new Map<string, HTMLVideoElement>()
 
 /**
+ * Seconds before the natural end at which we proactively rewind to
+ * 0. Bridges roughly 2–3 frames at 30 fps — enough to pre-empt the
+ * browser's decoder reprime when 'ended' would otherwise fire (the
+ * cause of the brief black flash on loop boundaries), small enough
+ * that the user can't perceive the early rewind. The video element
+ * still has `loop = true` set as a defence in case the rAF-driven
+ * render check ever misses a window.
+ */
+const LOOP_HEAD_SEC = 0.08
+
+/**
+ * Idempotent seamless-loop check. Called every frame from
+ * getOrLoadLibraryVideo so it runs at the render loop's natural
+ * frequency on whatever library URLs are currently in use. Cost
+ * per call: two number reads + a comparison.
+ *
+ * Bails on Infinity (streaming videos / not-yet-loaded duration)
+ * and on a still-loading element (duration === 0). Wraps the
+ * currentTime write in try/catch because some browsers throw
+ * NotAllowedError if the element isn't seekable yet.
+ */
+function applySeekBeforeEnd(v: HTMLVideoElement): void {
+  const d = v.duration
+  if (!isFinite(d) || d <= 0) return
+  if (v.currentTime < d - LOOP_HEAD_SEC) return
+  try {
+    v.currentTime = 0
+  } catch {
+    /* element not yet seekable — the loop=true fallback will catch it */
+  }
+}
+
+/**
  * Get the pooled video element for `url`, creating + starting playback
  * on first request. Safe to call from a render loop; idempotent after
- * first call.
+ * first call. The per-frame call site also drives the seek-before-end
+ * loop-seamlessness check on the returned element.
  */
 export function getOrLoadLibraryVideo(url: string): HTMLVideoElement {
   let v = pool.get(url)
-  if (v) return v
+  if (v) {
+    // Cheap seek-before-end check every frame the renderer asks for
+    // this URL — preempts the decoder reprime that produces the
+    // black flash. If the renderer ISN'T asking for the URL (e.g.
+    // canvas paused), no check runs, but there's also no flash to
+    // worry about because nothing's drawing.
+    applySeekBeforeEnd(v)
+    return v
+  }
   v = document.createElement('video')
   v.src = url
   v.muted = true
