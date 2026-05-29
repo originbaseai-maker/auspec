@@ -1,5 +1,8 @@
 import type { BackgroundLayerConfig } from '@/types/layer'
-import { getOrLoadLibraryVideo } from '@/lib/libraryVideoPool'
+import {
+  getOrLoadLibraryEntry,
+  updateLibraryEntry,
+} from '@/lib/libraryVideoPool'
 
 /**
  * Background layer renderer. Each layer can be a solid color, a linear
@@ -12,6 +15,30 @@ import { getOrLoadLibraryVideo } from '@/lib/libraryVideoPool'
  */
 
 const imageCache = new Map<string, HTMLImageElement>()
+
+/**
+ * Cover-fit a library video element to the canvas: scale up so the
+ * shorter axis matches, crop the longer one. Both crossfade
+ * elements must use the same math — extracted here so they can
+ * never visually diverge mid-fade.
+ */
+function drawVideoCover(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  width: number,
+  height: number,
+): void {
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  if (vw <= 0 || vh <= 0) return
+  const ratio = Math.max(width / vw, height / vh)
+  const drawW = vw * ratio
+  const drawH = vh * ratio
+  const dx = (width - drawW) / 2
+  const dy = (height - drawH) / 2
+  ctx.drawImage(video, dx, dy, drawW, drawH)
+}
+
 
 function getImage(src: string): HTMLImageElement {
   let img = imageCache.get(src)
@@ -60,24 +87,27 @@ export function drawBackgroundLayer(
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, width, height)
   } else if (config.bgType === 'video' && config.videoSrc) {
-    const video = getOrLoadLibraryVideo(config.videoSrc)
-    if (video.readyState >= 2 && video.videoWidth > 0) {
-      // Cover-fit: scale up so the shorter axis matches the canvas,
-      // crop the longer one. Same math the Image branch uses for the
-      // 'cover' mode — kept inline so this branch stays self-contained.
-      const vw = video.videoWidth
-      const vh = video.videoHeight
-      const ratio = Math.max(width / vw, height / vh)
-      const drawW = vw * ratio
-      const drawH = vh * ratio
-      const dx = (width - drawW) / 2
-      const dy = (height - drawH) / 2
+    const entry = getOrLoadLibraryEntry(config.videoSrc)
+    // Advance the crossfade state machine BEFORE drawing, so the
+    // draw uses the freshly-resolved active/standby pair and
+    // crossfadeT. Cheap; just numeric ops + at most one play() call
+    // per crossfade start.
+    updateLibraryEntry(entry)
 
+    const active =
+      entry.active === 'A' ? entry.elementA : entry.elementB
+    const standby =
+      entry.active === 'A' ? entry.elementB : entry.elementA
+
+    if (active.readyState >= 2 && active.videoWidth > 0) {
       // Audio reactivity — opacity multiply + tiny scale-up. NEVER
       // touch playbackRate (that desyncs the loop and breaks
       // captureStream exports). Both effects are deliberately
       // small-amplitude: max ~4% scale and ~10% alpha swing even at
       // intensity = 1. A pumping background fights the visualiser.
+      // Applied UNIFORMLY to both crossfade elements — they're the
+      // same content from the user's perspective; the pulse must
+      // not "split" across them during the fade.
       let scale = 1
       let alphaMul = 1
       if (config.videoReactEnabled) {
@@ -94,13 +124,33 @@ export function drawBackgroundLayer(
         ctx.filter = `blur(${config.blur}px)`
       }
       ctx.save()
-      ctx.globalAlpha = ctx.globalAlpha * alphaMul
+      const baseAlpha = ctx.globalAlpha * alphaMul
+      ctx.globalAlpha = baseAlpha
       if (scale !== 1) {
         ctx.translate(width / 2, height / 2)
         ctx.scale(scale, scale)
         ctx.translate(-width / 2, -height / 2)
       }
-      ctx.drawImage(video, dx, dy, drawW, drawH)
+
+      // Draw the active element at full base alpha. It carries the
+      // visible frame for the bulk of the loop.
+      drawVideoCover(ctx, active, width, height)
+
+      // During the crossfade, draw the standby on top at
+      // alpha = crossfadeT — visibility ramps from 0 to 1 over the
+      // fade window. By the time crossfadeT reaches 1, the swap
+      // fires in updateLibraryEntry and the just-faded-in element
+      // becomes the new active. No visible discontinuity.
+      if (
+        entry.crossfading &&
+        entry.crossfadeT > 0 &&
+        standby.readyState >= 2 &&
+        standby.videoWidth > 0
+      ) {
+        ctx.globalAlpha = baseAlpha * entry.crossfadeT
+        drawVideoCover(ctx, standby, width, height)
+      }
+
       ctx.restore()
     }
   } else if (config.bgType === 'image' && config.imageSrc) {
