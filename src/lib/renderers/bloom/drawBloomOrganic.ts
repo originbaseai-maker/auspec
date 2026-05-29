@@ -1,6 +1,7 @@
 import type { BloomConfig } from '@/types/layer'
 import type { FrequencyData } from '@/types/analyzer'
 import { firstColor, lastColor } from '@/lib/colorPalette'
+import { drawGlow } from '@/lib/renderers/glow'
 import { bboxOfPoints, drawBloomFill } from './fillHelpers'
 
 /**
@@ -80,29 +81,8 @@ export function drawBloomOrganic(
   const centerColor = firstColor(config.palette, config.colorStart)
   const edgeColor = lastColor(config.palette, config.colorEnd)
 
-  ctx.save()
-  ctx.translate(cx, cy)
-
-  // Radial gradient from the first palette colour at the centre to
-  // transparent at the (rounded) outer edge. maxR + a little headroom
-  // so the gradient doesn't clip the bezier overshoot.
-  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR * 1.1)
-  grad.addColorStop(0, centerColor)
-  // Mid-gradient brings in the palette's end colour at low alpha so
-  // multi-stop palettes show through, not just the first stop.
-  grad.addColorStop(0.5, hexToRgba(edgeColor, 0.35))
-  grad.addColorStop(1, hexToRgba(edgeColor, 0))
-
-  if (config.glowEnabled && config.glowIntensity > 0) {
-    // Glow scales with overall energy so the whole shape "lights up"
-    // on loud passages.
-    ctx.shadowColor = centerColor
-    ctx.shadowBlur = config.glowIntensity * (0.5 + avgEnergy * 0.5)
-  }
-
-  // Build path on a Path2D so we can clip+fill from the asset AND
-  // re-use the same shape for the gradient fill / glow stroke
-  // afterwards without rebuilding.
+  // Build the path up-front so both the glow pass (offscreen) and
+  // the sharp pass (main) can share it.
   const path = new Path2D()
   path.moveTo(
     (xs[0] + xs[POINT_COUNT - 1]) / 2,
@@ -116,10 +96,45 @@ export function drawBloomOrganic(
   }
   path.closePath()
 
+  // GLOW PASS — replaces the previous ctx.shadowBlur (software-
+  // rendered, ~10–20 ms/frame at glowIntensity 70 for Cosmic
+  // Aurora). Now: offscreen half-res fill of the silhouette in
+  // centerColor + GPU filter-blur + 'lighter' composite. ~2 ms total,
+  // visually a soft additive halo identical to the old shadowBlur.
+  // Called BEFORE ctx.translate so drawGlow sees the canvas at its
+  // base transform; the source callback re-applies the (cx, cy)
+  // translate on the offscreen context.
+  if (config.glowEnabled && config.glowIntensity > 0) {
+    const blurPx = config.glowIntensity * (0.5 + avgEnergy * 0.5)
+    drawGlow(ctx, {
+      blurPx,
+      width,
+      height,
+      drawSource: (off) => {
+        off.translate(cx, cy)
+        off.fillStyle = centerColor
+        off.fill(path)
+      },
+    })
+  }
+
+  ctx.save()
+  ctx.translate(cx, cy)
+
+  // Radial gradient from the first palette colour at the centre to
+  // transparent at the (rounded) outer edge. maxR + a little headroom
+  // so the gradient doesn't clip the bezier overshoot.
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR * 1.1)
+  grad.addColorStop(0, centerColor)
+  // Mid-gradient brings in the palette's end colour at low alpha so
+  // multi-stop palettes show through, not just the first stop.
+  grad.addColorStop(0.5, hexToRgba(edgeColor, 0.35))
+  grad.addColorStop(1, hexToRgba(edgeColor, 0))
+
   // Asset fill takes over when configured — it replaces the radial
   // gradient (rather than compositing on top, which would tint the
-  // whole video purple). The glow shadow stays so the edge keeps
-  // its bloom.
+  // whole video purple). The glow halo above is already on the
+  // canvas so the edge bloom is preserved either way.
   const bbox = bboxOfPoints(xs, ys, POINT_COUNT)
   const assetFilled = drawBloomFill(
     ctx,

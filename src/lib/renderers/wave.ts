@@ -6,6 +6,7 @@ import {
   parseColor,
   resolveBarColor,
 } from '@/lib/colorPalette'
+import { drawGlow } from './glow'
 
 function withAlpha(color: string, alpha: number): string {
   const { r, g, b } = parseColor(color)
@@ -100,30 +101,39 @@ export function renderWave(
   }
 
   const drawWavePath = (flip: boolean) => {
-    // PERF: previously, `usePerSegment` (any palette ≥ 2 stops) ran a
-    // beginPath/moveTo/lineTo/stroke loop with shadowBlur enabled
-    // GLOBALLY — each of the ~1024 timeDomain segments fired a full
-    // gaussian-blur composite for a 1px line. On Winter Dream that
-    // alone cost 50–100 ms/frame and was the entire stutter budget.
+    // PERF: shadowBlur on Canvas2D is software-rendered and dominates
+    // the frame budget on full-canvas-width strokes (~10–15 ms/frame).
+    // Even after collapsing the per-segment loop to one shadowBlur'd
+    // stroke, the single call was still too expensive for video-
+    // background stacks (Winter Dream, Spring Morning).
     //
-    // Two-pass fix:
-    //   1. Glow halo — ONE shadowBlur'd stroke on the full path at a
-    //      single representative colour (last palette stop). Soft by
-    //      nature, so a single uniform colour reads identically to
-    //      the previous per-segment glow.
-    //   2. Sharp line — shadowBlur OFF, then either the existing
-    //      per-segment loop (preserving the discrete palette banding)
-    //      or a single gradient stroke. shadowBlur=0 makes 1000+ tiny
-    //      strokes cheap again.
+    // Two-pass fix using the shared drawGlow helper:
+    //   1. Glow halo — drawn on a downscaled offscreen with GPU-
+    //      accelerated ctx.filter='blur(...)', composited additively
+    //      with 'lighter'. ~5–10x cheaper than shadowBlur.
+    //   2. Sharp line — drawn on main with shadowBlur=0, either per-
+    //      segment (palette branch) or single gradient stroke.
+    ctx.shadowBlur = 0
     if (glowEnabled && glowIntensity > 0) {
-      ctx.shadowBlur = glowIntensity
-      ctx.shadowColor = glowColor
-      ctx.strokeStyle = glowColor
-      tracePath(flip)
-      ctx.stroke()
-      ctx.shadowBlur = 0
-    } else {
-      ctx.shadowBlur = 0
+      drawGlow(ctx, {
+        blurPx: glowIntensity,
+        width,
+        height,
+        drawSource: (off) => {
+          off.lineWidth = lineThickness
+          off.lineCap = 'round'
+          off.lineJoin = 'round'
+          off.strokeStyle = glowColor
+          off.beginPath()
+          for (let i = 0; i < timeDomain.length; i++) {
+            const x = i * sliceWidth
+            const y = sampleY(i, flip)
+            if (i === 0) off.moveTo(x, y)
+            else off.lineTo(x, y)
+          }
+          off.stroke()
+        },
+      })
     }
 
     if (usePerSegment) {
