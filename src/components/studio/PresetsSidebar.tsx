@@ -14,13 +14,47 @@ import {
   Unlock,
 } from 'lucide-react'
 import { BUILT_IN_PRESETS, type Preset } from '@/lib/presets'
+import {
+  PRESET_BG_VIDEO_PATH,
+  PRESET_PACK_DOT_PALETTE,
+} from '@/lib/presetPack'
+import {
+  fetchBackgroundVideos,
+  findCatalogEntryByPath,
+} from '@/lib/backgroundLibrary'
 import { MAX_PRESET_FAVORITES, usePresetStore } from '@/store/usePresetStore'
 import { useVisualizerStore } from '@/store/useVisualizerStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { LayerSidebar } from './LayerSidebar'
 
-function PresetDot({ preset }: { preset: Preset }): JSX.Element {
+/**
+ * Resolve a preview source for the dot:
+ *   1. If the preset is in the pack and the catalog has the matching
+ *      video, use the thumbnail URL — instant visual identity.
+ *   2. Otherwise sample two colours from the preset (pack palette
+ *      map for the pack, visualizer colorStart/colorEnd for legacy)
+ *      and render a gradient pill.
+ *
+ * The catalog readiness is signalled via `catalogTick`: PresetsSidebar
+ * bumps it after fetchBackgroundVideos resolves, forcing the dots to
+ * re-evaluate against the freshly-loaded catalog.
+ */
+function getPresetDotPreview(
+  preset: Preset,
+  _catalogTick: number,
+): { type: 'thumb'; url: string } | { type: 'gradient'; from: string; to: string } {
+  const bgPath = PRESET_BG_VIDEO_PATH[preset.id]
+  if (bgPath) {
+    const entry = findCatalogEntryByPath(bgPath)
+    if (entry?.thumbnailUrl) {
+      return { type: 'thumb', url: entry.thumbnailUrl }
+    }
+    const palette = PRESET_PACK_DOT_PALETTE[preset.id]
+    if (palette) {
+      return { type: 'gradient', from: palette[0], to: palette[1] }
+    }
+  }
   const cfg = preset.config
   let start = '#3b82f6'
   let end = '#8b5cf6'
@@ -37,15 +71,43 @@ function PresetDot({ preset }: { preset: Preset }): JSX.Element {
     start = cfg.polygon.colorStart
     end = cfg.polygon.colorEnd
   }
+  return { type: 'gradient', from: start, to: end }
+}
+
+function PresetDot({
+  preset,
+  catalogTick,
+}: {
+  preset: Preset
+  catalogTick: number
+}): JSX.Element {
+  const preview = getPresetDotPreview(preset, catalogTick)
   const frameEnabled = preset.frameConfig?.enabled === true
+  const ring = frameEnabled
+    ? `0 0 0 1.5px ${preset.frameConfig?.color ?? '#3b82f6'}`
+    : 'none'
+  if (preview.type === 'thumb') {
+    return (
+      <span
+        className="h-5 w-7 shrink-0 overflow-hidden rounded-sm bg-black/40"
+        style={{ boxShadow: ring }}
+        aria-hidden="true"
+      >
+        <img
+          src={preview.url}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      </span>
+    )
+  }
   return (
     <span
       className="h-4 w-4 shrink-0 rounded-full"
       style={{
-        background: `linear-gradient(135deg, ${start}, ${end})`,
-        boxShadow: frameEnabled
-          ? `0 0 0 1.5px ${preset.frameConfig?.color ?? '#3b82f6'}`
-          : 'none',
+        background: `linear-gradient(135deg, ${preview.from}, ${preview.to})`,
+        boxShadow: ring,
       }}
       aria-hidden="true"
     />
@@ -60,6 +122,7 @@ interface PresetItemProps {
   isFavorite: boolean
   canFavorite: boolean
   showDragHandle?: boolean
+  catalogTick: number
   onApply: (p: Preset) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
@@ -75,6 +138,7 @@ function PresetItem({
   isFavorite,
   canFavorite,
   showDragHandle,
+  catalogTick,
   onApply,
   onRename,
   onDelete,
@@ -139,7 +203,7 @@ function PresetItem({
           aria-hidden="true"
         />
       )}
-      <PresetDot preset={preset} />
+      <PresetDot preset={preset} catalogTick={catalogTick} />
       <div className="min-w-0 flex-1">
         {editing ? (
           <input
@@ -346,6 +410,20 @@ export function PresetsSidebar({
   const [allOpen, setAllOpen] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  // Bumped after the background-video catalog has loaded so dots
+  // re-render and pick up freshly-resolved thumbnail URLs. fetch is
+  // idempotent — calling it on each sidebar mount is cheap once
+  // cached.
+  const [catalogTick, setCatalogTick] = useState(0)
+  useEffect(() => {
+    let alive = true
+    void fetchBackgroundVideos().then(() => {
+      if (alive) setCatalogTick((t) => t + 1)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const userPresets = usePresetStore((s) => s.userPresets)
   const builtInHidden = usePresetStore((s) => s.builtInHidden)
@@ -550,6 +628,7 @@ export function PresetsSidebar({
                         isFavorite={true}
                         canFavorite={true}
                         showDragHandle
+                        catalogTick={catalogTick}
                         onApply={handleApply}
                         onRename={renamePreset}
                         onDelete={(id) => {
@@ -619,6 +698,7 @@ export function PresetsSidebar({
                             isLocked={false}
                             isFavorite={favorites.includes(preset.id)}
                             canFavorite={canFavoriteMore}
+                            catalogTick={catalogTick}
                             onApply={handleApply}
                             onRename={renamePreset}
                             onDelete={hideBuiltIn}
@@ -662,6 +742,7 @@ export function PresetsSidebar({
                             isLocked={userPresetLockMap.get(preset.id) === true}
                             isFavorite={favorites.includes(preset.id)}
                             canFavorite={canFavoriteMore}
+                            catalogTick={catalogTick}
                             onApply={handleApply}
                             onRename={renamePreset}
                             onDelete={deletePreset}
