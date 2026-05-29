@@ -34,10 +34,29 @@ interface Props {
 }
 
 export function TextPanel({ layerId }: Props) {
-  const layer = useLayerStore((s) =>
-    s.layers.find((l) => l.id === layerId && l.type === 'text'),
-  )
+  // All hooks MUST be called unconditionally at the top, before any
+  // early return. Previously useBrandKitStore was placed AFTER the
+  // `if (!layer) return` guard, so a render where the layer lookup
+  // came back undefined called 2 hooks while the next render (layer
+  // populated) called 3 — React #310 "Rendered more hooks than during
+  // the previous render."
+  //
+  // The lookup ALSO checks the draft slot. Clicking the Text tool
+  // calls startDraft('text'), which writes the layer to s.draftLayer
+  // (not s.layers). Without the draft-aware lookup, the first render
+  // after startDraft sees `undefined` for the freshly-drafted text
+  // layer, which is a second route to the same #310 crash once the
+  // draft commits and the lookup count flips. Both routes manifest
+  // most often "from a preset" because preset stacks make the
+  // active-layer transitions more frequent.
+  const layer = useLayerStore((s) => {
+    if (s.draftLayer && s.draftLayer.id === layerId && s.draftLayer.type === 'text') {
+      return s.draftLayer
+    }
+    return s.layers.find((l) => l.id === layerId && l.type === 'text')
+  })
   const updateConfig = useLayerStore((s) => s.updateConfig)
+  const brandFonts = useBrandKitStore((s) => s.kit.fonts)
 
   if (!layer) {
     return (
@@ -51,7 +70,6 @@ export function TextPanel({ layerId }: Props) {
   const isLocked = layer.locked
   const update = (partial: Partial<TextLayerConfig>) =>
     updateConfig(layerId, partial)
-  const brandFonts = useBrandKitStore((s) => s.kit.fonts)
 
   return (
     <div
