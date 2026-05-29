@@ -72,14 +72,8 @@ export function renderWave(
 
   ctx.save()
 
-  if (glowEnabled) {
-    ctx.shadowBlur = glowIntensity
-    ctx.shadowColor = lastColor(palette, colorEnd)
-  } else {
-    ctx.shadowBlur = 0
-  }
-
   const usePerSegment = hueInterpolation > 0 || (palette && palette.length >= 2)
+  const glowColor = lastColor(palette, colorEnd)
 
   ctx.lineWidth = lineThickness
   ctx.lineCap = 'round'
@@ -90,9 +84,49 @@ export function renderWave(
     return flip ? centerY - v * centerY * 0.8 : centerY + v * centerY * 0.8
   }
 
+  /**
+   * Trace the wave path once on the current context (caller controls
+   * stroke / fill afterwards). Hoisted so the glow pass, sharp pass,
+   * and fill pass all share one path-building loop instead of three.
+   */
+  const tracePath = (flip: boolean): void => {
+    ctx.beginPath()
+    for (let i = 0; i < timeDomain.length; i++) {
+      const x = i * sliceWidth
+      const y = sampleY(i, flip)
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+  }
+
   const drawWavePath = (flip: boolean) => {
+    // PERF: previously, `usePerSegment` (any palette ≥ 2 stops) ran a
+    // beginPath/moveTo/lineTo/stroke loop with shadowBlur enabled
+    // GLOBALLY — each of the ~1024 timeDomain segments fired a full
+    // gaussian-blur composite for a 1px line. On Winter Dream that
+    // alone cost 50–100 ms/frame and was the entire stutter budget.
+    //
+    // Two-pass fix:
+    //   1. Glow halo — ONE shadowBlur'd stroke on the full path at a
+    //      single representative colour (last palette stop). Soft by
+    //      nature, so a single uniform colour reads identically to
+    //      the previous per-segment glow.
+    //   2. Sharp line — shadowBlur OFF, then either the existing
+    //      per-segment loop (preserving the discrete palette banding)
+    //      or a single gradient stroke. shadowBlur=0 makes 1000+ tiny
+    //      strokes cheap again.
+    if (glowEnabled && glowIntensity > 0) {
+      ctx.shadowBlur = glowIntensity
+      ctx.shadowColor = glowColor
+      ctx.strokeStyle = glowColor
+      tracePath(flip)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+    } else {
+      ctx.shadowBlur = 0
+    }
+
     if (usePerSegment) {
-      // Per-segment stroke so each chunk picks up its own hue/palette stop.
       for (let i = 0; i < timeDomain.length - 1; i++) {
         ctx.strokeStyle = resolveBarColor(
           i / timeDomain.length,
@@ -108,17 +142,14 @@ export function renderWave(
       }
     } else {
       ctx.strokeStyle = gradient
-      ctx.beginPath()
-      for (let i = 0; i < timeDomain.length; i++) {
-        const x = i * sliceWidth
-        const y = sampleY(i, flip)
-        if (i === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
+      tracePath(flip)
       ctx.stroke()
     }
 
     if (filled) {
+      // shadowBlur is already 0 from the sharp pass above. The fill is
+      // a soft tint underlay — blurring it on top of the glow halo
+      // would double the cost and just smear the silhouette.
       ctx.beginPath()
       for (let i = 0; i < timeDomain.length; i++) {
         const x = i * sliceWidth
