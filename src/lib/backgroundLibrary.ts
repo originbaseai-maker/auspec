@@ -55,6 +55,13 @@ export interface BackgroundVideo {
   id: string
   title: string
   category: string
+  /**
+   * Storage path inside the `background-videos` bucket. Exposed so
+   * stable preset references (e.g. "videos/synthwave/synthwave-grid.mp4")
+   * can be matched against the catalog and resolved to a fresh URL +
+   * thumbnail without hardcoding either.
+   */
+  videoPath: string
   videoUrl: string
   thumbnailUrl: string | null
   durationSec: number | null
@@ -132,6 +139,7 @@ export async function fetchBackgroundVideos(
           id: row.id,
           title: row.title,
           category: row.category,
+          videoPath: row.video_path,
           videoUrl,
           thumbnailUrl: publicUrl(row.thumbnail_path),
           durationSec: row.duration_sec ?? null,
@@ -160,6 +168,48 @@ export async function fetchBackgroundVideos(
 /** Reset the in-memory cache. Useful for a "Refresh" button. */
 export function clearBackgroundLibraryCache(): void {
   cache = null
+}
+
+/**
+ * Synchronously resolve a storage path under the background-videos
+ * bucket to its public URL. Built-in presets that ship a fixed
+ * `videoPath` need an immediate URL on apply — they can't wait for the
+ * async catalog fetch. supabase.storage.getPublicUrl is a pure URL
+ * builder (no network), so this always returns a string even when the
+ * underlying file is missing; the renderer's gradient fallback covers
+ * the "URL resolved but 404" case.
+ */
+export function resolveBackgroundVideoUrl(
+  videoPath: string | null | undefined,
+): string | null {
+  if (!videoPath) return null
+  return publicUrl(videoPath)
+}
+
+/**
+ * Look up a catalog entry by its storage path (the value presets ship).
+ * Returns null when the catalog hasn't been fetched yet or the path
+ * isn't in the active catalog — both treated as "no library entry,"
+ * which lets callers gracefully fall back (thumbnail → palette gradient
+ * dot, video → gradient bgType).
+ */
+export function findCatalogEntryByPath(
+  videoPath: string,
+): BackgroundVideo | null {
+  if (!cache) return null
+  for (const v of cache.all) {
+    if (v.videoPath === videoPath) return v
+  }
+  return null
+}
+
+/**
+ * Synchronous read of the cached library. Returns `null` if the
+ * fetch hasn't completed; callers should kick off `fetchBackgroundVideos`
+ * elsewhere (e.g. studio mount) and rerender when it resolves.
+ */
+export function getCachedBackgroundLibrary(): BackgroundLibrary | null {
+  return cache
 }
 
 function makeEmptyLibrary(): BackgroundLibrary {

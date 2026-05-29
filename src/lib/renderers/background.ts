@@ -86,20 +86,50 @@ export function drawBackgroundLayer(
     grad.addColorStop(1, config.color2)
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, width, height)
-  } else if (config.bgType === 'video' && config.videoSrc) {
-    const entry = getOrLoadLibraryEntry(config.videoSrc)
-    // Advance the crossfade state machine BEFORE drawing, so the
-    // draw uses the freshly-resolved active/standby pair and
-    // crossfadeT. Cheap; just numeric ops + at most one play() call
-    // per crossfade start.
-    updateLibraryEntry(entry)
+  } else if (config.bgType === 'video') {
+    // Graceful loading + 404 fallback: when the video can't paint a
+    // frame yet (missing src, still buffering, or the URL 404s),
+    // paint the configured `color` → `color2` gradient instead so
+    // the canvas is never a black hole. Presets in the curated pack
+    // tune their fallback gradient to their palette — so even with
+    // the video offline, the look still reads as the same vibe.
+    const entry = config.videoSrc
+      ? getOrLoadLibraryEntry(config.videoSrc)
+      : null
+    if (entry) updateLibraryEntry(entry)
 
-    const active =
-      entry.active === 'A' ? entry.elementA : entry.elementB
-    const standby =
-      entry.active === 'A' ? entry.elementB : entry.elementA
+    const active = entry
+      ? entry.active === 'A'
+        ? entry.elementA
+        : entry.elementB
+      : null
+    const standby = entry
+      ? entry.active === 'A'
+        ? entry.elementB
+        : entry.elementA
+      : null
 
-    if (active.readyState >= 2 && active.videoWidth > 0) {
+    if (
+      !entry ||
+      active === null ||
+      standby === null ||
+      active.readyState < 2 ||
+      active.videoWidth <= 0
+    ) {
+      const angleRad = (config.gradientAngle * Math.PI) / 180
+      const dx = Math.cos(angleRad)
+      const dy = Math.sin(angleRad)
+      const halfDiag = Math.sqrt(width * width + height * height) / 2
+      const x1 = width / 2 - dx * halfDiag
+      const y1 = height / 2 - dy * halfDiag
+      const x2 = width / 2 + dx * halfDiag
+      const y2 = height / 2 + dy * halfDiag
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2)
+      grad.addColorStop(0, config.color)
+      grad.addColorStop(1, config.color2)
+      ctx.fillStyle = grad
+      ctx.fillRect(0, 0, width, height)
+    } else {
       // Audio reactivity — opacity multiply + tiny scale-up. NEVER
       // touch playbackRate (that desyncs the loop and breaks
       // captureStream exports). Both effects are deliberately
