@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Mic2 } from 'lucide-react'
 import { useLayerStore } from '@/store/useLayerStore'
 import {
   FONT_CATEGORIES,
@@ -7,6 +8,7 @@ import {
   type LyricsLine,
 } from '@/types/layer'
 import { ensureFontLoaded } from '@/lib/fontLoader'
+import { LyricsSyncModal } from '../LyricsSyncModal'
 import {
   ColorRow,
   LockedLayerBanner,
@@ -61,6 +63,7 @@ export function LyricsPanel({ layerId }: Props) {
     return s.layers.find((l) => l.id === layerId && l.type === 'lyrics')
   })
   const updateConfig = useLayerStore((s) => s.updateConfig)
+  const [syncOpen, setSyncOpen] = useState(false)
 
   if (!layer) {
     return (
@@ -105,10 +108,21 @@ export function LyricsPanel({ layerId }: Props) {
           className="w-full rounded border bg-[#0f0f0f] px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#3b82f6] resize-y"
           style={{ borderColor: '#2a2a2a', fontFamily: 'monospace' }}
         />
-        <p className="mt-2 text-[10px] text-white/40">
-          {syncedCount}/{totalCount} lines synced — Sync mode coming in
-          the next step.
-        </p>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[10px] text-white/40">
+            {syncedCount}/{totalCount} lines synced
+          </span>
+          <button
+            type="button"
+            onClick={() => setSyncOpen(true)}
+            disabled={totalCount === 0}
+            className="flex items-center gap-1.5 rounded-md border bg-[#1a1a1a] px-2.5 py-1 text-[11px] text-white hover:border-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-30"
+            style={{ borderColor: '#3b82f6' }}
+          >
+            <Mic2 className="h-3 w-3" aria-hidden="true" />
+            {syncedCount === 0 ? 'Sync lyrics' : 'Re-sync'}
+          </button>
+        </div>
       </PanelGroup>
 
       <PanelGroup title="Font">
@@ -331,6 +345,10 @@ export function LyricsPanel({ layerId }: Props) {
           />
         </div>
       </PanelGroup>
+
+      {syncOpen && (
+        <LyricsSyncModal layerId={layerId} onClose={() => setSyncOpen(false)} />
+      )}
     </div>
   )
 }
