@@ -161,6 +161,28 @@ function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
+/**
+ * Resolve the prev/next visibility from the layer config, honouring
+ * the legacy combined `spotlightContext` toggle for projects saved
+ * before the fields were split.
+ *
+ *   - If the new `showPrevLine` / `showNextLine` field is set, use it.
+ *   - Otherwise fall back to `spotlightContext` (false → both off,
+ *     true / unset → both on).
+ *
+ * This is a pure read — the renderer never mutates the config — so
+ * the legacy field can sit alongside the new fields indefinitely
+ * without growing schema-migration debt.
+ */
+export function resolveShowPrev(config: LyricsLayerConfig): boolean {
+  if (config.showPrevLine !== undefined) return config.showPrevLine
+  return config.spotlightContext !== false
+}
+export function resolveShowNext(config: LyricsLayerConfig): boolean {
+  if (config.showNextLine !== undefined) return config.showNextLine
+  return config.spotlightContext !== false
+}
+
 function commonOpts(config: LyricsLayerConfig): Omit<StyledTextOpts, 'text' | 'x' | 'y' | 'fontSize' | 'opacityMul'> {
   return {
     font: config.font,
@@ -198,7 +220,8 @@ function drawSpotlight(
   const anchorX = config.x * width
   const anchorY = config.y * height
   const fadeSec = Math.max(0, config.fadeSec ?? 0.2)
-  const showContext = config.spotlightContext !== false
+  const showPrev = resolveShowPrev(config)
+  const showNext = resolveShowNext(config)
   const base = commonOpts(config)
 
   const active = synced[activeIdx]
@@ -209,12 +232,12 @@ function drawSpotlight(
   // ghost. Audio-reactive pulse is intentionally restricted to the
   // active line (passing audioReactiveEnabled:false through for
   // context) — a row of pulsing dim ghosts dilutes the focus.
-  if (showContext) {
+  if (showPrev || showNext) {
     const dimSize = config.fontSize * 0.55
     const lineGap = config.fontSize * 1.4
     const dimOpacity = 0.35
-    const prev = synced[activeIdx - 1]
-    const next = synced[activeIdx + 1]
+    const prev = showPrev ? synced[activeIdx - 1] : undefined
+    const next = showNext ? synced[activeIdx + 1] : undefined
 
     if (prev) {
       drawStyledText(
@@ -304,6 +327,12 @@ function drawScroll(
   const anchorY = config.y * height
   const visible = Math.max(0, config.scrollVisibleLines ?? 2)
   const fadeSec = Math.max(0, config.fadeSec ?? 0.2)
+  // Independent visibility — past lines collapse when showPrevLine is
+  // off, future lines collapse when showNextLine is off. The window
+  // is the same `scrollVisibleLines` in each direction; either
+  // direction can be zero.
+  const showPrev = resolveShowPrev(config)
+  const showNext = resolveShowNext(config)
   const base = commonOpts(config)
 
   const lineGap = config.fontSize * 1.3
@@ -318,8 +347,8 @@ function drawScroll(
 
   // Render from oldest visible to newest so the active line's
   // sharp pass sits on top of any neighbour shadows / glows.
-  const start = Math.max(0, activeIdx - visible)
-  const end = Math.min(synced.length - 1, activeIdx + visible)
+  const start = showPrev ? Math.max(0, activeIdx - visible) : activeIdx
+  const end = showNext ? Math.min(synced.length - 1, activeIdx + visible) : activeIdx
 
   for (let i = start; i <= end; i++) {
     const line = synced[i]

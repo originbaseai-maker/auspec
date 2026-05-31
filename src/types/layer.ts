@@ -713,11 +713,19 @@ export interface LyricsLayerConfig {
 
   // ----- Karaoke-specific -----
   /**
-   * Show the previous and next lines around the active one in
-   * 'spotlight' mode. When false, only the active line is drawn —
-   * cleaner for high-contrast hero shots.
+   * Legacy combined toggle: show BOTH the previous and the next line
+   * around the active one. Superseded by `showPrevLine` /
+   * `showNextLine` (independent) — kept on the type for migration so
+   * old saves with `spotlightContext: false` still hide both
+   * neighbours after reload. New writes go to the split fields only;
+   * the renderer's `resolveShowPrev` / `resolveShowNext` derive from
+   * either source.
    */
   spotlightContext?: boolean
+  /** Show the previously-sung line above the active one. Default true. */
+  showPrevLine?: boolean
+  /** Show the upcoming line below the active one. Default true. */
+  showNextLine?: boolean
   /**
    * Number of lines visible above and below the active line in
    * 'scroll' mode. Higher = more karaoke-prompter feel, lower =
@@ -1016,6 +1024,8 @@ export const DEFAULT_LYRICS_CONFIG: LyricsLayerConfig = {
   audioReactiveIntensity: 0.4,
 
   spotlightContext: true,
+  showPrevLine: true,
+  showNextLine: true,
   scrollVisibleLines: 2,
   fadeSec: 0.2,
   entrance: 'none',

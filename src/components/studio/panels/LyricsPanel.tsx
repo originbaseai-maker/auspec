@@ -10,6 +10,7 @@ import {
   type LyricsLine,
 } from '@/types/layer'
 import { ensureFontLoaded } from '@/lib/fontLoader'
+import { resolveShowNext, resolveShowPrev } from '@/lib/renderers/lyrics'
 import { LyricsSyncModal } from '../LyricsSyncModal'
 import {
   ColorRow,
@@ -247,13 +248,31 @@ export function LyricsPanel({ layerId }: Props) {
           ]}
         />
         {cfg.displayMode === 'spotlight' && (
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-[11px] text-white/70">Show prev + next</span>
-            <Toggle
-              checked={cfg.spotlightContext !== false}
-              onChange={(v) => update({ spotlightContext: v })}
-              ariaLabel="Spotlight context"
-            />
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-white/70">
+                Show previous line
+              </span>
+              <Toggle
+                checked={resolveShowPrev(cfg)}
+                onChange={(v) =>
+                  update({ showPrevLine: v, spotlightContext: undefined })
+                }
+                ariaLabel="Show previous line"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-white/70">
+                Show next line (upcoming)
+              </span>
+              <Toggle
+                checked={resolveShowNext(cfg)}
+                onChange={(v) =>
+                  update({ showNextLine: v, spotlightContext: undefined })
+                }
+                ariaLabel="Show next line"
+              />
+            </div>
           </div>
         )}
         {cfg.displayMode === 'scroll' && (
