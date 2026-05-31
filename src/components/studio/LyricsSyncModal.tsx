@@ -21,7 +21,15 @@ interface Props {
  *     mapping for sync work (drum on spacebar to the beat) and it
  *     avoids the usual "spacebar = play/pause" conflict on a screen
  *     where every keystroke matters.
- *   - Keyboard shortcuts (modal-scoped only):
+ *   - The timeline scrubber gives a visual map of the song with the
+ *     current playhead and one marker per synced line. Clicking it
+ *     seeks AND arms the line at/after that time, so fixing a mistap
+ *     is a single click + re-tap.
+ *   - Clicking any line's timestamp seeks to that line's time and
+ *     arms THAT line — the same "fix-from-here" affordance as the
+ *     timeline, just per-line precise.
+ *
+ *   Keyboard shortcuts (modal-scoped only):
  *       Space        → TAP (assign current time to armed line)
  *       Backspace    → UNDO last sync (re-arms the previous line)
  *       R            → Rewind to start
@@ -29,8 +37,8 @@ interface Props {
  *
  * The modal owns no audio state of its own — it reads currentTime
  * and isPlaying from useAudioStore each frame via a small rAF poll
- * so the "Now: 0:34.20" indicator stays current without flooding
- * React with re-renders per timeupdate event.
+ * so the "Now: 0:34.20" indicator + timeline playhead stay current
+ * without flooding React with re-renders per timeupdate event.
  */
 export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
   const updateConfig = useLayerStore((s) => s.updateConfig)
@@ -53,10 +61,12 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
   const masterClock = useMasterClock()
   const masterElement = masterClock.element
   const isPlaying = useAudioStore((s) => s.isPlaying)
+  const duration = useAudioStore((s) => s.duration)
+  const setCurrentTime = useAudioStore((s) => s.setCurrentTime)
 
-  // Live "now" indicator — we read currentTime from the audio store
-  // through a small interval rather than via Zustand subscription so
-  // the modal doesn't re-render on every timeupdate event (~60/s).
+  // Live "now" indicator + timeline playhead — polled via rAF rather
+  // than via Zustand subscription so the modal doesn't re-render on
+  // every audio-element timeupdate event (~60/s).
   const [nowSec, setNowSec] = useState(() => useAudioStore.getState().currentTime)
   useEffect(() => {
     let raf = 0
@@ -69,9 +79,18 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
   }, [])
 
   // History stack of timed assignments — supports Backspace = undo.
-  // Stores { lineIndex, prevTime } so undo restores the line to its
-  // previous state (un-synced or its earlier timestamp).
-  const historyRef = useRef<{ lineIndex: number; prevTime: number | null }[]>([])
+  // Stores { lineIndex, prevTime, prevManualArm } so undo restores
+  // both the line's previous time AND the manual-arm state from
+  // BEFORE the tap, so the user can keep retapping without state
+  // dropping back to the auto-find-first-unsynced flow.
+  const historyRef = useRef<
+    { lineIndex: number; prevTime: number | null; prevManualArm: number | null }[]
+  >([])
+
+  // Manual arm — when set, overrides the default "first un-synced line"
+  // arming rule. Set by clicking a line timestamp or the timeline bar.
+  // Advances on TAP; rewinds on Undo; clears on "Discard all".
+  const [manualArm, setManualArm] = useState<number | null>(null)
 
   // Confirmation gate for the "discard sync" / re-sync flow — opening
   // the modal on a layer that already has timestamps shows a banner
@@ -95,11 +114,11 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
     }
   }, [])
 
-  // Active line = first non-empty line whose time is null. Empty
+  // Auto-armed line = first non-empty line whose time is null. Empty
   // instrumental rows are skipped so the user doesn't have to TAP
   // through silence. They can still sync them manually via fine-
   // tune in the panel.
-  const findArmed = (lines: LyricsLine[]): number => {
+  const findAutoArmed = (lines: LyricsLine[]): number => {
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].text === '') continue
       if (lines[i].time === null) return i
@@ -118,7 +137,16 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
   }
 
   const cfg = layer.config as LyricsLayerConfig
-  const armed = findArmed(cfg.lines)
+  const autoArmed = findAutoArmed(cfg.lines)
+  // Manual arm wins when valid (in-bounds + non-empty line). If the
+  // user's manualArm has walked past the end of the list, fall back
+  // to auto-armed so the "All lines synced" state is reachable.
+  const isValidManual =
+    manualArm !== null &&
+    manualArm >= 0 &&
+    manualArm < cfg.lines.length &&
+    cfg.lines[manualArm].text !== ''
+  const armed = isValidManual ? (manualArm as number) : autoArmed
   const syncedCount = cfg.lines.filter((l) => l.time !== null).length
   const totalNonEmpty = cfg.lines.filter((l) => l.text !== '').length
 
@@ -138,17 +166,118 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
     } catch {
       /* element not seekable yet */
     }
+    setCurrentTime(0)
+    setManualArm(null)
+  }
+
+  const seekTo = (t: number): void => {
+    const clamped = Math.max(0, Math.min(duration > 0 ? duration : t, t))
+    if (masterElement) {
+      try {
+        masterElement.currentTime = clamped
+      } catch {
+        /* not seekable yet */
+      }
+    }
+    setCurrentTime(clamped)
+  }
+
+  /**
+   * After a manual arm walks past an index (via TAP), find the next
+   * non-empty line to arm. Returns null when there are no more
+   * non-empty lines — at which point findAutoArmed takes over and
+   * returns either the first un-synced line or -1 ("all synced").
+   */
+  const nextManualArm = (lines: LyricsLine[], fromIdx: number): number | null => {
+    for (let i = fromIdx + 1; i < lines.length; i++) {
+      if (lines[i].text !== '') return i
+    }
+    return null
+  }
+
+  /**
+   * Click on a line's timestamp = "fix from here". Seeks playback to
+   * that line's time (if it has one — otherwise to the line's
+   * neighbour-implied position via the previous synced line + a
+   * sensible offset). Arms the clicked line so the next TAP rewrites
+   * it.
+   */
+  const handleSeekToLine = (idx: number): void => {
+    const line = cfg.lines[idx]
+    if (!line) return
+    if (line.text === '') return
+    // Preferred seek target = the line's own time. If un-synced,
+    // approximate by interpolating between neighbours — better than
+    // staying put because the user clearly wants to play from
+    // around the click.
+    let target: number | null = line.time
+    if (target === null) {
+      const prevSynced = findPrevSyncedTime(cfg.lines, idx)
+      const nextSynced = findNextSyncedTime(cfg.lines, idx)
+      if (prevSynced !== null && nextSynced !== null) {
+        target = (prevSynced + nextSynced) / 2
+      } else if (prevSynced !== null) {
+        target = prevSynced + 1
+      } else if (nextSynced !== null) {
+        target = Math.max(0, nextSynced - 1)
+      }
+    }
+    if (target !== null) seekTo(target)
+    setManualArm(idx)
+  }
+
+  /**
+   * Click on the timeline bar: convert pixel x → time, seek, arm the
+   * line nearest at-or-after that time. If no synced line is at or
+   * after, arm whichever auto-armed line is next.
+   */
+  const handleTimelineClick = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>,
+  ): void => {
+    if (duration <= 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const t = fraction * duration
+    seekTo(t)
+    // Find best match: smallest line.time >= (t - 0.5s) to allow a
+    // tiny backward tolerance for clicks landing JUST before a marker.
+    let best = -1
+    let bestDelta = Infinity
+    for (let i = 0; i < cfg.lines.length; i++) {
+      const l = cfg.lines[i]
+      if (l.text === '' || l.time === null) continue
+      const delta = l.time - t
+      if (delta >= -0.5 && delta < bestDelta) {
+        bestDelta = delta
+        best = i
+      }
+    }
+    if (best >= 0) {
+      setManualArm(best)
+    } else {
+      setManualArm(null)
+    }
   }
 
   const handleTap = (): void => {
     if (armed < 0) return
     const t = useAudioStore.getState().currentTime
-    const lines = cfg.lines.map((l, idx) => {
-      if (idx !== armed) return l
-      historyRef.current.push({ lineIndex: idx, prevTime: l.time })
-      return { ...l, time: t }
+    historyRef.current.push({
+      lineIndex: armed,
+      prevTime: cfg.lines[armed].time,
+      prevManualArm: manualArm,
     })
+    const lines = cfg.lines.map((l, idx) =>
+      idx === armed ? { ...l, time: t } : l,
+    )
     updateConfig(layerId, { lines })
+    // Advance manualArm if it was the source of the current arm so
+    // the user can re-tap the next line. If we were on auto-arm,
+    // findAutoArmed will pick the next un-synced line on the next
+    // render — no state change needed here.
+    if (isValidManual) {
+      setManualArm(nextManualArm(cfg.lines, armed))
+    }
   }
 
   const handleUndo = (): void => {
@@ -158,6 +287,11 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
       idx === last.lineIndex ? { ...l, time: last.prevTime } : l,
     )
     updateConfig(layerId, { lines })
+    // Restore both prevManualArm AND aim the arm at the just-undone
+    // line so the user can immediately retap it. The latter wins
+    // whenever the undone line is non-empty (always true given how
+    // taps are gated).
+    setManualArm(last.lineIndex)
   }
 
   const handleDiscardAll = (): void => {
@@ -169,6 +303,7 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
     }
     const lines = cfg.lines.map((l) => ({ ...l, time: null }))
     historyRef.current = []
+    setManualArm(null)
     updateConfig(layerId, { lines })
   }
 
@@ -256,6 +391,15 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
         </div>
       </div>
 
+      {/* Timeline scrubber: playhead + markers, click-to-seek+arm */}
+      <TimelineScrubber
+        nowSec={nowSec}
+        duration={duration}
+        lines={cfg.lines}
+        armedIdx={armed}
+        onClick={handleTimelineClick}
+      />
+
       {!masterElement && (
         <div className="px-5 py-3 text-[11px] text-amber-300/90">
           Load an audio file or a video to start syncing. The modal
@@ -264,16 +408,17 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
         </div>
       )}
 
-      {initialSyncedCount.current > 0 && syncedCount > 0 && (
+      {initialSyncedCount.current > 0 && syncedCount > 0 && manualArm === null && (
         <div className="border-b px-5 py-2 text-[10px] text-amber-300/80"
              style={{ borderColor: '#1a1a1a' }}>
           This layer already has {initialSyncedCount.current} timestamp{initialSyncedCount.current === 1 ? '' : 's'}.
-          New taps overwrite from the first un-synced line.
+          New taps overwrite from the first un-synced line, or click a
+          timestamp / the timeline to jump anywhere.
         </div>
       )}
 
       {/* Line list — armed line highlighted, synced grey, future dim */}
-      <div className="max-h-80 overflow-y-auto px-5 py-3">
+      <div className="max-h-72 overflow-y-auto px-5 py-3">
         <ul className="space-y-0.5">
           {cfg.lines.map((line, idx) => {
             const isArmed = idx === armed
@@ -292,7 +437,19 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
                     : '3px solid transparent',
                 }}
               >
-                <span className="w-[78px] tabular-nums text-white/50">
+                <button
+                  type="button"
+                  onClick={() => handleSeekToLine(idx)}
+                  disabled={isEmpty}
+                  title={
+                    isEmpty
+                      ? 'Empty / instrumental row'
+                      : line.time !== null
+                        ? `Seek to ${formatTime(line.time)} & arm this line`
+                        : 'Seek near here & arm this line'
+                  }
+                  className="w-[78px] cursor-pointer rounded text-left tabular-nums text-white/50 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
                   {isEmpty
                     ? '—'
                     : line.time !== null
@@ -300,7 +457,7 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
                       : isArmed
                         ? '→ ??'
                         : '  ??'}
-                </span>
+                </button>
                 <span
                   className="flex-1 truncate"
                   style={{
@@ -389,6 +546,103 @@ export function LyricsSyncModal({ layerId, onClose }: Props): JSX.Element {
   )
 }
 
+/**
+ * Horizontal scrubber. Shows duration as the bar width; the playhead
+ * is positioned via percentage so it updates from the parent's rAF
+ * polling cheaply (one inline-style write per frame, no DOM
+ * restructuring). Markers are absolutely positioned at their
+ * fraction-of-duration. Click anywhere on the bar fires the parent's
+ * handler with the raw mouse event so the parent computes time and
+ * does the seek + arm.
+ */
+function TimelineScrubber({
+  nowSec,
+  duration,
+  lines,
+  armedIdx,
+  onClick,
+}: {
+  nowSec: number
+  duration: number
+  lines: LyricsLine[]
+  armedIdx: number
+  onClick: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void
+}): JSX.Element {
+  const playheadPct =
+    duration > 0 ? Math.max(0, Math.min(1, nowSec / duration)) * 100 : 0
+
+  return (
+    <div className="border-b px-5 py-3" style={{ borderColor: '#1a1a1a' }}>
+      <div
+        role="slider"
+        aria-label="Song position — click to seek and arm nearest line"
+        aria-valuemin={0}
+        aria-valuemax={Math.max(0, duration)}
+        aria-valuenow={Math.max(0, nowSec)}
+        tabIndex={duration > 0 ? 0 : -1}
+        onClick={duration > 0 ? onClick : undefined}
+        className="relative h-7 w-full cursor-pointer overflow-hidden rounded-md"
+        style={{
+          background: '#141414',
+          border: '1px solid #2a2a2a',
+          cursor: duration > 0 ? 'pointer' : 'not-allowed',
+        }}
+      >
+        {/* Played-portion fill */}
+        <div
+          className="absolute inset-y-0 left-0"
+          style={{
+            width: `${playheadPct}%`,
+            background:
+              'linear-gradient(90deg, rgba(59,130,246,0.12), rgba(139,92,246,0.18))',
+          }}
+        />
+        {/* Synced-line markers */}
+        {duration > 0 &&
+          lines.map((line, idx) => {
+            if (line.time === null || line.text === '') return null
+            const pct = Math.max(0, Math.min(1, line.time / duration)) * 100
+            const isArmed = idx === armedIdx
+            return (
+              <span
+                key={idx}
+                aria-hidden="true"
+                className="absolute top-0 bottom-0"
+                style={{
+                  left: `${pct}%`,
+                  width: isArmed ? 3 : 2,
+                  marginLeft: isArmed ? -1.5 : -1,
+                  background: isArmed
+                    ? '#3b82f6'
+                    : 'rgba(255,255,255,0.55)',
+                  boxShadow: isArmed
+                    ? '0 0 6px rgba(59,130,246,0.6)'
+                    : 'none',
+                }}
+              />
+            )
+          })}
+        {/* Playhead */}
+        <span
+          aria-hidden="true"
+          className="absolute top-0 bottom-0"
+          style={{
+            left: `${playheadPct}%`,
+            width: 2,
+            marginLeft: -1,
+            background: '#ffffff',
+            boxShadow: '0 0 6px rgba(255,255,255,0.7)',
+          }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between text-[9px] tabular-nums text-white/30">
+        <span>0:00</span>
+        <span>{formatTime(duration)}</span>
+      </div>
+    </div>
+  )
+}
+
 function ModalShell({
   children,
   onClose,
@@ -414,6 +668,20 @@ function ModalShell({
       </div>
     </>
   )
+}
+
+function findPrevSyncedTime(lines: LyricsLine[], idx: number): number | null {
+  for (let i = idx - 1; i >= 0; i--) {
+    if (lines[i].time !== null) return lines[i].time
+  }
+  return null
+}
+
+function findNextSyncedTime(lines: LyricsLine[], idx: number): number | null {
+  for (let i = idx + 1; i < lines.length; i++) {
+    if (lines[i].time !== null) return lines[i].time
+  }
+  return null
 }
 
 function formatTime(t: number): string {
