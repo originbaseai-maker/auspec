@@ -1,4 +1,8 @@
-import type { LyricsLayerConfig, LyricsLine } from '@/types/layer'
+import type {
+  LyricsEntrance,
+  LyricsLayerConfig,
+  LyricsLine,
+} from '@/types/layer'
 import { drawStyledText, type StyledTextOpts } from './textOverlay'
 
 /**
@@ -94,6 +98,69 @@ function fadeInAlpha(line: SyncedLine, now: number, fadeSec: number): number {
   return dt / fadeSec
 }
 
+/**
+ * Apply the per-line entrance animation to a draw plan. The progress
+ * value (0 → 1 over the cross-fade window) drives all variants —
+ * always identical for the same currentTime, so preview and export
+ * agree byte-for-byte.
+ *
+ * Returns a modified draw set; for 'blur', also a wrapper that the
+ * caller invokes around the actual drawStyledText call so the
+ * ctx.filter blur applies both to the offscreen glow composite and
+ * the sharp pass.
+ */
+interface EntrancePlan {
+  /** y offset to add (negative or positive). */
+  dy: number
+  /** Multiplier on the line's fontSize. */
+  sizeMul: number
+  /** Multiplier on the opacityMul (already from cross-fade). */
+  opacityMul: number
+  /** When > 0, ctx.filter = blur(Npx) wraps the draw call. */
+  blurPx: number
+}
+
+function planEntrance(
+  variant: LyricsEntrance,
+  progress: number,
+  fontSize: number,
+): EntrancePlan {
+  const p = clamp01(progress)
+  const plan: EntrancePlan = {
+    dy: 0,
+    sizeMul: 1,
+    opacityMul: 1,
+    blurPx: 0,
+  }
+  switch (variant) {
+    case 'none':
+    case 'fade':
+      // 'fade' is visually identical to 'none' at the same fadeSec —
+      // the cross-fade already does a fade-in. Listed as a separate
+      // option so the panel UI can say "Fade in" explicitly without
+      // surprising users who expect a dedicated effect to do *something*.
+      return plan
+    case 'slide-up':
+      // Line begins ~0.5×fontSize below the anchor and rises into
+      // place. The (1 - p) easing is linear — good enough for a
+      // 200 ms window; cubic-ease wouldn't be visibly different.
+      plan.dy = (1 - p) * fontSize * 0.5
+      return plan
+    case 'scale':
+      plan.sizeMul = 0.85 + 0.15 * p
+      return plan
+    case 'blur':
+      // Cap at 8 px so the line is still vaguely legible at progress
+      // 0; the eye reads "coming into focus" cleanly between 4 and 8.
+      plan.blurPx = (1 - p) * 6
+      return plan
+  }
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v
+}
+
 function commonOpts(config: LyricsLayerConfig): Omit<StyledTextOpts, 'text' | 'x' | 'y' | 'fontSize' | 'opacityMul'> {
   return {
     font: config.font,
@@ -185,20 +252,42 @@ function drawSpotlight(
     }
   }
 
-  drawStyledText(
-    ctx,
-    {
-      ...base,
-      text: active.text,
-      x: anchorX,
-      y: anchorY,
-      fontSize: config.fontSize,
-      opacityMul: activeFade,
-    },
-    width,
-    height,
-    bassEnergy,
+  // Entrance animation for the ACTIVE line only — context lines stay
+  // at their fixed dim look (extending the entrance to them would
+  // make the whole frame "swim" on every line change).
+  const entrance = planEntrance(
+    config.entrance ?? 'none',
+    activeFade,
+    config.fontSize,
   )
+  const drawActive = (): void => {
+    drawStyledText(
+      ctx,
+      {
+        ...base,
+        text: active.text,
+        x: anchorX,
+        y: anchorY + entrance.dy,
+        fontSize: config.fontSize * entrance.sizeMul,
+        opacityMul: activeFade * entrance.opacityMul,
+      },
+      width,
+      height,
+      bassEnergy,
+    )
+  }
+  if (entrance.blurPx > 0) {
+    // ctx.filter on main BEFORE drawStyledText: applies to subsequent
+    // strokes/fills on this context AND to drawGlow's composited
+    // drawImage (drawGlow does mainCtx.save/drawImage/restore, so the
+    // filter inherited from our save here covers the composite call).
+    ctx.save()
+    ctx.filter = `blur(${entrance.blurPx}px)`
+    drawActive()
+    ctx.restore()
+  } else {
+    drawActive()
+  }
 }
 
 function drawScroll(
@@ -253,20 +342,57 @@ function drawScroll(
     if (opacity <= 0.02) continue
 
     const sizeMul = offset === 0 ? 1 : 0.7
-    drawStyledText(
-      ctx,
-      {
-        ...base,
-        audioReactiveEnabled: offset === 0 ? base.audioReactiveEnabled : false,
-        text: line.text,
-        x: anchorX,
-        y,
-        fontSize: config.fontSize * sizeMul,
-        opacityMul: opacity,
-      },
-      width,
-      height,
-      bassEnergy,
-    )
+
+    if (offset === 0) {
+      // ENTRANCE for the active line only. Other scroll items keep
+      // their static look so the surrounding stack is a stable frame
+      // of reference for the entrance motion.
+      const entrance = planEntrance(
+        config.entrance ?? 'none',
+        activeFade,
+        config.fontSize,
+      )
+      const drawActive = (): void => {
+        drawStyledText(
+          ctx,
+          {
+            ...base,
+            audioReactiveEnabled: base.audioReactiveEnabled,
+            text: line.text,
+            x: anchorX,
+            y: y + entrance.dy,
+            fontSize: config.fontSize * sizeMul * entrance.sizeMul,
+            opacityMul: opacity * entrance.opacityMul,
+          },
+          width,
+          height,
+          bassEnergy,
+        )
+      }
+      if (entrance.blurPx > 0) {
+        ctx.save()
+        ctx.filter = `blur(${entrance.blurPx}px)`
+        drawActive()
+        ctx.restore()
+      } else {
+        drawActive()
+      }
+    } else {
+      drawStyledText(
+        ctx,
+        {
+          ...base,
+          audioReactiveEnabled: false,
+          text: line.text,
+          x: anchorX,
+          y,
+          fontSize: config.fontSize * sizeMul,
+          opacityMul: opacity,
+        },
+        width,
+        height,
+        bassEnergy,
+      )
+    }
   }
 }

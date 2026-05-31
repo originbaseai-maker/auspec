@@ -284,6 +284,25 @@ export function LyricsPanel({ layerId }: Props) {
         </div>
       </PanelGroup>
 
+      <PanelGroup title="Entrance">
+        <p className="mb-2 text-[10px] text-white/40">
+          Animation per line when it becomes active. Plays over the
+          cross-fade window — master-clock driven, identical in export.
+        </p>
+        <SegmentedGroup
+          cols={3}
+          value={cfg.entrance ?? 'none'}
+          onChange={(v) => update({ entrance: v as LyricsLayerConfig['entrance'] })}
+          options={[
+            { id: 'none', label: 'None' },
+            { id: 'fade', label: 'Fade' },
+            { id: 'slide-up', label: 'Slide' },
+            { id: 'scale', label: 'Scale' },
+            { id: 'blur', label: 'Blur' },
+          ]}
+        />
+      </PanelGroup>
+
       <PanelGroup title="Font">
         <div className="space-y-2">
           {FONT_CATEGORIES.map((cat) => (

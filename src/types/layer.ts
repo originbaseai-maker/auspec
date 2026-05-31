@@ -654,6 +654,27 @@ export interface LyricsLine {
  */
 export type LyricsDisplayMode = 'spotlight' | 'scroll'
 
+/**
+ * Per-line entrance animation. All variants share the same window
+ * (driven by `fadeSec`) so the animation always finishes by the
+ * time the cross-fade hands over to the next line. Drives off the
+ * master clock — identical timing in preview and export.
+ *
+ *   - 'none' — no extra animation; only the existing cross-fade
+ *     opacity ramp. Default for every new and migrated project.
+ *   - 'fade' — explicit fade-in (visually equivalent to 'none' at
+ *     the same fadeSec; semantic choice for users who want the
+ *     setting to read as a deliberate effect).
+ *   - 'slide-up' — line starts ~0.5×fontSize below the anchor and
+ *     rises into position over the window.
+ *   - 'scale' — line starts at 85 % of its target font size and
+ *     grows to 100 %.
+ *   - 'blur' — line starts ~6 px gaussian-blurred and sharpens to
+ *     focus. Uses ctx.filter (GPU) so it composites over the existing
+ *     drawGlow halo without a second offscreen pass.
+ */
+export type LyricsEntrance = 'none' | 'fade' | 'slide-up' | 'scale' | 'blur'
+
 export interface LyricsLayerConfig {
   /** Ordered list of timed lines. time=null = not yet synced. */
   lines: LyricsLine[]
@@ -706,8 +727,15 @@ export interface LyricsLayerConfig {
   /**
    * Seconds of cross-fade between adjacent lines. 0 = hard cut;
    * 0.2 (default) reads as a gentle hand-off without feeling slow.
+   * Also drives the per-line entrance animation window.
    */
   fadeSec?: number
+
+  /**
+   * Per-line entrance animation. Default 'none' — projects created
+   * before this field existed render identically.
+   */
+  entrance?: LyricsEntrance
 }
 
 export interface LyricsLayer {
@@ -990,6 +1018,7 @@ export const DEFAULT_LYRICS_CONFIG: LyricsLayerConfig = {
   spotlightContext: true,
   scrollVisibleLines: 2,
   fadeSec: 0.2,
+  entrance: 'none',
 }
 
 /**
