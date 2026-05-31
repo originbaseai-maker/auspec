@@ -36,7 +36,7 @@ const TOOL_SECTIONS: ToolSection[] = [
   },
   {
     title: 'Assets & Stage',
-    ids: ['background', 'logo', 'visualizer_video', 'text'],
+    ids: ['background', 'logo', 'visualizer_video', 'text', 'lyrics'],
   },
 ]
 
@@ -54,6 +54,7 @@ function categoryToLayerType(id: string): LayerType | null {
   if (id === 'frame') return 'frame'
   if (id === 'background') return 'background'
   if (id === 'text') return 'text'
+  if (id === 'lyrics') return 'lyrics'
   if (id === 'cinematic') return 'cinematic'
   // ai_style — never (preset generator).
   return null
